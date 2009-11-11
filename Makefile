@@ -50,6 +50,38 @@ minimal:
 	cd tools/rospack && make
 	cd tools/rosdep && make
 	cd 3rdparty/gtest && make
+	cd 3rdparty/pycrypto && make
+	cd 3rdparty/paramiko && make
+	cd tools/roslaunch && make
+	cd test/rostest && make
 	rosmake -v genmsg_cpp
 
-include $(shell rospack find mk)/cmake_stack.mk
+### copied below since it can't be found before being built include $(shell rospack find mk)/cmake_stack.mk
+
+# set EXTRA_CMAKE_FLAGS in the including Makefile in order to add tweaks
+#CMAKE_FLAGS= -Wdev -DCMAKE_TOOLCHAIN_FILE=`rospack find rosbuild`/rostoolchain.cmake $(EXTRA_CMAKE_FLAGS)
+CMAKE_FLAGS= -Wdev -DCMAKE_TOOLCHAIN_FILE=tools/rosbuild/rostoolchain.cmake $(EXTRA_CMAKE_FLAGS)
+
+# The all target does the heavy lifting, creating the build directory and
+# invoking CMake
+all_dist:
+	@mkdir -p build
+	-mkdir -p bin
+	cd build && cmake $(CMAKE_FLAGS) ..
+	#cd build && make $(ROS_PARALLEL_JOBS)
+
+# The clean target blows everything away
+# It also removes auto-generated message/service code directories, 
+# to handle the case where the original .msg/.srv file has been removed,
+# and thus CMake no longer knows about it.
+clean_dist:
+	-cd build && make clean
+	#rm -rf msg/cpp msg/lisp msg/oct msg/java srv/cpp srv/lisp srv/oct srv/java src/$(PACKAGE_NAME)/msg src/$(PACKAGE_NAME)/srv
+	rm -rf build
+	#rm -f .build-version
+
+# Run the script that does the build, then do a fairly hacky cleanup, #1598
+package_source: all_dist
+	`rospack find rosbuild`/bin/makestackdist $(CURDIR)
+	find build -mindepth 1 -not -name "*.bz2" | xargs rm -rf
+	rm -rf bin
