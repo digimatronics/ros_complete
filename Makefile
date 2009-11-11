@@ -1,3 +1,4 @@
+
 all:
 	@if [ ! $(ROS_ROOT) ]; then echo "Please set ROS_ROOT first"; false; fi
 	cd tools/rospack && make
@@ -50,3 +51,5 @@ minimal:
 	cd tools/rosdep && make
 	cd 3rdparty/gtest && make
 	rosmake -v genmsg_cpp
+
+include $(shell rospack find mk)/cmake_stack.mk
