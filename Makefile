@@ -60,7 +60,7 @@ minimal:
 
 # set EXTRA_CMAKE_FLAGS in the including Makefile in order to add tweaks
 #CMAKE_FLAGS= -Wdev -DCMAKE_TOOLCHAIN_FILE=`rospack find rosbuild`/rostoolchain.cmake $(EXTRA_CMAKE_FLAGS)
-CMAKE_FLAGS= -Wdev -DCMAKE_TOOLCHAIN_FILE=tools/rosbuild/rostoolchain.cmake $(EXTRA_CMAKE_FLAGS)
+CMAKE_FLAGS= -Wdev -DCMAKE_TOOLCHAIN_FILE=core/rosbuild/rostoolchain.cmake $(EXTRA_CMAKE_FLAGS)
 
 # The all target does the heavy lifting, creating the build directory and
 # invoking CMake
