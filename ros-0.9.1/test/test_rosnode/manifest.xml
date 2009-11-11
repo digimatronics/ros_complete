@@ -1,0 +1,20 @@
+<package>
+  <description brief="test_rosnode">
+
+     Tests for rosnode package
+
+  </description>
+  <author>Ken Conley</author>
+  <license>BSD</license>
+  <review status="test" notes=""/>
+  <depend package="rosnode"/>
+  <depend package="rospy"/>
+  <depend package="rostest"/>
+  <depend package="roslib"/>
+
+  <!-- for sample nodes -->
+  <depend package="test_ros"/>
+  
+</package>
+
+
