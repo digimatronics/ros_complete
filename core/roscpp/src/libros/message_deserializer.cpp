@@ -42,7 +42,7 @@ MessageDeserializer::MessageDeserializer(const SubscriptionMessageHelperPtr& hel
 
 }
 
-MessagePtr MessageDeserializer::deserialize()
+VoidPtr MessageDeserializer::deserialize()
 {
   boost::mutex::scoped_lock lock(mutex_);
 
@@ -57,22 +57,10 @@ MessagePtr MessageDeserializer::deserialize()
     return MessagePtr();
   }
 
-  msg_ = helper_->create();
-  msg_->__serialized_length = num_bytes_;
-  if (buffer_includes_size_header_)
-  {
-    msg_->__serialized_length -= 4;
-  }
-  msg_->__connection_header = connection_header_;
-
   try
   {
-    uint8_t* raw_buffer = buffer_.get();
-    if (buffer_includes_size_header_)
-    {
-      raw_buffer += 4;
-    }
-    msg_->deserialize(raw_buffer);
+    uint32_t offset = buffer_includes_size_header_ ? 4 : 0;
+    msg_ = helper_->deserialize(buffer_.get() + offset, num_bytes_ - offset);
   }
   catch (std::exception& e)
   {

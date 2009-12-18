@@ -674,6 +674,36 @@ void TopicManager::publish(const PublicationPtr& p, const Message& m)
   }
 }
 
+void TopicManager::publish(const std::string& topic, const SerializedMessage& m)
+{
+  boost::recursive_mutex::scoped_lock lock(advertised_topics_mutex_);
+
+  if (isShuttingDown())
+  {
+    return;
+  }
+
+  PublicationPtr p = lookupPublicationWithoutLock(topic);
+  p->incrementSequence();
+  if (p->hasSubscribers() || p->isLatching())
+  {
+    ROS_DEBUG_NAMED("superdebug", "Publishing message on topic [%s] with sequence number [%d]", p->getName().c_str(), p->getSequence());
+
+    boost::mutex::scoped_lock lock(publish_queue_mutex_);
+    publish_queue_.push_back(std::make_pair(p, m));
+    poll_manager_->getPollSet().signal();
+  }
+}
+
+void TopicManager::incrementSequence(const std::string& topic)
+{
+  PublicationPtr pub = lookupPublication(topic);
+  if (pub)
+  {
+    pub->incrementSequence();
+  }
+}
+
 PublicationPtr TopicManager::lookupPublicationWithoutLock(const string &topic)
 {
   PublicationPtr t;

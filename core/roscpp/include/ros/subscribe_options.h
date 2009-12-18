@@ -30,6 +30,7 @@
 
 #include "ros/forwards.h"
 #include "ros/transport_hints.h"
+#include "ros/message_traits.h"
 #include "subscription_message_helper.h"
 
 namespace ros
@@ -94,8 +95,8 @@ struct SubscribeOptions
   {
     topic = _topic;
     queue_size = _queue_size;
-    md5sum = M::__s_getMD5Sum();
-    datatype = M::__s_getDataType();
+    md5sum = message_traits::md5sum<M>();
+    datatype = message_traits::datatype<M>();
     helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<M>(_callback));
   }
 

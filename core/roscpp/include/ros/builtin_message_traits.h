@@ -25,38 +25,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_MESSAGE_DESERIALIZER_H
-#define ROSCPP_MESSAGE_DESERIALIZER_H
+#ifndef ROSCPP_BUILTIN_MESSAGE_TRAITS_H
+#define ROSCPP_BUILTIN_MESSAGE_TRAITS_H
 
-#include "subscription_message_helper.h"
 #include "message.h"
-
-#include <boost/thread/mutex.hpp>
-#include <boost/shared_array.hpp>
+#include "roslib/Header.h"
 
 namespace ros
 {
-
-class MessageDeserializer
+namespace message_traits
 {
-public:
-  MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header);
 
-  VoidPtr deserialize();
+#define ROSCPP_CREATE_PRIMITIVE_TRAITS(Type) \
+    template<> struct IsPrimitive<Type> : public TrueType {}; \
+    template<> struct IsFixedSize<Type> : public TrueType {};
 
-private:
-  SubscriptionMessageHelperPtr helper_;
-  boost::shared_array<uint8_t> buffer_;
-  uint32_t num_bytes_;
-  bool buffer_includes_size_header_;
-  boost::shared_ptr<M_string> connection_header_;
+ROSCPP_CREATE_PRIMITIVE_TRAITS(uint8_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(int8_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(uint16_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(int16_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(uint32_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(int32_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(uint64_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(int64_t);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(float);
+ROSCPP_CREATE_PRIMITIVE_TRAITS(double);
 
-  boost::mutex mutex_;
-  VoidPtr msg_;
-};
-typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
+} // namespace message_traits
+} // namespace ros
 
-}
-
-#endif // ROSCPP_MESSAGE_DESERIALIZER_H
+#endif // ROSCPP_BUILTIN_MESSAGE_TRAITS_H
 

@@ -29,6 +29,9 @@
 #define ROSCPP_SUBSCRIPTION_MESSAGE_HELPER_H
 
 #include "ros/forwards.h"
+#include "ros/message_traits.h"
+#include "ros/builtin_message_traits.h"
+#include "ros/serialization.h"
 #include "ros/message.h"
 
 #include <boost/type_traits/add_const.hpp>
@@ -41,12 +44,12 @@ class SubscriptionMessageHelper
 {
 public:
   virtual ~SubscriptionMessageHelper() {}
-  virtual MessagePtr create() = 0;
+  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length) = 0;
 
   virtual std::string getMD5Sum() = 0;
   virtual std::string getDataType() = 0;
 
-  virtual void call(const MessagePtr& msg) = 0;
+  virtual void call(const VoidPtr& msg) = 0;
 };
 typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
@@ -60,20 +63,23 @@ public:
   : callback_(callback)
   {}
 
-  virtual MessagePtr create()
+  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length)
   {
     typedef typename boost::remove_const<M>::type NonConstType;
     NonConstType* msg = new NonConstType;
-    return MessagePtr(msg);
+
+    serialization::deserialize(buffer, length, *msg);
+
+    return VoidPtr(msg);
   }
-  virtual void call(const MessagePtr& msg)
+  virtual void call(const VoidPtr& msg)
   {
     MPtr casted_msg = boost::static_pointer_cast<M>(msg);
     callback_(casted_msg);
   }
 
-  virtual std::string getMD5Sum() { return M::__s_getMD5Sum(); }
-  virtual std::string getDataType() { return M::__s_getDataType(); }
+  virtual std::string getMD5Sum() { return message_traits::md5sum<M>(); }
+  virtual std::string getDataType() { return message_traits::datatype<M>(); }
 
 private:
   Callback callback_;

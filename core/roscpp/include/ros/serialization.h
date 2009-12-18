@@ -25,38 +25,57 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_MESSAGE_DESERIALIZER_H
-#define ROSCPP_MESSAGE_DESERIALIZER_H
+#ifndef ROSCPP_SERIALIZATION_H
+#define ROSCPP_SERIALIZATION_H
 
-#include "subscription_message_helper.h"
-#include "message.h"
-
-#include <boost/thread/mutex.hpp>
-#include <boost/shared_array.hpp>
+#include "types.h"
+#include "message_traits.h"
+#include <boost/call_traits.hpp>
 
 namespace ros
 {
-
-class MessageDeserializer
+namespace serialization
 {
-public:
-  MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header);
+namespace mt = message_traits;
 
-  VoidPtr deserialize();
+template<typename T>
+struct Serializer
+{
+  inline static void write(uint8_t*& buffer, typename boost::call_traits<T>::param_type t)
+  {
+    t.serialize(buffer, 0);
+  }
 
-private:
-  SubscriptionMessageHelperPtr helper_;
-  boost::shared_array<uint8_t> buffer_;
-  uint32_t num_bytes_;
-  bool buffer_includes_size_header_;
-  boost::shared_ptr<M_string> connection_header_;
+  inline static void read(uint8_t*& buffer, uint32_t& byte_count, typename boost::call_traits<T>::reference t)
+  {
+    t.deserialize(buffer);
+  }
 
-  boost::mutex mutex_;
-  VoidPtr msg_;
+  inline static uint32_t serializedLength(const T& t)
+  {
+    return t.serializationLength();
+  }
 };
-typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
 
+template<typename T>
+inline void serialize(uint8_t* buffer, const T& t)
+{
+  Serializer<T>::write(buffer, t);
 }
 
-#endif // ROSCPP_MESSAGE_DESERIALIZER_H
+template<typename T>
+inline void deserialize(uint8_t* buffer, uint32_t byte_count, T& t)
+{
+  Serializer<T>::read(buffer, byte_count, t);
+}
 
+template<typename T>
+inline uint32_t serializationLength(const T& t)
+{
+  return Serializer<T>::serializedLength(t);
+}
+
+} // namespace serialization
+} // namespace ros
+
+#endif // ROSCPP_SERIALIZATION_H

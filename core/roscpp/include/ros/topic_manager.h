@@ -132,8 +132,11 @@ public:
    * @param msg Message to be published.
    */
   void publish(const std::string &_topic, const Message& m);
+  void publish(const std::string &_topic, const SerializedMessage& m);
 
   void publish(const PublicationPtr& p, const Message& m);
+
+  void incrementSequence(const std::string &_topic);
 
 private:
   /** if it finds a pre-existing subscription to the same topic and of the

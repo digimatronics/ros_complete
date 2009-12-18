@@ -29,6 +29,7 @@
 #define ROSCPP_ADVERTISE_OPTIONS_H
 
 #include "ros/forwards.h"
+#include "ros/message_traits.h"
 
 namespace ros
 {
@@ -77,9 +78,9 @@ struct AdvertiseOptions
     queue_size = _queue_size;
     connect_cb = _connect_cb;
     disconnect_cb = _disconnect_cb;
-    md5sum = M::__s_getMD5Sum();
-    datatype = M::__s_getDataType();
-    message_definition = M::__s_getMessageDefinition();
+    md5sum = message_traits::md5sum<M>();
+    datatype = message_traits::datatype<M>();
+    message_definition = message_traits::definition<M>();
   }
 
   std::string topic;                                                ///< The topic to publish on

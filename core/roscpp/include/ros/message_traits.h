@@ -25,38 +25,101 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_MESSAGE_DESERIALIZER_H
-#define ROSCPP_MESSAGE_DESERIALIZER_H
+#ifndef ROSCPP_MESSAGE_TRAITS_H
+#define ROSCPP_MESSAGE_TRAITS_H
 
-#include "subscription_message_helper.h"
 #include "message.h"
-
-#include <boost/thread/mutex.hpp>
-#include <boost/shared_array.hpp>
+#include "roslib/Header.h"
 
 namespace ros
 {
-
-class MessageDeserializer
+namespace message_traits
 {
-public:
-  MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header);
 
-  VoidPtr deserialize();
-
-private:
-  SubscriptionMessageHelperPtr helper_;
-  boost::shared_array<uint8_t> buffer_;
-  uint32_t num_bytes_;
-  bool buffer_includes_size_header_;
-  boost::shared_ptr<M_string> connection_header_;
-
-  boost::mutex mutex_;
-  VoidPtr msg_;
+struct TrueType
+{
+  static const uint32_t value = 1;
 };
-typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
 
+struct FalseType
+{
+  static const uint32_t value = 0;
+};
+
+template<typename M> struct IsPrimitive : public FalseType {};
+template<typename M> struct IsFixedSize : public FalseType {};
+template<typename M> struct HasHeader : public FalseType {};
+
+template<typename M>
+inline const char* md5sum()
+{
+  return M::__s_getMD5Sum().c_str();
 }
 
-#endif // ROSCPP_MESSAGE_DESERIALIZER_H
+template<typename M>
+inline const char* datatype()
+{
+  return M::__s_getDataType().c_str();
+}
 
+template<typename M>
+inline const char* definition()
+{
+  return M::__s_getMessageDefinition().c_str();
+}
+
+template<typename M>
+inline roslib::Header* getHeader(M& msg)
+{
+  return 0;
+}
+
+template<typename M>
+inline bool isPrimitive()
+{
+  return IsPrimitive<M>::value;
+}
+
+template<typename M>
+inline bool isFixedSize()
+{
+  return IsFixedSize<M>::value;
+}
+
+template<typename M>
+inline bool hasHeader()
+{
+  return HasHeader<M>::value;
+}
+
+struct Traits
+{
+  bool has_header;
+  roslib::Header* header;
+  bool is_primitive;
+  bool is_fixed_size;
+
+  std::string md5sum;
+  std::string datatype;
+  std::string definition;
+};
+
+template<typename M>
+inline Traits traits()
+{
+  Traits t;
+  t.has_header = hasHeader<M>();
+  t.header = getHeader<M>();
+  t.is_primitive = isPrimitive<M>();
+  t.is_fixed_size = isFixedSize<M>();
+  t.md5sum = md5sum<M>();
+  t.datatype = datatype<M>();
+  t.definition = definition<M>();
+
+  return t;
+}
+
+} // namespace message_traits
+} // namespace ros
+
+#endif // ROSCPP_MESSAGE_TRAITS_H

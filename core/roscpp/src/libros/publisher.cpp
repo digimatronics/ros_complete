@@ -76,26 +76,20 @@ Publisher::~Publisher()
 {
 }
 
-void Publisher::publish(const MessageConstPtr& message) const
+void Publisher::publish(const SerializedMessage& m) const
 {
-  if (!impl_ || !impl_->isValid())
+  if (impl_ && impl_->isValid())
   {
-    ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher");
-    return;
+    TopicManager::instance()->publish(impl_->topic_, m);
   }
-
-  TopicManager::instance()->publish(impl_->topic_, *message);
 }
 
-void Publisher::publish(const Message& message) const
+void Publisher::incrementSequence() const
 {
-  if (!impl_ || !impl_->isValid())
+  if (impl_ && impl_->isValid())
   {
-    ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher");
-    return;
+    TopicManager::instance()->incrementSequence(impl_->topic_);
   }
-
-  TopicManager::instance()->publish(impl_->topic_, message);
 }
 
 void Publisher::shutdown()

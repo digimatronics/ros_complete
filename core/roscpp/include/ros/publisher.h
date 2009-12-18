@@ -29,7 +29,10 @@
 #define ROSCPP_PUBLISHER_HANDLE_H
 
 #include "ros/forwards.h"
+#include "ros/common.h"
 #include "ros/message.h"
+#include "ros/serialization.h"
+#include "ros/builtin_serializers.h"
 
 namespace ros
 {
@@ -57,11 +60,40 @@ public:
    * passed directly into a callback function)
    *
    */
-  void publish(const Message::ConstPtr& message) const;
+  template<typename M>
+  void publish(const boost::shared_ptr<M const>& message) const
+  {
+    publish(*message);
+  }
   /**
    * \brief Publish a message on the topic associated with this Publisher.
    */
-  void publish(const Message& message) const;
+  template<typename M>
+  void publish(const M& message) const
+  {
+    using namespace serialization;
+
+    if (!impl_ || !impl_->isValid())
+    {
+      ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher");
+      return;
+    }
+
+    if (getNumSubscribers() > 0)
+    {
+      SerializedMessage m;
+      m.num_bytes = serializationLength(message) + 4;
+      m.buf.reset(new uint8_t[m.num_bytes]);
+
+      *((uint32_t*)m.buf.get()) = m.num_bytes - 4;
+      serialize(m.buf.get() + 4, message);
+      publish(m);
+    }
+    else
+    {
+      incrementSequence();
+    }
+  }
 
   /**
    * \brief Shutdown the advertisement associated with this Publisher
@@ -104,6 +136,9 @@ public:
 
 private:
   Publisher(const std::string& topic, const NodeHandle& node_handle, const SubscriberCallbacksPtr& callbacks);
+
+  void publish(const SerializedMessage& m) const;
+  void incrementSequence() const;
 
   class Impl
   {

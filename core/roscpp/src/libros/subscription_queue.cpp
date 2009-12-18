@@ -161,7 +161,7 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     --queue_size_;
   }
 
-  MessagePtr msg = i.deserializer->deserialize();
+  VoidPtr msg = i.deserializer->deserialize();
 
   // msg can be null here if deserialization failed
   if (msg)
