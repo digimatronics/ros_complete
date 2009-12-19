@@ -32,7 +32,6 @@
 #include "ros/common.h"
 #include "ros/message.h"
 #include "ros/serialization.h"
-#include "ros/builtin_serializers.h"
 
 namespace ros
 {
@@ -85,8 +84,9 @@ public:
       m.num_bytes = serializationLength(message) + 4;
       m.buf.reset(new uint8_t[m.num_bytes]);
 
-      *((uint32_t*)m.buf.get()) = m.num_bytes - 4;
-      serialize(m.buf.get() + 4, message);
+      Buffer b(m.buf, m.num_bytes);
+      b = serialize(b, m.num_bytes - 4);
+      b = serialize(b, message);
       publish(m);
     }
     else

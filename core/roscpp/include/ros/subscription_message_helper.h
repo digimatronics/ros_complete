@@ -68,7 +68,8 @@ public:
     typedef typename boost::remove_const<M>::type NonConstType;
     NonConstType* msg = new NonConstType;
 
-    serialization::deserialize(buffer, length, *msg);
+    serialization::Buffer b(buffer, length);
+    serialization::deserialize(b, *msg);
 
     return VoidPtr(msg);
   }

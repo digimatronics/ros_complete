@@ -63,15 +63,15 @@ public:
   : calls_(0)
   {}
 
-  virtual MessagePtr create()
+  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length)
   {
-    return MessagePtr(new FakeMessage);
+    return VoidPtr(new FakeMessage);
   }
 
   virtual std::string getMD5Sum() { return ""; }
   virtual std::string getDataType() { return ""; }
 
-  virtual void call(const MessagePtr& msg)
+  virtual void call(const VoidPtr& msg)
   {
     {
       boost::mutex::scoped_lock lock(mutex_);

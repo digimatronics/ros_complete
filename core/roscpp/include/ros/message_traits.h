@@ -38,12 +38,12 @@ namespace message_traits
 
 struct TrueType
 {
-  static const uint32_t value = 1;
+  static const bool value = true;
 };
 
 struct FalseType
 {
-  static const uint32_t value = 0;
+  static const bool value = false;
 };
 
 template<typename M> struct IsPrimitive : public FalseType {};

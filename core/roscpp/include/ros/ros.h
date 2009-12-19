@@ -42,10 +42,6 @@
 
 #include "ros/common.h"
 #include "ros/types.h"
-#include "ros/message_traits.h"
-#include "ros/serialization.h"
-#include "ros/builtin_serializers.h"
-#include "ros/builtin_message_traits.h"
 #include "ros/node_handle.h"
 #include "ros/publisher.h"
 #include "ros/single_subscriber_publisher.h"
