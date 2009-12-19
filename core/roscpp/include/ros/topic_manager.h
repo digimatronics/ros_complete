@@ -30,8 +30,6 @@
 
 #include "forwards.h"
 #include "common.h"
-#include "subscribe_options.h"
-#include "advertise_options.h"
 #include "rosout_appender.h"
 
 #include "XmlRpcValue.h"
@@ -43,6 +41,8 @@ namespace ros
 {
 
 class Message;
+class SubscribeOptions;
+class AdvertiseOptions;
 
 class TopicManager;
 typedef boost::shared_ptr<TopicManager> TopicManagerPtr;
@@ -55,6 +55,9 @@ typedef boost::shared_ptr<XMLRPCManager> XMLRPCManagerPtr;
 
 class ConnectionManager;
 typedef boost::shared_ptr<ConnectionManager> ConnectionManagerPtr;
+
+class SubscriptionMessageHelper;
+typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
 class TopicManager
 {

@@ -27,6 +27,7 @@
 
 
 #include "ros/message_deserializer.h"
+#include "ros/subscription_message_helper.h"
 #include <ros/console.h>
 
 namespace ros

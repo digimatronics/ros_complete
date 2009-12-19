@@ -39,6 +39,7 @@
 #include "ros/rosout_appender.h"
 #include "ros/init.h"
 #include "ros/file_log.h"
+#include "ros/subscribe_options.h"
 
 #include "XmlRpc.h"
 

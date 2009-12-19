@@ -28,6 +28,7 @@
 
 #include "ros/subscription_queue.h"
 #include "ros/message_deserializer.h"
+#include "ros/subscription_message_helper.h"
 
 namespace ros
 {

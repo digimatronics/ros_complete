@@ -31,7 +31,6 @@
 #include <queue>
 #include "ros/common.h"
 #include "ros/header.h"
-#include "ros/subscription_message_helper.h"
 #include "ros/forwards.h"
 #include "ros/transport_hints.h"
 #include "ros/xmlrpc_manager.h"
@@ -56,6 +55,8 @@ typedef boost::shared_ptr<SubscriptionQueue> SubscriptionQueuePtr;
 class MessageDeserializer;
 typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
 
+class SubscriptionMessageHelper;
+typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
 /**
  * \brief Manages a subscription on a single topic.

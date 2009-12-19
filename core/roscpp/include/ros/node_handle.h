@@ -35,8 +35,6 @@
 #include "ros/service_client.h"
 #include "ros/timer.h"
 #include "ros/wall_timer.h"
-#include "ros/subscription_message_helper.h"
-#include "ros/service_message_helper.h"
 #include "ros/advertise_options.h"
 #include "ros/advertise_service_options.h"
 #include "ros/subscribe_options.h"

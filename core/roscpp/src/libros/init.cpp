@@ -45,6 +45,7 @@
 #include "ros/callback_queue.h"
 #include "ros/param.h"
 #include "ros/rosout_appender.h"
+#include "ros/subscribe_options.h"
 
 #include "roscpp/GetLoggers.h"
 #include "roscpp/SetLoggerLevel.h"

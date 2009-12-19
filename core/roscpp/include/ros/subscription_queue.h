@@ -30,7 +30,6 @@
 
 #include "forwards.h"
 
-#include "subscription_message_helper.h"
 #include "callback_queue_interface.h"
 
 #include <boost/thread/recursive_mutex.hpp>
@@ -43,6 +42,9 @@ namespace ros
 
 class MessageDeserializer;
 typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
+
+class SubscriptionMessageHelper;
+typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
 class SubscriptionQueue : public boost::enable_shared_from_this<SubscriptionQueue>
 {

@@ -28,7 +28,7 @@
 #ifndef ROSCPP_MESSAGE_DESERIALIZER_H
 #define ROSCPP_MESSAGE_DESERIALIZER_H
 
-#include "subscription_message_helper.h"
+#include "forwards.h"
 #include "message.h"
 
 #include <boost/thread/mutex.hpp>
@@ -36,6 +36,9 @@
 
 namespace ros
 {
+
+class SubscriptionMessageHelper;
+typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
 class MessageDeserializer
 {

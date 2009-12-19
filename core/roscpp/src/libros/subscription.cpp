@@ -58,6 +58,7 @@
 #include "ros/subscription_queue.h"
 #include "ros/file_log.h"
 #include "ros/transport_hints.h"
+#include "ros/subscription_message_helper.h"
 
 using XmlRpc::XmlRpcValue;
 
