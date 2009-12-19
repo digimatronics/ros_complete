@@ -84,8 +84,8 @@ public:
       m.num_bytes = serializationLength(message) + 4;
       m.buf.reset(new uint8_t[m.num_bytes]);
 
-      Buffer b(m.buf, m.num_bytes);
-      b = serialize(b, m.num_bytes - 4);
+      Buffer b(m.buf.get(), (uint32_t)m.num_bytes);
+      b = serialize(b, (uint32_t)m.num_bytes - 4);
       b = serialize(b, message);
       publish(m);
     }
