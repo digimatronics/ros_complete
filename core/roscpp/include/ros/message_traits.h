@@ -46,7 +46,7 @@ struct FalseType
   static const bool value = false;
 };
 
-template<typename M> struct IsPrimitive : public FalseType {};
+template<typename M> struct IsSimple : public FalseType {};
 template<typename M> struct IsFixedSize : public FalseType {};
 template<typename M> struct HasHeader : public FalseType {};
 
@@ -75,9 +75,9 @@ inline roslib::Header* getHeader(M& msg)
 }
 
 template<typename M>
-inline bool isPrimitive()
+inline bool isSimple()
 {
-  return IsPrimitive<M>::value;
+  return IsSimple<M>::value;
 }
 
 template<typename M>
@@ -96,7 +96,7 @@ struct Traits
 {
   bool has_header;
   roslib::Header* header;
-  bool is_primitive;
+  bool is_simple;
   bool is_fixed_size;
 
   std::string md5sum;
@@ -110,7 +110,7 @@ inline Traits traits()
   Traits t;
   t.has_header = hasHeader<M>();
   t.header = getHeader<M>();
-  t.is_primitive = isPrimitive<M>();
+  t.is_simple = isSimple<M>();
   t.is_fixed_size = isFixedSize<M>();
   t.md5sum = md5sum<M>();
   t.datatype = datatype<M>();

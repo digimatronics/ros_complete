@@ -37,7 +37,7 @@ namespace message_traits
 {
 
 #define ROSCPP_CREATE_PRIMITIVE_TRAITS(Type) \
-    template<> struct IsPrimitive<Type> : public TrueType {}; \
+    template<> struct IsSimple<Type> : public TrueType {}; \
     template<> struct IsFixedSize<Type> : public TrueType {};
 
 ROSCPP_CREATE_PRIMITIVE_TRAITS(uint8_t);
