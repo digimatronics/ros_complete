@@ -108,20 +108,26 @@ public:
 
       if (!tracker)
       {
-        link_->processResponse(false, MessagePtr());
+        SerializedMessage res = serialization::serializeServiceResponse(false, 0);
+        link_->processResponse(false, res);
         return Invalid;
       }
     }
 
-    MessagePtr req = helper_->createRequest();
-    MessagePtr resp = helper_->createResponse();
-
-    req->__connection_header = link_->getConnection()->getHeader().getValues();
-
-    req->__serialized_length = num_bytes_;
-    req->deserialize(buffer_.get());
-    bool ok = helper_->call(req, resp);
-    link_->processResponse(ok, resp);
+    SerializedMessage req(buffer_, num_bytes_);
+    SerializedMessage res;
+    try
+    {
+      bool ok = helper_->call(req, res, link_->getConnection()->getHeader().getValues());
+      link_->processResponse(ok, res);
+    }
+    catch (std::exception& e)
+    {
+      ROS_ERROR("Exception thrown while processing service call: %s", e.what());
+      SerializedMessage res = serialization::serializeServiceResponse(false, 0);
+      link_->processResponse(false, res);
+      return Invalid;
+    }
 
     return Success;
   }

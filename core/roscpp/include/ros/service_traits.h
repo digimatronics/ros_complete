@@ -25,52 +25,54 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include "ros/message_deserializer.h"
-#include "ros/subscription_message_helper.h"
-#include <ros/console.h>
+#ifndef ROSCPP_SERVICE_TRAITS_H
+#define ROSCPP_SERVICE_TRAITS_H
 
 namespace ros
 {
-
-MessageDeserializer::MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header)
-: helper_(helper)
-, buffer_(buffer)
-, num_bytes_(num_bytes)
-, buffer_includes_size_header_(buffer_includes_size_header)
-, connection_header_(connection_header)
+namespace service_traits
 {
 
-}
-
-VoidPtr MessageDeserializer::deserialize()
+template<typename M>
+inline const char* md5sum()
 {
-  boost::mutex::scoped_lock lock(mutex_);
-
-  if (msg_)
-  {
-    return msg_;
-  }
-
-  if (!buffer_ && num_bytes_ > 0)
-  {
-    // If the buffer has been reset it means we tried to deserialize and failed
-    return MessagePtr();
-  }
-
-  try
-  {
-    uint32_t offset = buffer_includes_size_header_ ? 4 : 0;
-    msg_ = helper_->deserialize(buffer_.get() + offset, num_bytes_ - offset, connection_header_);
-  }
-  catch (std::exception& e)
-  {
-    ROS_ERROR("Exception thrown when deserializing message of length [%d] from [%s]: %s", num_bytes_, (*connection_header_)["callerid"].c_str(), e.what());
-  }
-
-  buffer_.reset();
-
-  return msg_;
+  return M::__s_getServerMD5Sum().c_str();
 }
 
+template<typename M>
+inline const char* datatype()
+{
+  return M::__s_getServiceDataType().c_str();
 }
+
+template<typename M>
+inline const char* md5sum(const M&)
+{
+  return md5sum<M>();
+}
+
+template<typename M>
+inline const char* datatype(const M&)
+{
+  return datatype<M>();
+}
+
+struct Traits
+{
+  std::string md5sum;
+  std::string datatype;
+};
+
+template<typename M>
+inline Traits traits()
+{
+  Traits t;
+  t.md5sum = md5sum<M>();
+  t.datatype = datatype<M>();
+  return t;
+}
+
+} // namespace message_traits
+} // namespace ros
+
+#endif // ROSCPP_SERVICE_TRAITS_H

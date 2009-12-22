@@ -43,7 +43,7 @@ macro(gensrv_cpp)
   
     rosbuild_gendeps(${PROJECT_NAME} ${_srv})
   
-    set(gensrv_cpp_exe ${genmsg_cpp_PACKAGE_PATH}/gensrv)
+    set(gensrv_cpp_exe ${roscpp_PACKAGE_PATH}/scripts/gensrv_cpp.py)
 
     set(_output_cpp ${PROJECT_SOURCE_DIR}/srv/cpp/${PROJECT_NAME}/${_srv})
     string(REPLACE ".srv" ".h" _output_cpp ${_output_cpp})

@@ -443,6 +443,33 @@ SerializedMessage serializeMessage(const M& message)
   return m;
 }
 
+template<typename M>
+SerializedMessage serializeServiceResponse(bool ok, const M& message)
+{
+  SerializedMessage m;
+
+  if (ok)
+  {
+    m.num_bytes = serializationLength(message) + 5;
+    m.buf.reset(new uint8_t[m.num_bytes]);
+
+    Buffer b(m.buf.get(), (uint32_t)m.num_bytes);
+    b = serialize(b, (uint8_t)ok);
+    b = serialize(b, (uint32_t)m.num_bytes - 5);
+    b = serialize(b, message);
+  }
+  else
+  {
+    m.num_bytes = 5;
+    m.buf.reset(new uint8_t[5]);
+    Buffer b(m.buf.get(), (uint32_t)m.num_bytes);
+    b = serialize(b, (uint8_t)ok);
+    b = serialize(b, (uint32_t)0);
+  }
+
+  return m;
+}
+
 } // namespace serialization
 } // namespace ros
 

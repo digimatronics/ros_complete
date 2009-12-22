@@ -89,7 +89,10 @@ def write_begin(s, pkg, msg, file):
     s.write('#ifndef %s_MESSAGE_%s_H\n'%(pkg.upper(), msg.upper()))
     s.write('#define %s_MESSAGE_%s_H\n'%(pkg.upper(), msg.upper()))
     
-def write_includes(s, spec):
+def write_end(s, pkg, msg):
+    s.write('#endif // %s_MESSAGE_%s_H\n'%(pkg.upper(), msg.upper()))
+    
+def write_generic_includes(s):
     s.write('#include <string>\n')
     s.write('#include <vector>\n')
     s.write('#include "ros/serialization.h"\n')
@@ -97,6 +100,7 @@ def write_includes(s, spec):
     s.write('#include "ros/message.h"\n')
     s.write('#include "ros/time.h"\n\n')
     
+def write_includes(s, spec, package):
     fields = spec.fields()
     for (type, name) in fields:
         (base_type, is_array, array_len) = roslib.msgs.parse_type(type)
@@ -104,11 +108,13 @@ def write_includes(s, spec):
             if (roslib.msgs.is_header_type(base_type)):
                 s.write('#include "roslib/Header.h"\n')
             else:
-                s.write('#include "%s.h"\n'%(base_type))
+                (pkg, name) = roslib.names.package_resource_name(base_type)
+                pkg = pkg or package # convert '' to package
+                s.write('#include "%s/%s.h"\n'%(pkg, name))
                 
-    s.write('\n')
+    s.write('\n') 
     
-def write_struct(s, spec, pkg, msg):
+def write_struct(s, spec, pkg, msg, cpp_name_prefix):
     s.write('struct %s : public ros::Message\n{\n'%(msg))
     
     write_constructor(s, msg, spec)
@@ -116,18 +122,12 @@ def write_struct(s, spec, pkg, msg):
     write_constants(s, spec)
     write_deprecated_member_functions(s, spec, pkg, msg)
     
-    cpp_msg = '%s::%s'%(pkg, msg)
+    cpp_msg = '%s%s'%(cpp_name_prefix, msg)
     s.write('  typedef boost::shared_ptr<%s> Ptr;\n'%(cpp_msg))
     s.write('  typedef boost::shared_ptr<%s const> ConstPtr;\n'%(cpp_msg))
     s.write('}; // struct %s\n'%(msg))
     s.write('typedef boost::shared_ptr<%s> %sPtr;\n'%(cpp_msg, msg))
     s.write('typedef boost::shared_ptr<%s const> %sConstPtr;\n'%(cpp_msg, msg))
-    
-def write_struct_bodies(s, spec, pkg, msg):
-    pass
-    
-def write_end(s, pkg, msg):
-    s.write('#endif // %s_MESSAGE_%s_H\n'%(pkg.upper(), msg.upper()))
 
 def default_value(type):
     if type in ['byte', 'int8', 'int16', 'int32', 'int64',
@@ -214,23 +214,33 @@ def is_fixed_length(spec, package):
     return True
     
 def write_deprecated_member_functions(s, spec, pkg, msg):
-    cpp_msg = '%s::%s'%(pkg, msg)
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getDataType() const { return ros::message_traits::datatype<%s>(); }\n'%(cpp_msg))
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMD5Sum() const { return ros::message_traits::md5sum<%s>(); }\n'%(cpp_msg))
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return ros::message_traits::definition<%s>(); }\n'%(cpp_msg))
-    s.write('  ROSCPP_DEPRECATED virtual uint32_t serializationLength() const { return ros::serialization::Serializer<%s>::serializedLength(*this); }\n'%(cpp_msg))
-    s.write('  ROSCPP_DEPRECATED virtual uint8_t *serialize(uint8_t *write_ptr, uint32_t seq) const { ros::serialization::Buffer b(write_ptr, 1000000000); b = ros::serialization::Serializer<%s>::write(b, *this); return b.data; }\n'%(cpp_msg))
-    s.write('  ROSCPP_DEPRECATED virtual uint8_t *deserialize(uint8_t *read_ptr) { ros::serialization::Buffer b(read_ptr, 1000000000); b = ros::serialization::Serializer<%s>::read(b, *this); return b.data; }\n\n'%(cpp_msg))
-
-def write_traits_declarations(s, spec, pkg, msg):
-    cpp_msg = '%s::%s'%(pkg, msg)
-    s.write('namespace ros\n{\n')
-    s.write('namespace message_traits\n{\n')
-    s.write('template<> inline const char* md5sum<%s>();\n'%(cpp_msg))
-    s.write('template<> inline const char* datatype<%s>();\n'%(cpp_msg))
-    s.write('template<> inline const char* definition<%s>();\n'%(cpp_msg))
-    s.write('} // namespace message_traits\n')
-    s.write('} // namespace ros\n\n')
+    # duplicate these here so we don't have to forward declare all the message traits
+    gendeps_dict = roslib.gentools.get_dependencies(spec, pkg, compute_files=False)
+    md5sum = roslib.gentools.compute_md5(gendeps_dict)
+    full_text = compute_full_text_escaped(gendeps_dict)
+    
+    fields = spec.fields()
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getDataType() const { return "%s/%s"; }\n'%(pkg,msg))
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMD5Sum() const { return "%s"; }\n'%(md5sum))
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return %s; }\n'%(full_text))
+    
+    s.write('  ROSCPP_DEPRECATED virtual uint8_t *serialize(uint8_t *write_ptr, uint32_t seq) const\n  {\n')
+    s.write('    ros::serialization::Buffer buffer(write_ptr, 1000000000);\n')
+    for (type, name) in fields:
+        s.write('    buffer = ros::serialization::serialize(buffer, %s);\n'%(name))
+    s.write('    return buffer.data;\n  }\n\n')
+    
+    s.write('  ROSCPP_DEPRECATED virtual uint8_t *deserialize(uint8_t *read_ptr)\n  {\n')
+    s.write('    ros::serialization::Buffer buffer(read_ptr, 1000000000);\n');
+    for (type, name) in fields:
+        s.write('    buffer = ros::serialization::deserialize(buffer, %s);\n'%(name))
+    s.write('    return buffer.data;\n  }\n\n')
+    
+    s.write('  ROSCPP_DEPRECATED virtual uint32_t serializationLength() const\n  {\n')
+    s.write('    uint32_t size = 0;\n');
+    for (type, name) in fields:
+        s.write('    size += ros::serialization::serializationLength(%s);\n'%(name))
+    s.write('    return size;\n  }\n\n')
 
 def compute_full_text_escaped(gen_deps_dict):
     """
@@ -254,17 +264,20 @@ def compute_full_text_escaped(gen_deps_dict):
     s.close()
     return val
 
-def write_traits_bodies(s, spec, pkg, msg):
+def write_traits(s, spec, pkg, msg, cpp_name_prefix, datatype = None):
     # generate dependencies dictionary
     gendeps_dict = roslib.gentools.get_dependencies(spec, pkg, compute_files=False)
     md5sum = roslib.gentools.compute_md5(gendeps_dict)
     full_text = compute_full_text_escaped(gendeps_dict)
     
-    cpp_msg = '%s::%s'%(pkg, msg)
+    if (datatype is None):
+        datatype = '%s/%s'%(pkg, msg)
+    
+    cpp_msg = '%s%s'%(cpp_name_prefix, msg)
     s.write('namespace ros\n{\n')
     s.write('namespace message_traits\n{\n')
     s.write('template<> inline const char* md5sum<%s>() { return "%s"; }\n'%(cpp_msg, md5sum))
-    s.write('template<> inline const char* datatype<%s>() { return "%s/%s"; }\n'%(cpp_msg, pkg, msg))
+    s.write('template<> inline const char* datatype<%s>() { return "%s"; }\n'%(cpp_msg, datatype))
          
     s.write('template<> inline const char* definition<%s>()\n{\n  return\n'%(cpp_msg))
     s.write(full_text);
@@ -281,42 +294,33 @@ def write_traits_bodies(s, spec, pkg, msg):
         
     s.write('} // namespace message_traits\n')
     s.write('} // namespace ros\n\n')
-
-def write_serialization_declarations(s, spec, pkg, msg):
-    cpp_msg = '%s::%s'%(pkg, msg)
     
-    s.write('namespace ros\n{\n')
-    s.write('namespace serialization\n{\n')
-    s.write('template<> struct Serializer<%s>\n{\n'%(cpp_msg))
-    s.write('  inline static Buffer write(Buffer buffer, const %s& m);\n'%(cpp_msg))
-    s.write('  inline static Buffer read(Buffer buffer, %s& m);\n'%(cpp_msg))
-    s.write('  inline static uint32_t serializedLength(const %s& m);\n'%(cpp_msg))
-    s.write('};\n')
-    s.write('} // namespace serialization\n')
-    s.write('} // namespace ros\n\n')
-    
-def write_serialization_bodies(s, spec, pkg, msg):
-    cpp_msg = '%s::%s'%(pkg, msg)
+def write_serialization(s, spec, pkg, msg, cpp_name_prefix):
+    cpp_msg = '%s%s'%(cpp_name_prefix, msg)
     fields = spec.fields()
     
     s.write('namespace ros\n{\n')
     s.write('namespace serialization\n{\n\n')
     
-    s.write('inline Buffer Serializer<%s>::write(Buffer buffer, const %s& m)\n{\n'%(cpp_msg, cpp_msg))
-    for (type, name) in fields:
-        s.write('  buffer = serialize(buffer, m.%s);\n'%(name))
-    s.write('  return buffer;\n}\n\n')
+    s.write('template<> struct Serializer<%s>\n{\n'%(cpp_msg))
     
-    s.write('inline Buffer Serializer<%s>::read(Buffer buffer, %s& m)\n{\n'%(cpp_msg, cpp_msg))
+    s.write('  inline static Buffer write(Buffer buffer, const %s& m)\n  {\n'%(cpp_msg))
     for (type, name) in fields:
-        s.write('  buffer = deserialize(buffer, m.%s);\n'%(name))
-    s.write('  return buffer;\n}\n\n')
+        s.write('    buffer = serialize(buffer, m.%s);\n'%(name))
+    s.write('    return buffer;\n  }\n\n')
     
-    s.write('inline uint32_t Serializer<%s>::serializedLength(const %s& m)\n{\n'%(cpp_msg, cpp_msg))
-    s.write('  uint32_t size = 0;\n');
+    s.write('  inline static Buffer read(Buffer buffer, %s& m)\n  {\n'%(cpp_msg))
     for (type, name) in fields:
-        s.write('  size += serializationLength(m.%s);\n'%(name))
-    s.write('  return size;\n}\n\n')
+        s.write('    buffer = deserialize(buffer, m.%s);\n'%(name))
+    s.write('    return buffer;\n  }\n\n')
+    
+    s.write('  inline static uint32_t serializedLength(const %s& m)\n  {\n'%(cpp_msg))
+    s.write('    uint32_t size = 0;\n');
+    for (type, name) in fields:
+        s.write('    size += serializationLength(m.%s);\n'%(name))
+    s.write('    return size;\n  }\n\n')
+    
+    s.write('}; // struct %s\n'%(msg))
         
     s.write('} // namespace serialization\n')
     s.write('} // namespace ros\n\n')
@@ -327,17 +331,17 @@ def generate(msg_path):
     
     s = StringIO()  
     write_begin(s, package, name, msg_path)
-    write_includes(s, spec)
+    write_generic_includes(s)
+    write_includes(s, spec, package)
     
-    s.write('namespace %s { struct %s; }\n\n' %(package, name))
-    write_traits_declarations(s, spec, package, name)
-    write_serialization_declarations(s, spec, package, name)
+    cpp_prefix = '%s::'%(package)
+    
     s.write('namespace %s\n{\n'%(package))
-    write_struct(s, spec, package, name)
-    write_struct_bodies(s, spec, package, name)
+    write_struct(s, spec, package, name, cpp_prefix)
     s.write('} // namespace %s\n\n'%(package))
-    write_traits_bodies(s, spec, package, name)
-    write_serialization_bodies(s, spec, package, name)
+    
+    write_traits(s, spec, package, name, cpp_prefix)
+    write_serialization(s, spec, package, name, cpp_prefix)
     write_end(s, package, name)
     
     output_dir = '%s/msg/cpp/%s'%(package_dir, package)

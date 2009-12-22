@@ -29,7 +29,11 @@
 #define ROSCPP_SERVICE_MESSAGE_HELPER_H
 
 #include "ros/forwards.h"
+#include "ros/common.h"
 #include "ros/message.h"
+#include "ros/message_traits.h"
+#include "ros/service_traits.h"
+#include "ros/serialization.h"
 
 namespace ros
 {
@@ -38,10 +42,8 @@ class ServiceMessageHelper
 {
 public:
   virtual ~ServiceMessageHelper() {}
-  virtual MessagePtr createRequest() = 0;
-  virtual MessagePtr createResponse() = 0;
 
-  virtual bool call(const MessagePtr& req, const MessagePtr& res) = 0;
+  virtual bool call(const SerializedMessage& req, SerializedMessage& res, const boost::shared_ptr<M_string>& connection_header) = 0;
 
   virtual std::string getMD5Sum() = 0;
   virtual std::string getDataType() = 0;
@@ -60,11 +62,14 @@ public:
 
   ServiceMessageHelperT(const Callback& callback)
   : callback_(callback)
-  , md5sum_(MReq::__s_getServerMD5Sum())
-  , data_type_(MReq::__s_getServiceDataType())
-  , req_data_type_(MReq::__s_getDataType())
-  , res_data_type_(MRes::__s_getDataType())
-  {}
+  {
+    namespace st = service_traits;
+    namespace mt = message_traits;
+    md5sum_ = st::md5sum<MReq>();
+    data_type_ = st::datatype<MReq>();
+    req_data_type_ = mt::datatype<MReq>();
+    res_data_type_ = mt::datatype<MRes>();
+  }
 
   ServiceMessageHelperT(const Callback& callback, const std::string& md5sum, const std::string& data_type, const std::string& req_data_type, const std::string& res_data_type)
   : callback_(callback)
@@ -74,14 +79,18 @@ public:
   , res_data_type_(res_data_type)
   {}
 
-
-  virtual MessagePtr createRequest() { return MessagePtr(new MReq); }
-  virtual MessagePtr createResponse() { return MessagePtr(new MRes); }
-  virtual bool call(const MessagePtr& req, const MessagePtr& res)
+  virtual bool call(const SerializedMessage& req_bytes, SerializedMessage& res_bytes, const boost::shared_ptr<M_string>& connection_header)
   {
-    MReqPtr casted_req = boost::static_pointer_cast<MReq>(req);
-    MResPtr casted_res = boost::static_pointer_cast<MRes>(res);
-    return callback_(*casted_req, *casted_res);
+    MReqPtr req(new MReq);
+    MResPtr res(new MRes);
+
+    serialization::Buffer b(req_bytes.buf.get(), req_bytes.num_bytes);
+    serialization::deserialize(b, *req);
+    req->__connection_header = connection_header;
+
+    bool ok = callback_(*req, *res);
+    res_bytes = serialization::serializeServiceResponse(ok, *res);
+    return ok;
   }
 
   virtual std::string getMD5Sum() { return md5sum_; }

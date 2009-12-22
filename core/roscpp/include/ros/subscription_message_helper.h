@@ -44,7 +44,7 @@ class SubscriptionMessageHelper
 {
 public:
   virtual ~SubscriptionMessageHelper() {}
-  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length) = 0;
+  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header) = 0;
 
   virtual std::string getMD5Sum() = 0;
   virtual std::string getDataType() = 0;
@@ -63,13 +63,15 @@ public:
   : callback_(callback)
   {}
 
-  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length)
+  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header)
   {
     typedef typename boost::remove_const<M>::type NonConstType;
     NonConstType* msg = new NonConstType;
 
     serialization::Buffer b(buffer, length);
     serialization::deserialize(b, *msg);
+
+    msg->__connection_header = connection_header;
 
     return VoidPtr(msg);
   }
