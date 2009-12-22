@@ -29,8 +29,9 @@
 #define ROSCPP_SERVICE_CLIENT_H
 
 #include "ros/forwards.h"
-#include "ros/message.h"
+#include "ros/common.h"
 #include "ros/service_traits.h"
+#include "ros/serialization.h"
 
 namespace ros
 {
@@ -90,9 +91,35 @@ public:
   }
 
   /**
-   * \brief Mostly for internal use, the templated versions of call() just call into this one
+   * \brief Mostly for internal use, the other templated versions of call() just call into this one
    */
-  bool call(Message& req, Message& resp, const std::string& service_md5sum);
+  template<typename MReq, typename MRes>
+  bool call(const MReq& req, MRes& resp, const std::string& service_md5sum)
+  {
+    namespace ser = serialization;
+    SerializedMessage ser_req = ser::serializeMessage(req);
+    SerializedMessage ser_resp;
+    bool ok = call(ser_req, ser_resp, service_md5sum);
+    if (!ok)
+    {
+      return false;
+    }
+
+    ser::Buffer b(ser_resp.buf.get(), ser_resp.num_bytes);
+
+    try
+    {
+      ser::deserialize(b, resp);
+    }
+    catch (std::exception& e)
+    {
+      ROS_ERROR("Exception thrown while while deserializing service call: %s", e.what());
+    }
+
+    return true;
+  }
+
+  bool call(const SerializedMessage& req, SerializedMessage& resp, const std::string& service_md5sum);
 
   /**
    * \brief Returns whether or not this handle is valid.  For a persistent service, this becomes false when the connection has dropped.

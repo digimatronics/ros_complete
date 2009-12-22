@@ -39,8 +39,6 @@
 namespace ros
 {
 class Header;
-class Message;
-typedef boost::shared_ptr<Message> MessagePtr;
 class ServicePublication;
 typedef boost::weak_ptr<ServicePublication> ServicePublicationWPtr;
 typedef boost::shared_ptr<ServicePublication> ServicePublicationPtr;

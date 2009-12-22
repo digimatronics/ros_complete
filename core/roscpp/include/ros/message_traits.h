@@ -73,6 +73,24 @@ inline const char* definition()
 }
 
 template<typename M>
+inline const char* md5sum(const M&)
+{
+  return md5sum<M>();
+}
+
+template<typename M>
+inline const char* datatype(const M&)
+{
+  return datatype<M>();
+}
+
+template<typename M>
+inline const char* definition(const M&)
+{
+  return definition<M>();
+}
+
+template<typename M>
 inline roslib::Header* getHeader(M& msg)
 {
   return 0;
