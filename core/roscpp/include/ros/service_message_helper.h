@@ -81,15 +81,15 @@ public:
 
   virtual bool call(const SerializedMessage& req_bytes, SerializedMessage& res_bytes, const boost::shared_ptr<M_string>& connection_header)
   {
+    namespace ser = serialization;
     MReqPtr req(new MReq);
     MResPtr res(new MRes);
 
-    serialization::Buffer b(req_bytes.buf.get(), req_bytes.num_bytes);
-    serialization::deserialize(b, *req);
+    ser::deserializeMessage(req_bytes, *req);
     req->__connection_header = connection_header;
 
     bool ok = callback_(*req, *res);
-    res_bytes = serialization::serializeServiceResponse(ok, *res);
+    res_bytes = ser::serializeServiceResponse(ok, *res);
     return ok;
   }
 

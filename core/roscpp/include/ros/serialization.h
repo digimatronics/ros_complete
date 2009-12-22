@@ -470,6 +470,13 @@ SerializedMessage serializeServiceResponse(bool ok, const M& message)
   return m;
 }
 
+template<typename M>
+void deserializeMessage(const SerializedMessage& m, M& message)
+{
+  Buffer b(m.buf.get(), m.num_bytes);
+  deserialize(b, message);
+}
+
 } // namespace serialization
 } // namespace ros
 

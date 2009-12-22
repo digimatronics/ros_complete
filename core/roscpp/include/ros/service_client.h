@@ -105,15 +105,14 @@ public:
       return false;
     }
 
-    ser::Buffer b(ser_resp.buf.get(), ser_resp.num_bytes);
-
     try
     {
-      ser::deserialize(b, resp);
+      ser::deserializeMessage(ser_resp, resp);
     }
     catch (std::exception& e)
     {
       ROS_ERROR("Exception thrown while while deserializing service call: %s", e.what());
+      return false;
     }
 
     return true;

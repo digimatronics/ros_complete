@@ -65,11 +65,13 @@ public:
 
   virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header)
   {
+    namespace ser = serialization;
+
     typedef typename boost::remove_const<M>::type NonConstType;
     NonConstType* msg = new NonConstType;
 
-    serialization::Buffer b(buffer, length);
-    serialization::deserialize(b, *msg);
+    ser::Buffer b(buffer, length);
+    ser::deserialize(b, *msg);
 
     msg->__connection_header = connection_header;
 
