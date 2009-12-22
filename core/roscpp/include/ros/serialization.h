@@ -39,7 +39,7 @@
 #include <boost/utility/enable_if.hpp>
 #include <boost/mpl/and.hpp>
 #include <boost/mpl/or.hpp>
-#include <boost/mpl/logical.hpp>
+#include <boost/mpl/not.hpp>
 
 namespace ros
 {
