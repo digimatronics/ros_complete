@@ -37,12 +37,16 @@
 #include <boost/array.hpp>
 #include <boost/call_traits.hpp>
 #include <boost/utility/enable_if.hpp>
+#include <boost/mpl/and.hpp>
+#include <boost/mpl/or.hpp>
+#include <boost/mpl/logical.hpp>
 
 namespace ros
 {
 namespace serialization
 {
 namespace mt = message_traits;
+namespace mpl = boost::mpl;
 
 struct Buffer
 {
@@ -269,7 +273,7 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::disable_if<mt
 };
 
 template<typename T, template<typename T> class Allocator>
-struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if_c<mt::IsSimple<T>::value >::type >
+struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt::IsSimple<T> >::type >
 {
   typedef std::vector<T, Allocator<T> > VecType;
   typedef typename VecType::iterator IteratorType;
@@ -309,6 +313,52 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if_c<m
   inline static uint32_t serializedLength(const VecType& v)
   {
     return 4 + v.size() * sizeof(T);
+  }
+};
+
+template<typename T, template<typename T> class Allocator>
+struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type >
+{
+  typedef std::vector<T, Allocator<T> > VecType;
+  typedef typename VecType::iterator IteratorType;
+  typedef typename VecType::const_iterator ConstIteratorType;
+  inline static Buffer write(Buffer buffer, const VecType& v)
+  {
+    buffer = serialize<uint32_t>(buffer, (uint32_t)v.size());
+    ConstIteratorType it = v.begin();
+    ConstIteratorType end = v.end();
+    for (; it != end; ++it)
+    {
+      buffer = serialize(buffer, *it);
+    }
+
+    return buffer;
+  }
+
+  inline static Buffer read(Buffer buffer, VecType& v)
+  {
+    uint32_t len;
+    buffer = deserialize(buffer, len);
+    v.resize(len);
+    IteratorType it = v.begin();
+    IteratorType end = v.end();
+    for (; it != end; ++it)
+    {
+      buffer = deserialize(buffer, *it);
+    }
+
+    return buffer;
+  }
+
+  inline static uint32_t serializedLength(const VecType& v)
+  {
+    uint32_t size = 4;
+    if (!v.empty())
+    {
+      size += v.size() * serializationLength(v.front());
+    }
+
+    return size;
   }
 };
 
@@ -408,6 +458,42 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T
   inline static uint32_t serializedLength(const ArrayType& v)
   {
     return N * sizeof(T);
+  }
+};
+
+template<typename T, size_t N>
+struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type>
+{
+  typedef boost::array<T, N > ArrayType;
+  typedef typename ArrayType::iterator IteratorType;
+  typedef typename ArrayType::const_iterator ConstIteratorType;
+  inline static Buffer write(Buffer buffer, const ArrayType& v)
+  {
+    ConstIteratorType it = v.begin();
+    ConstIteratorType end = v.end();
+    for (; it != end; ++it)
+    {
+      buffer = serialize(buffer, *it);
+    }
+
+    return buffer;
+  }
+
+  inline static Buffer read(Buffer buffer, ArrayType& v)
+  {
+    IteratorType it = v.begin();
+    IteratorType end = v.end();
+    for (; it != end; ++it)
+    {
+      buffer = deserialize(buffer, *it);
+    }
+
+    return buffer;
+  }
+
+  inline static uint32_t serializedLength(const ArrayType& v)
+  {
+    return N * serializationLength(v.front());
   }
 };
 

@@ -43,11 +43,13 @@ namespace message_traits
 struct TrueType
 {
   static const bool value = true;
+  typedef TrueType type;
 };
 
 struct FalseType
 {
   static const bool value = false;
+  typedef FalseType type;
 };
 
 template<typename M> struct IsSimple : public FalseType {};

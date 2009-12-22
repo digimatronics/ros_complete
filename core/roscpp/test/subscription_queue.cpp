@@ -64,7 +64,7 @@ public:
   : calls_(0)
   {}
 
-  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length)
+  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<std::map<std::string, std::string> >&)
   {
     return VoidPtr(new FakeMessage);
   }
