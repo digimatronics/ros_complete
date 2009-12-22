@@ -28,8 +28,8 @@
 #ifndef ROSCPP_BUILTIN_MESSAGE_TRAITS_H
 #define ROSCPP_BUILTIN_MESSAGE_TRAITS_H
 
-#include "message.h"
-#include "roslib/Header.h"
+#include "message_traits.h"
+#include "ros/time.h"
 
 namespace ros
 {

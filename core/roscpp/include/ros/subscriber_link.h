@@ -67,11 +67,6 @@ public:
   int getConnectionID() const { return connection_id_; }
 
   /**
-   * \brief Publish a message directly to our subscriber.  Useful for publication connection callbacks
-   * to publish directly to the new subscriber and no-one else
-   */
-  virtual bool publish(const Message& m) = 0;
-  /**
    * \brief Queue up a message for publication.  Throws out old messages if we've reached our Publication's max queue size
    */
   virtual void enqueueMessage(const SerializedMessage& m) = 0;

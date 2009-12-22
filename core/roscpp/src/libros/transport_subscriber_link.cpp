@@ -195,29 +195,6 @@ void TransportSubscriberLink::startMessageWrite(bool immediate_write)
   }
 }
 
-bool TransportSubscriberLink::publish(const Message& m)
-{
-  if (!verifyDatatype(m.__getDataType()))
-  {
-    return false;
-  }
-
-  uint32_t msg_len = m.serializationLength();
-  boost::shared_array<uint8_t> buf = boost::shared_array<uint8_t>(new uint8_t[msg_len + 4]);
-  *((uint32_t*)buf.get()) = msg_len;
-
-  int seq = 0;
-  if (PublicationPtr parent = parent_.lock())
-  {
-    seq = parent->getSequence();
-  }
-
-  m.serialize(buf.get() + 4, seq);
-  enqueueMessage(SerializedMessage(buf, msg_len + 4));
-
-  return true;
-}
-
 void TransportSubscriberLink::enqueueMessage(const SerializedMessage& m)
 {
   {

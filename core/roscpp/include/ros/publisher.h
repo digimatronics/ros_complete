@@ -80,13 +80,7 @@ public:
 
     if (getNumSubscribers() > 0)
     {
-      SerializedMessage m;
-      m.num_bytes = serializationLength(message) + 4;
-      m.buf.reset(new uint8_t[m.num_bytes]);
-
-      Buffer b(m.buf.get(), (uint32_t)m.num_bytes);
-      b = serialize(b, (uint32_t)m.num_bytes - 4);
-      b = serialize(b, message);
+      SerializedMessage m = serializeMessage(message);
       publish(m);
     }
     else

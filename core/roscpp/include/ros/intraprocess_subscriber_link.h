@@ -47,7 +47,6 @@ public:
   void setSubscriber(const IntraProcessPublisherLinkPtr& subscriber);
   bool isLatching();
 
-  virtual bool publish(const Message& m);
   virtual void enqueueMessage(const SerializedMessage& m);
   virtual void drop();
   virtual std::string getTransportType();

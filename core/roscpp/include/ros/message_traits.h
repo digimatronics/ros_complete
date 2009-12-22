@@ -29,7 +29,11 @@
 #define ROSCPP_MESSAGE_TRAITS_H
 
 #include "message.h"
-#include "roslib/Header.h"
+
+namespace roslib
+{
+struct Header;
+}
 
 namespace ros
 {

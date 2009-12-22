@@ -630,33 +630,6 @@ bool TopicManager::requestTopic(const string &topic,
   return false;
 }
 
-void TopicManager::publish(const std::string &topic, const Message& m)
-{
-  boost::recursive_mutex::scoped_lock lock(advertised_topics_mutex_);
-
-  if (isShuttingDown())
-  {
-    return;
-  }
-
-  for (V_Publication::iterator t = advertised_topics_.begin();
-       t != advertised_topics_.end(); ++t)
-  {
-    if ((*t)->getName() == topic)
-    {
-      if (m.__getDataType() != ((*t)->getDataType()))
-      {
-        ROS_ERROR("Topic [%s] advertised as [%s], but published as [%s]", topic.c_str(), (*t)->getDataType().c_str(), m.__getDataType().c_str());
-      }
-      else
-      {
-        publish(*t, m);
-      }
-      break;
-    }
-  }
-}
-
 void TopicManager::publish(const PublicationPtr& p, const Message& m)
 {
   p->incrementSequence();

@@ -71,31 +71,6 @@ bool IntraProcessSubscriberLink::isLatching()
   return false;
 }
 
-bool IntraProcessSubscriberLink::publish(const Message& m)
-{
-  if (!verifyDatatype(m.__getDataType()))
-  {
-    return false;
-  }
-
-  uint32_t msg_len = m.serializationLength();
-  boost::shared_array<uint8_t> buf = boost::shared_array<uint8_t>(new uint8_t[msg_len]);
-  *((uint32_t*)buf.get()) = msg_len;
-
-  int seq = 0;
-  if (PublicationPtr parent = parent_.lock())
-  {
-    seq = parent->getSequence();
-  }
-
-  m.serialize(buf.get(), seq);
-
-  ROS_ASSERT(subscriber_);
-  subscriber_->handleMessage(buf, msg_len);
-
-  return true;
-}
-
 void IntraProcessSubscriberLink::enqueueMessage(const SerializedMessage& m)
 {
   ROS_ASSERT(subscriber_);

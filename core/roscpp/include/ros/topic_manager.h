@@ -30,6 +30,7 @@
 
 #include "forwards.h"
 #include "common.h"
+#include "serialization.h"
 #include "rosout_appender.h"
 
 #include "XmlRpcValue.h"
@@ -117,24 +118,22 @@ public:
    */
   size_t getNumPublishers(const std::string &_topic);
 
-  /** @brief Publish a message.
-   *
-   * This method publishes a message on a topic, delivering it to any
-   * currently connected subscribers.  If no subscribers are connected,
-   * this call does nothing.
-   *
-   * You must have already called \ref advertise()
-   * on the topic you are trying to publish to, and the type supplied in
-   * the advertise() call must match the type of the message you are trying
-   * to publish.
-   *
-   * This method can be safely called from within a subscriber connection
-   * callback.
-   *
-   * @param _topic The topic to publish to.
-   * @param msg Message to be published.
-   */
-  void publish(const std::string &_topic, const Message& m);
+  template<typename M>
+  void publish(const std::string& topic, const M& message)
+  {
+    using namespace serialization;
+
+    if (getNumSubscribers(topic) > 0)
+    {
+      SerializedMessage m = serializeMessage(message);
+      publish(topic, m);
+    }
+    else
+    {
+      incrementSequence(topic);
+    }
+  }
+
   void publish(const std::string &_topic, const SerializedMessage& m);
 
   void publish(const PublicationPtr& p, const Message& m);

@@ -1,4 +1,5 @@
 rosbuild_find_ros_package(genmsg_cpp)
+rosbuild_find_ros_package(roscpp)
 
 # Message-generation support.
 macro(genmsg_cpp)
@@ -10,7 +11,7 @@ macro(genmsg_cpp)
   
     rosbuild_gendeps(${PROJECT_NAME} ${_msg})
   
-    set(genmsg_cpp_exe ${genmsg_cpp_PACKAGE_PATH}/genmsg)
+    set(genmsg_cpp_exe ${roscpp_PACKAGE_PATH}/scripts/genmsg_cpp.py)
 
     set(_output_cpp ${PROJECT_SOURCE_DIR}/msg/cpp/${PROJECT_NAME}/${_msg})
     string(REPLACE ".msg" ".h" _output_cpp ${_output_cpp})

@@ -29,6 +29,7 @@
 #define ROSCPP_SERIALIZATION_H
 
 #include "types.h"
+#include "common.h"
 #include "message_traits.h"
 #include "builtin_message_traits.h"
 #include "ros/time.h"
@@ -426,6 +427,20 @@ template<typename T, size_t N>
 inline uint32_t serializationLength(const boost::array<T, N>& t)
 {
   return FixedLengthArraySerializer<T, N>::serializedLength(t);
+}
+
+template<typename M>
+SerializedMessage serializeMessage(const M& message)
+{
+  SerializedMessage m;
+  m.num_bytes = serializationLength(message) + 4;
+  m.buf.reset(new uint8_t[m.num_bytes]);
+
+  Buffer b(m.buf.get(), (uint32_t)m.num_bytes);
+  b = serialize(b, (uint32_t)m.num_bytes - 4);
+  b = serialize(b, message);
+
+  return m;
 }
 
 } // namespace serialization
