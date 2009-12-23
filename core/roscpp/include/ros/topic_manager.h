@@ -123,7 +123,7 @@ public:
   {
     using namespace serialization;
 
-    if (getNumSubscribers(topic) > 0)
+    if (getNumSubscribers(topic) > 0 || isLatched(topic))
     {
       SerializedMessage m = serializeMessage(message);
       publish(topic, m);
@@ -139,6 +139,7 @@ public:
   void publish(const PublicationPtr& p, const Message& m);
 
   void incrementSequence(const std::string &_topic);
+  bool isLatched(const std::string& topic);
 
 private:
   /** if it finds a pre-existing subscription to the same topic and of the

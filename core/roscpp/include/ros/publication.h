@@ -112,6 +112,8 @@ public:
    */
   uint32_t getSequence() { return seq_; }
 
+  bool isLatched() { return latch_; }
+
   /**
    * \brief Adds a publisher to our list
    */

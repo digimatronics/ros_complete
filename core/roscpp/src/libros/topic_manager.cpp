@@ -678,6 +678,17 @@ void TopicManager::incrementSequence(const std::string& topic)
   }
 }
 
+bool TopicManager::isLatched(const std::string& topic)
+{
+  PublicationPtr pub = lookupPublication(topic);
+  if (pub)
+  {
+    return pub->isLatched();
+  }
+
+  return false;
+}
+
 PublicationPtr TopicManager::lookupPublicationWithoutLock(const string &topic)
 {
   PublicationPtr t;

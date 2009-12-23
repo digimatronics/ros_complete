@@ -121,4 +121,14 @@ uint32_t Publisher::getNumSubscribers() const
   return 0;
 }
 
+bool Publisher::isLatched() const
+{
+  if (impl_ && impl_->isValid())
+  {
+    return TopicManager::instance()->isLatched(impl_->topic_);
+  }
+
+  return false;
+}
+
 } // namespace ros

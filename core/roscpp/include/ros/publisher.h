@@ -78,7 +78,7 @@ public:
       return;
     }
 
-    if (getNumSubscribers() > 0)
+    if (getNumSubscribers() > 0 || isLatched())
     {
       SerializedMessage m = serializeMessage(message);
       publish(m);
@@ -110,6 +110,11 @@ public:
    * \brief Returns the number of subscribers that are currently connected to this Publisher
    */
   uint32_t getNumSubscribers() const;
+
+  /**
+   * \brief Returns whether or not this topic is latched
+   */
+  bool isLatched() const;
 
   operator void*() const { return (impl_ && impl_->isValid()) ? (void*)1 : (void*)0; }
 
