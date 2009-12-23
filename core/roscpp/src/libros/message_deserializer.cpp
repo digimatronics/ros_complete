@@ -55,7 +55,7 @@ VoidPtr MessageDeserializer::deserialize()
   if (!buffer_ && num_bytes_ > 0)
   {
     // If the buffer has been reset it means we tried to deserialize and failed
-    return MessagePtr();
+    return VoidPtr();
   }
 
   try

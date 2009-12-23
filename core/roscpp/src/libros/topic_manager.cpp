@@ -630,24 +630,6 @@ bool TopicManager::requestTopic(const string &topic,
   return false;
 }
 
-void TopicManager::publish(const PublicationPtr& p, const Message& m)
-{
-  p->incrementSequence();
-  if (p->hasSubscribers() || p->isLatching())
-  {
-    uint32_t msg_len = m.serializationLength();
-    boost::shared_array<uint8_t> buf = boost::shared_array<uint8_t>(new uint8_t[msg_len + 4]);
-
-    *((uint32_t*)buf.get()) = msg_len;
-    m.serialize(buf.get() + 4, p->getSequence());
-    ROS_DEBUG_NAMED("superdebug", "Publishing message on topic [%s] with sequence number [%d] of length [%d]", p->getName().c_str(), p->getSequence(), msg_len);
-
-    boost::mutex::scoped_lock lock(publish_queue_mutex_);
-    publish_queue_.push_back(std::make_pair(p, SerializedMessage(buf, msg_len + 4)));
-    poll_manager_->getPollSet().signal();
-  }
-}
-
 void TopicManager::publish(const std::string& topic, const SerializedMessage& m)
 {
   boost::recursive_mutex::scoped_lock lock(advertised_topics_mutex_);

@@ -595,7 +595,6 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
 
   uint32_t drops = 0;
 
-  MessagePtr msg;
   MessageDeserializerPtr deserializer;
 
   for (V_CallbackInfo::iterator cb = callbacks_.begin();

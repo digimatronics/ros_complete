@@ -136,8 +136,6 @@ public:
 
   void publish(const std::string &_topic, const SerializedMessage& m);
 
-  void publish(const PublicationPtr& p, const Message& m);
-
   void incrementSequence(const std::string &_topic);
   bool isLatched(const std::string& topic);
 
