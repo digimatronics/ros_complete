@@ -57,7 +57,7 @@ MSG_TYPE_TO_CPP = {'byte': 'int8_t', 'char': 'uint8_t',
                    'uint64': 'uint64_t', 'int64': 'int64_t',
                    'float32': 'float',
                    'float64': 'double',
-                   'string': 'std::string',
+                   'string': 'std::basic_string<char, std::char_traits<char>, Allocator<char> > ',
                    'time': 'ros::Time',
                    'duration': 'ros::Duration'}
 
@@ -68,19 +68,19 @@ def msg_type_to_cpp(type):
         cpp_type = MSG_TYPE_TO_CPP[base_type]
     elif (len(base_type.split('/')) == 1):
         if (roslib.msgs.is_header_type(base_type)):
-            cpp_type = "roslib::Header"
+            cpp_type = "roslib::Header_<Allocator> "
         else:
-            cpp_type = base_type
+            cpp_type = '%s_<Allocator> '%(base_type)
     else:
         pkg = base_type.split('/')[0]
         msg = base_type.split('/')[1]
-        cpp_type = '%s::%s'%(pkg, msg)
+        cpp_type = '%s::%s_<Allocator> '%(pkg, msg)
         
     if (is_array):
         if (array_len is None):
-            return 'std::vector<%s>'%(cpp_type)
+            return 'std::vector<%s, Allocator<%s> > '%(cpp_type, cpp_type)
         else:
-            return 'boost::array<%s, %s>'%(cpp_type, array_len)
+            return 'boost::array<%s, %s> '%(cpp_type, array_len)
     else:
         return cpp_type
 
@@ -115,7 +115,8 @@ def write_includes(s, spec, package):
     s.write('\n') 
     
 def write_struct(s, spec, pkg, msg, cpp_name_prefix):
-    s.write('struct %s : public ros::Message\n{\n'%(msg))
+    s.write('template <template <typename T> class Allocator>\n')
+    s.write('struct %s_ : public ros::Message\n{\n'%(msg))
     
     write_constructor(s, msg, spec)
     write_members(s, spec)
@@ -123,11 +124,13 @@ def write_struct(s, spec, pkg, msg, cpp_name_prefix):
     write_deprecated_member_functions(s, spec, pkg, msg)
     
     cpp_msg = '%s%s'%(cpp_name_prefix, msg)
-    s.write('  typedef boost::shared_ptr<%s> Ptr;\n'%(cpp_msg))
-    s.write('  typedef boost::shared_ptr<%s const> ConstPtr;\n'%(cpp_msg))
+    s.write('  typedef boost::shared_ptr<%s_<Allocator> > Ptr;\n'%(cpp_msg))
+    s.write('  typedef boost::shared_ptr<%s_<Allocator> const> ConstPtr;\n'%(cpp_msg))
     s.write('}; // struct %s\n'%(msg))
+    
+    s.write('typedef %s_<std::allocator> %s;\n\n'%(cpp_msg, msg))
     s.write('typedef boost::shared_ptr<%s> %sPtr;\n'%(cpp_msg, msg))
-    s.write('typedef boost::shared_ptr<%s const> %sConstPtr;\n'%(cpp_msg, msg))
+    s.write('typedef boost::shared_ptr<%s const> %sConstPtr;\n\n'%(cpp_msg, msg))
 
 def default_value(type):
     if type in ['byte', 'int8', 'int16', 'int32', 'int64',
@@ -141,7 +144,7 @@ def default_value(type):
     return ""
 
 def write_constructor(s, msg, spec):
-    s.write('  %s()\n'%(msg))
+    s.write('  %s_()\n'%(msg))
     
     fields = spec.fields()
     i = 0

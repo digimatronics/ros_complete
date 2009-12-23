@@ -30,10 +30,18 @@
 
 #include "message.h"
 
-namespace roslib
-{
-struct Header;
-}
+#define ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, alloc) \
+  namespace ns \
+  { \
+    template<template <typename T> class Allocator > struct msg##_; \
+    typedef msg##_<alloc> msg; \
+    typedef boost::shared_ptr<msg> msg##Ptr; \
+    typedef boost::shared_ptr<msg const> msg##ConstPtr; \
+  }
+
+#define ROSCPP_FORWARD_DECLARE_MESSAGE(ns, msg) ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, std::allocator)
+
+ROSCPP_FORWARD_DECLARE_MESSAGE(roslib, Header);
 
 namespace ros
 {
