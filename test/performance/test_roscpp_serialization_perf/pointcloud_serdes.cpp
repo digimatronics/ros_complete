@@ -36,6 +36,8 @@
 #include <cstdlib>
 #include <cstdio>
 
+using namespace ros::serialization;
+
 ros::Time t;
 
 inline void tic()
@@ -50,38 +52,35 @@ inline double toc()
 
 int main(int, char **)
 {
-  test_roscpp_serialization_perf::PointCloud pc, pc2;
-  static const int NUM_PTS = 1000000;
+  test_roscpp_serialization_perf::PointCloud pc;
+
+  const int NUM_ITER = 100;
+  const int NUM_PTS = 1000000;
   pc.pts.resize(NUM_PTS);
   pc.chan.resize(2);
   pc.chan[0].vals.resize(NUM_PTS);
   pc.chan[1].vals.resize(NUM_PTS);
-  // populate it with garbage
-  for (int i = 0; i < NUM_PTS; i++)
+
+  ros::SerializedMessage m;
+  m.num_bytes = serializationLength(pc);
+  m.buf.reset(new uint8_t[m.num_bytes]);
+
+  tic();
+  for (int i = 0; i < NUM_ITER; ++i)
   {
-    pc.pts[i].x = rand();
-    pc.pts[i].y = rand();
-    pc.pts[i].z = rand();
-    pc.chan[0].vals[i] = rand();
-    pc.chan[1].vals[i] = rand();
+    Buffer b(m.buf.get(), m.num_bytes);
+    serialize(b, pc);
   }
-
-  ros::Time t_start(ros::Time::now());
-  uint8_t *ser_buf = new uint8_t[pc.serializationLength()];
-  tic();
-  pc.serialize(ser_buf,0);
-  printf("serialization took %.6f sec\n", toc());
+  printf("avg serialization took %.6f sec\n", toc() / (double)NUM_ITER);
 
   tic();
-  pc2.deserialize(ser_buf);
-  printf("first deserization took %.6f sec\n", toc());
-  const int NUM_ITER = 100;
   for (int i = 0; i < NUM_ITER; i++)
-    pc2.deserialize(ser_buf);
-
+  {
+    test_roscpp_serialization_perf::PointCloud pc2;
+    deserializeMessage(m, pc2);
+  }
   printf("avg deserization time %.6f sec\n", toc() / (double)NUM_ITER);
 
-  delete[] ser_buf;
   return 0;
 }
 
