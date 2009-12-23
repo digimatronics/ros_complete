@@ -63,7 +63,8 @@ def write_generic_includes(s):
     s.write('#include "ros/service_traits.h"\n\n')
     
 def write_traits(s, spec, pkg, msg, cpp_name_prefix):
-    md5sum = "TODO FIX"
+    gendeps_dict = roslib.gentools.get_dependencies(spec, pkg)
+    md5sum = roslib.gentools.compute_md5(gendeps_dict)
     datatype = '%s/%s'%(pkg, msg)
     
     cpp_msg = '%s%s'%(cpp_name_prefix, msg)

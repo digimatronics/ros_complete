@@ -214,6 +214,16 @@ def is_fixed_length(spec, package):
     return True
     
 def write_deprecated_member_functions(s, spec, pkg, msg):
+    fields = spec.fields()
+    for (type, name) in fields:
+        (base_type, is_array, array_len) = roslib.msgs.parse_type(type)
+        if (is_array):
+            s.write('  ROSCPP_DEPRECATED uint32_t get_%s_size() const { return (uint32_t)%s.size(); }\n'%(name, name))
+            
+            if (array_len is None):
+                s.write('  ROSCPP_DEPRECATED void set_%s_size(uint32_t size) { %s.resize((size_t)size); }\n'%(name, name))
+                s.write('  ROSCPP_DEPRECATED void get_%s_vec(%s& vec) const { vec = this->%s; }\n'%(name, msg_type_to_cpp(type), name))
+                s.write('  ROSCPP_DEPRECATED void set_%s_vec(const %s& vec) { this->%s = vec; }\n'%(name, msg_type_to_cpp(type), name))
     # duplicate these here so we don't have to forward declare all the message traits
     gendeps_dict = roslib.gentools.get_dependencies(spec, pkg, compute_files=False)
     md5sum = roslib.gentools.compute_md5(gendeps_dict)
