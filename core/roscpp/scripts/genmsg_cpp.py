@@ -241,13 +241,13 @@ def write_deprecated_member_functions(s, spec, pkg, msg):
     s.write('    ros::serialization::Buffer buffer(write_ptr, 1000000000);\n')
     for (type, name) in fields:
         s.write('    buffer = ros::serialization::serialize(buffer, %s);\n'%(name))
-    s.write('    return buffer.data;\n  }\n\n')
+    s.write('    return buffer.getData();\n  }\n\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint8_t *deserialize(uint8_t *read_ptr)\n  {\n')
     s.write('    ros::serialization::Buffer buffer(read_ptr, 1000000000);\n');
     for (type, name) in fields:
         s.write('    buffer = ros::serialization::deserialize(buffer, %s);\n'%(name))
-    s.write('    return buffer.data;\n  }\n\n')
+    s.write('    return buffer.getData();\n  }\n\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint32_t serializationLength() const\n  {\n')
     s.write('    uint32_t size = 0;\n');

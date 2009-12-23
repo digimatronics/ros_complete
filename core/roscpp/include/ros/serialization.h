@@ -50,17 +50,22 @@ namespace mpl = boost::mpl;
 
 struct Buffer
 {
-  Buffer()
-  : data(0)
-  , count(0)
+  Buffer(uint8_t* _data, uint32_t _count)
+  : data_(_data)
+  , end_(_data + _count)
   {}
 
-  Buffer(uint8_t* _data, uint32_t _count)
-  : data(_data)
-  , count(_count)
-  {}
-  uint8_t* data;
-  uint32_t count;
+  inline uint8_t* getData() { return data_; }
+  inline uint8_t* advance(uint32_t len)
+  {
+    uint8_t* old_data = data_;
+    data_ += len;
+    return old_data;
+  }
+
+private:
+  uint8_t* data_;
+  uint8_t* end_;
 };
 
 template<typename T>
@@ -68,14 +73,14 @@ struct Serializer
 {
   inline static Buffer write(Buffer buffer, typename boost::call_traits<T>::param_type t)
   {
-    t.serialize(buffer.data, 0);
+    t.serialize(buffer.getData(), 0);
 
     return Buffer();
   }
 
   inline static Buffer read(Buffer buffer, typename boost::call_traits<T>::reference t)
   {
-    t.deserialize(buffer.data);
+    t.deserialize(buffer.getData());
 
     return Buffer();
   }
@@ -109,17 +114,13 @@ inline uint32_t serializationLength(const T& t)
   { \
     inline static Buffer write(Buffer buffer, const Type v) \
     { \
-      *reinterpret_cast<Type*>(buffer.data) = v; \
-      buffer.data += sizeof(v); \
-      buffer.count -= sizeof(v); \
+      *reinterpret_cast<Type*>(buffer.advance(sizeof(v))) = v; \
       return buffer; \
     } \
     \
     inline static Buffer read(Buffer buffer, Type& v) \
     { \
-      v = *reinterpret_cast<Type*>(buffer.data); \
-      buffer.data += sizeof(v); \
-      buffer.count -= sizeof(v); \
+      v = *reinterpret_cast<Type*>(buffer.advance(sizeof(v))); \
       return buffer; \
     } \
     \
@@ -148,9 +149,11 @@ struct Serializer<std::string>
   {
     size_t len = str.size();
     buffer = serialize<uint32_t>(buffer, (uint32_t)len);
-    memcpy(buffer.data, str.data(), len);
-    buffer.data += len;
-    buffer.count -= len;
+
+    if (len > 0)
+    {
+      memcpy(buffer.advance(len), str.data(), len);
+    }
     return buffer;
   }
 
@@ -158,9 +161,14 @@ struct Serializer<std::string>
   {
     uint32_t len;
     buffer = deserialize(buffer, len);
-    str = std::string((char*)buffer.data, len);
-    buffer.data += len;
-    buffer.count -= len;
+    if (len > 0)
+    {
+      str = std::string((char*)buffer.advance(len), len);
+    }
+    else
+    {
+      str.clear();
+    }
     return buffer;
   }
 
@@ -285,9 +293,7 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt:
     if (!v.empty())
     {
       const uint32_t data_len = len * sizeof(T);
-      memcpy(buffer.data, &v.front(), data_len);
-      buffer.data += data_len;
-      buffer.count -= data_len;
+      memcpy(buffer.advance(data_len), &v.front(), data_len);
     }
 
     return buffer;
@@ -302,9 +308,7 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt:
     if (len > 0)
     {
       const uint32_t data_len = sizeof(T) * len;
-      memcpy(&v.front(), buffer.data, data_len);
-      buffer.data += data_len;
-      buffer.count -= data_len;
+      memcpy(&v.front(), buffer.advance(data_len), data_len);
     }
 
     return buffer;
@@ -438,9 +442,7 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T
   inline static Buffer write(Buffer buffer, const ArrayType& v)
   {
     const uint32_t data_len = N * sizeof(T);
-    memcpy(buffer.data, &v.front(), data_len);
-    buffer.data += data_len;
-    buffer.count -= data_len;
+    memcpy(buffer.advance(data_len), &v.front(), data_len);
 
     return buffer;
   }
@@ -448,9 +450,7 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T
   inline static Buffer read(Buffer buffer, ArrayType& v)
   {
     const uint32_t data_len = N * sizeof(T);
-    memcpy(&v.front(), buffer.data, data_len);
-    buffer.data += data_len;
-    buffer.count -= data_len;
+    memcpy(&v.front(), buffer.advance(data_len), data_len);
 
     return buffer;
   }
@@ -516,7 +516,7 @@ inline uint32_t serializationLength(const boost::array<T, N>& t)
 }
 
 template<typename M>
-SerializedMessage serializeMessage(const M& message)
+inline SerializedMessage serializeMessage(const M& message)
 {
   SerializedMessage m;
   m.num_bytes = serializationLength(message) + 4;
@@ -530,7 +530,7 @@ SerializedMessage serializeMessage(const M& message)
 }
 
 template<typename M>
-SerializedMessage serializeServiceResponse(bool ok, const M& message)
+inline SerializedMessage serializeServiceResponse(bool ok, const M& message)
 {
   SerializedMessage m;
 
@@ -557,10 +557,18 @@ SerializedMessage serializeServiceResponse(bool ok, const M& message)
 }
 
 template<typename M>
-void deserializeMessage(const SerializedMessage& m, M& message)
+inline void deserializeMessage(const SerializedMessage& m, M& message, bool includes_length = false)
 {
-  Buffer b(m.buf.get(), m.num_bytes);
-  deserialize(b, message);
+  if (includes_length)
+  {
+    Buffer b(m.buf.get() + 4, m.num_bytes - 4);
+    deserialize(b, message);
+  }
+  else
+  {
+    Buffer b(m.buf.get(), m.num_bytes);
+    deserialize(b, message);
+  }
 }
 
 } // namespace serialization
