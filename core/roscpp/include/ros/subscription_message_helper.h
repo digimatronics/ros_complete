@@ -51,15 +51,6 @@ public:
   virtual ~SubscriptionMessageHelper() {}
   virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header) = 0;
 
-  /**
-   * \brief Returns the md5sum of this message
-   */
-  virtual std::string getMD5Sum() = 0;
-  /**
-   * \brief Returns the datatype of this message
-   */
-  virtual std::string getDataType() = 0;
-
   virtual void call(const VoidPtr& msg) = 0;
 };
 typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;

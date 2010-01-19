@@ -628,11 +628,11 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
   return drops;
 }
 
-bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, CallbackQueueInterface* queue, int32_t queue_size, const VoidPtr& tracked_object)
+bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidPtr& tracked_object)
 {
   ROS_ASSERT(helper);
   ROS_ASSERT(queue);
-  if (helper->getMD5Sum() != md5sum())
+  if (md5sum != this->md5sum())
   {
     return false;
   }

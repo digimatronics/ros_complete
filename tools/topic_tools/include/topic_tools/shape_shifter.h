@@ -108,36 +108,6 @@ public:
   }
   
 };
-
-
-  class ShapeShifterSubscriptionMessageHelper : public ros::SubscriptionMessageHelper
-  {
-  public:
-    typedef boost::shared_ptr<ShapeShifter> MPtr;
-    typedef boost::function<void (const MPtr&)> Callback;
-    ShapeShifterSubscriptionMessageHelper(const Callback& callback)
-      : callback_(callback)
-    {}
-    
-    virtual ros::MessagePtr create()
-    {
-      typedef boost::remove_const<ShapeShifter>::type NonConstType;
-      NonConstType* msg = new NonConstType;
-      return ros::MessagePtr(msg);
-    }
-    
-    virtual void call(const ros::MessagePtr& msg)
-    {
-      MPtr casted_msg = boost::static_pointer_cast<ShapeShifter>(msg);
-      callback_(casted_msg);
-    }
-    
-    virtual std::string getMD5Sum() { return "*"; }
-    virtual std::string getDataType() { return "*"; }
-    
-  private:
-    Callback callback_;
-  };
   
 }
 
@@ -152,7 +122,7 @@ void SubscribeOptions::init<topic_tools::ShapeShifter>(const std::string& _topic
   queue_size = _queue_size;
   md5sum = "*";
   datatype = "*";
-  helper = SubscriptionMessageHelperPtr(new topic_tools::ShapeShifterSubscriptionMessageHelper(_callback));
+  helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<topic_tools::ShapeShifter>(_callback));
 }
 
 }

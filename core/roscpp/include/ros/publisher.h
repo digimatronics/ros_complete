@@ -60,10 +60,11 @@ public:
    *
    */
   template<typename M>
-  void publish(const boost::shared_ptr<M const>& message) const
+  void publish(const boost::shared_ptr<M>& message) const
   {
     publish(*message);
   }
+
   /**
    * \brief Publish a message on the topic associated with this Publisher.
    */

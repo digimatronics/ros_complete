@@ -75,14 +75,14 @@ struct Serializer
   {
     t.serialize(buffer.getData(), 0);
 
-    return Buffer();
+    return Buffer(0, 0);
   }
 
   inline static Buffer read(Buffer buffer, typename boost::call_traits<T>::reference t)
   {
     t.deserialize(buffer.getData());
 
-    return Buffer();
+    return Buffer(0, 0);
   }
 
   inline static uint32_t serializedLength(const T& t)

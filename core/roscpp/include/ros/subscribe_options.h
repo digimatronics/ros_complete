@@ -56,23 +56,6 @@ struct SubscribeOptions
    * \param _queue_size Number of incoming messages to queue up for
    *        processing (messages in excess of this queue capacity will be
    *        discarded).
-   * \param _helper Helper object used to get create messages and call callbacks
-   */
-  SubscribeOptions(const std::string& _topic, uint32_t _queue_size, const SubscriptionMessageHelperPtr& _helper)
-  : topic(_topic)
-  , queue_size(_queue_size)
-  , md5sum(_helper->getMD5Sum())
-  , datatype(_helper->getDataType())
-  , helper(_helper)
-  , callback_queue(0)
-  {}
-
-  /**
-   * \brief Constructor
-   * \param _topic Topic to subscribe on
-   * \param _queue_size Number of incoming messages to queue up for
-   *        processing (messages in excess of this queue capacity will be
-   *        discarded).
    * \param _md5sum
    * \param _datatype
    */

@@ -95,7 +95,7 @@ public:
   XmlRpc::XmlRpcValue getStats();
   void getInfo(XmlRpc::XmlRpcValue& info);
 
-  bool addCallback(const SubscriptionMessageHelperPtr& helper, CallbackQueueInterface* queue, int32_t queue_size, const VoidPtr& tracked_object);
+  bool addCallback(const SubscriptionMessageHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidPtr& tracked_object);
   void removeCallback(const SubscriptionMessageHelperPtr& helper);
 
   typedef std::map<std::string, std::string> M_string;

@@ -184,7 +184,8 @@ def write_constant(s, constant):
     if not constant.type in ['byte', 'int8', 'int16', 'int32', 'int64',
                 'char', 'uint8', 'uint16', 'uint32', 'uint64',
                 'float32', 'float64']:
-        raise ValueError('%s not supported as a constant'%(constant.type))
+        #raise ValueError('%s not supported as a constant'%(constant.type))
+        return # TODO: strings
     
     s.write('  static const %s %s = %s;\n'%(msg_type_to_cpp(constant.type), constant.name, constant.val))
         
@@ -210,6 +211,7 @@ def is_fixed_length(spec, package):
     for type in types:
         (pkg, name) = roslib.names.package_resource_name(type)
         pkg = pkg or package # convert '' to package
+        type = roslib.msgs.resolve_type(type, pkg)
         (_, new_spec) = roslib.msgs.load_by_type(type, pkg)
         if (not is_fixed_length(new_spec, pkg)):
             return False

@@ -28,6 +28,8 @@
 #ifndef ROSCPP_MESSAGE_TRAITS_H
 #define ROSCPP_MESSAGE_TRAITS_H
 
+#include "ros/assert.h"
+
 #define ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, alloc) \
   namespace ns \
   { \
@@ -68,10 +70,24 @@ inline const char* md5sum()
   return M::__s_getMD5Sum().c_str();
 }
 
+template<template <template <typename T> class Allocator> class M>
+inline const char* md5sum()
+{
+  ROS_BREAK();
+  return 0;
+}
+
 template<typename M>
 inline const char* datatype()
 {
   return M::__s_getDataType().c_str();
+}
+
+template<template <template <typename T> class Allocator> class M>
+inline const char* datatype()
+{
+  ROS_BREAK();
+  return 0;
 }
 
 template<typename M>
@@ -80,10 +96,23 @@ inline const char* definition()
   return M::__s_getMessageDefinition().c_str();
 }
 
+template<template <template <typename T> class Allocator> class M>
+inline const char* definition()
+{
+  ROS_BREAK();
+  return 0;
+}
+
 template<typename M>
 inline const char* md5sum(const M&)
 {
   return md5sum<M>();
+}
+
+template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator >
+inline const char* md5sum(const M<Allocator>&)
+{
+  return md5sum<M<Allocator> >();
 }
 
 template<typename M>
@@ -92,16 +121,28 @@ inline const char* datatype(const M&)
   return datatype<M>();
 }
 
+template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator>
+inline const char* datatype(const M<Allocator>&)
+{
+  return datatype<M<Allocator> >();
+}
+
 template<typename M>
 inline const char* definition(const M&)
 {
   return definition<M>();
 }
 
+template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator>
+inline const char* definition(const M<Allocator>&)
+{
+  return definition<M<Allocator> >();
+}
+
 template<typename M>
 inline roslib::Header* getHeader(M& msg)
 {
-  return 0;
+  return &msg.header;
 }
 
 template<typename M>

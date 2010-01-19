@@ -230,7 +230,7 @@ bool TopicManager::addSubCallback(const SubscribeOptions& ops)
       sub = *s;
       if (!sub->isDropped() && sub->getName() == ops.topic)
       {
-        if (sub->md5sum() == ops.helper->getMD5Sum())
+        if (sub->md5sum() == ops.md5sum)
         {
           found = true;
           break;
@@ -241,7 +241,7 @@ bool TopicManager::addSubCallback(const SubscribeOptions& ops)
 
   if (found)
   {
-    if (!sub->addCallback(ops.helper, ops.callback_queue, ops.queue_size, ops.tracked_object))
+    if (!sub->addCallback(ops.helper, ops.md5sum, ops.callback_queue, ops.queue_size, ops.tracked_object))
     {
       return false;
     }
@@ -265,11 +265,11 @@ bool TopicManager::subscribe(const SubscribeOptions& ops)
     return false;
   }
 
-  std::string md5sum = ops.helper->getMD5Sum();
-  std::string datatype = ops.helper->getDataType();
+  const std::string& md5sum = ops.md5sum;
+  std::string datatype = ops.datatype;
 
   SubscriptionPtr s(new Subscription(ops.topic, md5sum, datatype, ops.transport_hints));
-  s->addCallback(ops.helper, ops.callback_queue, ops.queue_size, ops.tracked_object);
+  s->addCallback(ops.helper, ops.md5sum, ops.callback_queue, ops.queue_size, ops.tracked_object);
 
   if (!registerSubscriber(s, ops.datatype))
   {

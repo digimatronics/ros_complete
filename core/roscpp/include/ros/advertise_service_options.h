@@ -47,21 +47,6 @@ struct AdvertiseServiceOptions
   }
 
   /**
-   * \brief Constructor
-   * \param _service Service name to advertise on
-   * \param _helper Helper object used for creating messages and calling callbacks
-   */
-  AdvertiseServiceOptions(const std::string& _service, const ServiceMessageHelperPtr& _helper)
-  : service(_service)
-  , md5sum(_helper->getMD5Sum())
-  , datatype(_helper->getDataType())
-  , req_datatype(_helper->getRequestDataType())
-  , res_datatype(_helper->getResponseDataType())
-  , helper(_helper)
-  , callback_queue(0)
-  {}
-
-  /**
    * \brief Templated convenience method for filling out md5sum/etc. based on the service request/response types
    * \param _service Service name to advertise on
    * \param _callback Callback to call when this service is called
