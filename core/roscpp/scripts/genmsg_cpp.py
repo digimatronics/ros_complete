@@ -373,3 +373,4 @@ def generate_messages(argv):
 if __name__ == "__main__":
     roslib.msgs.set_verbose(False)
     generate_messages(sys.argv)
+
