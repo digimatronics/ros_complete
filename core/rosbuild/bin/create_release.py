@@ -20,35 +20,38 @@ class ReleaseException(Exception): pass
 
 def load_sys_args():
     """
-    @return: name, version, distro_file
-    @rtype: (str, str, str)
+    @return: name, version, distro_file, distro_name
+    @rtype: (str, str, str, str)
     """
     from optparse import OptionParser
-    parser = OptionParser(usage="usage: %prog stack-or-app version distro.yaml", prog=NAME)
+    parser = OptionParser(usage="usage: %prog <stack> <version> <distro-file> <distro-name>", prog=NAME)
     options, args = parser.parse_args()
-    if len(args) != 3:
-        parser.error("you must specify a stack or app name, version, and the location of the distro.yaml for this release")
-    name, version, distro_file = args
+    if len(args) != 4:
+        parser.error("""You must specify: 
+ * stack name (e.g. common_msgs)
+ * version (e.g. 1.0.1)
+ * distro file (e.g. rosdistro.yaml)
+ * distro name (e.g. latest, babybox)""")
+    name, version, distro_file, distro_name = args
     if not os.path.isfile(distro_file):
         parser.error("[%s] does not appear to be a valid file"%distro_file)
-    return name, version, distro_file        
+    return name, version, distro_file, distro_name
 
 def load_and_validate_properties():
     """
     @return: name, version, distro_file, source_dir, distro, release_props
     @rtype: (str, str, str, str, str, dict)
     """
-    name, version, distro_file = load_sys_args()
+    name, version, distro_file, distro = load_sys_args()
     # for now, we only work with stacks
-    source_dir = roslib.stacks.get_stack_dir(name)
-    if not source_dir:
-            #TODO: check for app instead
+    try:
+        source_dir = roslib.stacks.get_stack_dir(name)
+    except:
         raise ReleaseException("cannot locate stack [%s]"%name)
 
     check_svn_status(source_dir)
     
     # figure out what we're releasing against
-    distro = get_active_distro()
     print "Distribution target is [%s]"%distro
 
     release_props = load_release_props(name, distro, distro_file, source_dir)
@@ -74,7 +77,7 @@ def main():
             dist = make_dist(name, version, distro, source_dir, release_props)
 
         if 1:
-            tag_url = tag_subversion(name, version, distro, release_props)
+            tag_urls = tag_subversion(name, version, distro, release_props)
 
         if 1:
             update_rosdistro_yaml(name, version, distro, distro_file)
@@ -120,36 +123,30 @@ def update_rosdistro_yaml(name, version, distro, distro_file):
     print "Writing new release properties to [%s]"%distro_file
     with open(distro_file, 'w') as f:
         f.write(yaml.safe_dump(distro_d))
-    
+
 def tag_subversion(name, version, distro, release_props):
-    # TODO: delete the old URL first?
-
-    from_url = expand_uri(release_props['dev-svn'], name, version, distro, \
-                             release_props['os_name'], release_props['os_ver'])
-    tag_url = expand_uri(release_props['release-svn'], name, version, distro, \
-                             release_props['os_name'], release_props['os_ver'])
+    urls = []
+    for k in ['release-svn', 'distro-svn']:
+        from_url = expand_uri(release_props['dev-svn'], name, version, distro, \
+                                  release_props['os_name'], release_props['os_ver'])
+        tag_url = expand_uri(release_props[k], name, version, distro, \
+                                 release_props['os_name'], release_props['os_ver'])
         
-    release_name = "%s-%s"%(name, version)
+        release_name = "%s-%s"%(name, version)
 
-    cmds = []
-    append_rm_if_exists(tag_url, cmds, 'Deleting old tag')
-    cmds.append(['svn', 'cp', '--parents', '-m', 'Tagging %s release'%release_name, from_url, tag_url])
-    if not ask_and_call(cmds):    
-        print "create_release will not tag this release in subversion"
-    return tag_url
+        cmds = []
+        # delete old svn tag if it's present
+        # - note: 'new release' is magic svn hook key
+        append_rm_if_exists(tag_url, cmds, 'Making room for new release')
+        # svn cp command to create new tag
+        # - note: 'new release' is magic svn hook key        
+        cmds.append(['svn', 'cp', '--parents', '-m', 'Tagging %s new release'%release_name, from_url, tag_url])
+        if not ask_and_call(cmds):    
+            print "create_release will not create this tag in subversion"
+        else:
+            urls.append(tag_url)
+    return urls
         
-def get_active_distro():
-    from subprocess import Popen, PIPE
-    try:
-        output = Popen(['rosdistro', 'active'], stdout=PIPE, stderr=PIPE).communicate()
-    except:
-        output = [None]
-
-    if not output[0]:
-        return 'latest'
-    else:
-        return output[0].strip()
-    
 def load_release_props(name, distro, distro_file, stack_dir):
     print "Loading uri rules from %s"%distro_file
     if not os.path.isfile(distro_file):

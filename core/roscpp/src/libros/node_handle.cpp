@@ -203,6 +203,12 @@ std::string NodeHandle::remapName(const std::string& name) const
 
 std::string NodeHandle::resolveName(const std::string& name, bool remap) const
 {
+  std::string error;
+  if (!names::validate(name, error))
+  {
+    throw InvalidNameException(error);
+  }
+
   if (name.empty())
   {
     return namespace_;
@@ -551,34 +557,6 @@ bool NodeHandle::getParamCached(const std::string &key, bool &b) const
 {
   return param::getCached(resolveName(key), b);
 }
-
-////////////////////////////////////////////////////////////////////////////
-// Deprecated caching versions of getParam()
-bool NodeHandle::getParam(const std::string &key, XmlRpc::XmlRpcValue &v, bool use_cache) const
-{
-  return param::getCached(resolveName(key), v);
-}
-
-bool NodeHandle::getParam(const std::string &key, std::string &s, bool use_cache) const
-{
-  return param::getCached(resolveName(key), s);
-}
-
-bool NodeHandle::getParam(const std::string &key, double &d, bool use_cache) const
-{
-  return param::getCached(resolveName(key), d);
-}
-
-bool NodeHandle::getParam(const std::string &key, int &i, bool use_cache) const
-{
-  return param::getCached(resolveName(key), i);
-}
-
-bool NodeHandle::getParam(const std::string &key, bool &b, bool use_cache) const
-{
-  return param::getCached(resolveName(key), b);
-}
-////////////////////////////////////////////////////////////////////////////
 
 bool NodeHandle::searchParam(const std::string &key, std::string& result_out) const
 {

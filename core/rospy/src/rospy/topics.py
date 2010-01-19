@@ -71,7 +71,7 @@ import roslib.message
 
 from rospy.core import *
 from rospy.exceptions import ROSSerializationException, TransportTerminated
-from rospy.msg import serialize_message
+from rospy.msg import serialize_message, args_kwds_to_message
 from rospy.registration import get_topic_manager, set_topic_manager, Registration, get_registration_listeners
 from rospy.tcpros import get_tcpros_handler, DEFAULT_BUFF_SIZE
 from rospy.transport import DeadTransport
@@ -80,39 +80,6 @@ _logger = logging.getLogger('rospy.topics')
 
 # wrap roslib implementation and map it to rospy namespace
 Message = roslib.message.Message
-
-class AnyMsg(roslib.message.Message):
-    """
-    Message class to use for subscribing to any topic regardless
-    of type. Incoming messages are not deserialized. Instead, the raw
-    serialized data can be accssed via the buff property.
-
-    This class is meant to be used by advanced users only.
-    """
-    _md5sum = rospy.names.TOPIC_ANYTYPE
-    _type = rospy.names.TOPIC_ANYTYPE
-    _has_header = False
-    _full_text = ''
-    __slots__ = ['_buff']
-    def __init__(self, *args):
-        """
-        Constructor. Does not accept any arguments.
-        """
-        if len(args) != 0:
-            raise rospy.exceptions.ROSException("AnyMsg does not accept arguments")
-        self._buff = None
-
-    def serialize(self, buff):
-        """AnyMsg provides an implementation so that a node can forward messages w/o (de)serialization"""
-        if self._buff is None:
-            raise rospy.exceptions("AnyMsg is not initialized")
-        else:
-            buff.write(self._buff)
-            
-    def deserialize(self, str):
-        """Copies raw buffer into self._buff"""
-        self._buff = str
-        return self
 
 #######################################################################
 # Base classes for all client-API instantiated pub/sub
@@ -136,13 +103,19 @@ class Topic(object):
         """
         
         if not name or not isinstance(name, basestring):
-            raise ValueError("topic parameter 'name' is not a non-empty string")
+            raise ValueError("topic name is not a non-empty string")
+        if isinstance(name, unicode):
+            raise ValueError("topic name cannot be unicode")
         if data_class is None:
             raise ValueError("topic parameter 'data_class' is not initialized")
         if not type(data_class) == type:
             raise ValueError("data_class [%s] is not a class"%data_class) 
         if not issubclass(data_class, roslib.message.Message):
             raise ValueError("data_class [%s] is not a message data class"%data_class.__class__.__name__)
+        # #2202
+        if not roslib.names.is_legal_name(name):
+            import warnings
+            warnings.warn("'%s' is not a legal ROS graph resource name. This may cause problems with other ROS tools"%name, stacklevel=2)
         
         # this is a bit ugly, but necessary due to the fact that we allow
         # topics and services to be initialized before the node
@@ -685,7 +658,7 @@ class Publisher(Topic):
             raise ROSException("publish() to an unregistered() handle")
         if not is_initialized():
             raise ROSException("ROS node has not been initialized yet. Please call init_node() first")
-        data = _args_kwds_to_message(self.data_class, args, kwds)
+        data = args_kwds_to_message(self.data_class, args, kwds)
         try:
             self.impl.acquire()
             self.impl.publish(data)
@@ -696,19 +669,6 @@ class Publisher(Topic):
             raise ROSSerializationException(str(e))
         finally:
             self.impl.release()            
-
-def _args_kwds_to_message(data_class, args, kwds):
-    if args and kwds:
-        raise TypeError("publish() can be called with arguments or keywords, but not both.")
-    elif kwds:
-        return data_class(**kwds)
-    else:
-        if len(args) == 1 and (
-            isinstance(args[0], data_class) or
-            isinstance(args[0], AnyMsg)):
-            return args[0]
-        else:
-            return data_class(*args)
 
 class _PublisherImpl(_TopicImpl):
     """
@@ -790,11 +750,13 @@ class _PublisherImpl(_TopicImpl):
         
     def acquire(self):
         """lock for thread-safe publishing to this transport"""
-        self.publock.acquire()
+        if self.publock is not None:
+            self.publock.acquire()
         
     def release(self):
         """lock for thread-safe publishing to this transport"""
-        self.publock.release()
+        if self.publock is not None:
+            self.publock.release()
         
     def add_connection(self, c):
         """
@@ -841,10 +803,16 @@ class _PublisherImpl(_TopicImpl):
         @return: True if the data was published, False otherwise.
         @rtype: bool
         @raise roslib.message.SerializationError: if L{Message} instance is unable to serialize itself
-        @raise roslib.message.SerializationError: if L{Message} instance is unable to serialize itself
+        @raise rospy.ROSException: if topic has been closed
         """
         if self.closed:
-            raise ROSException("publish() to a closed topic")
+            # during shutdown, the topic can get closed, which creates
+            # a race condition with user code testing is_shutdown
+            if not is_shutdown():
+                raise ROSException("publish() to a closed topic")
+            else:
+                return
+            
         if self.is_latch:
             self.latch = message
 

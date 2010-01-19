@@ -86,6 +86,29 @@ def base_msg_type(type_):
         return type_[:type_.find('[')]
     return type_
 
+def resolve_type(type_, package_context):
+    """
+    Resolve type name based on current package context.
+
+    NOTE: in ROS, 'Header' always resolves to 'roslib/Header'
+
+    e.g.::
+      resolve_type('String', 'std_msgs') -> 'std_msgs/String'
+      resolve_type('String[]', 'std_msgs') -> 'std_msgs/String[]'
+      resolve_type('std_msgs/String', 'foo') -> 'std_msgs/String'    
+      resolve_type('uint16', 'std_msgs') -> 'uint16'
+      resolve_type('uint16[]', 'std_msgs') -> 'uint16[]'
+    """
+    bt = base_msg_type(type_)
+    if bt in BUILTIN_TYPES:
+        return type_
+    elif bt == 'Header':
+        return 'roslib/Header'
+    elif SEP in type_:
+        return type_
+    else:
+        return "%s%s%s"%(package_context, SEP, type_)    
+
 #NOTE: this assumes that we aren't going to support multi-dimensional
 
 def parse_type(type_):
@@ -126,7 +149,7 @@ def is_valid_msg_type(x):
     if not x or len(x) != len(x.strip()):
         return False
     base = base_msg_type(x)
-    if not roslib.names.is_valid_local_name(base):
+    if not roslib.names.is_legal_resource_name(base):
         return False
     #parse array indicies
     x = x[len(base):]
@@ -159,7 +182,7 @@ def is_valid_msg_field_name(x):
     @return: True if the name is a syntatically legal message field name
     @rtype: bool
     """
-    return roslib.names.is_valid_local_name(x)
+    return roslib.names.is_legal_resource_base_name(x)
 
 # msg spec representation ##########################################
 
@@ -357,13 +380,12 @@ def msg_file(package, type_):
     """
     return roslib.packages.resource_file(package, roslib.packages.MSG_DIR, type_+EXT)
 
-def get_pkg_msg_specs(package, name_context):
+def get_pkg_msg_specs(package):
     """
     List all messages that a package contains.
     
     @param package: package to load messages from
     @type  package: str
-    @param name_context str: package prefix for message type names
     @return: list of message type names and specs for package, as well as a list
         of message names that could not be processed. 
     @rtype: [(str, L{MsgSpec}), [str]]
@@ -374,7 +396,7 @@ def get_pkg_msg_specs(package, name_context):
     failures = []
     for t in types:
         try: 
-            typespec = load_from_file(msg_file(package, t), name_context)
+            typespec = load_from_file(msg_file(package, t), package)
             specs.append(typespec)
         except Exception, e:
             failures.append(t)
@@ -412,11 +434,7 @@ def load_package_dependencies(package, load_recursive=False):
         if d in _loaded_packages or d == package:
             continue
         _loaded_packages.append(d)
-        if d != package:
-            context = d
-        else:
-            context = ''
-        specs, failed = get_pkg_msg_specs(d, context)
+        specs, failed = get_pkg_msg_specs(d)
         msgs.extend(specs)
         failures.extend(failed)
     for key, spec in msgs:
@@ -445,7 +463,7 @@ def load_package(package):
         return
 
     _loaded_packages.append(package)
-    specs, failed = get_pkg_msg_specs(package, '')
+    specs, failed = get_pkg_msg_specs(package)
     if VERBOSE:
         print "Package contains the following messages: %s"%specs
     for key, spec in specs:
@@ -583,23 +601,24 @@ def load_from_file(file_path, package_context=''):
             print "Load spec from", file_path, "into package [%s]"%package_context
         else:
             print "Load spec from", file_path
-    fileName = os.path.basename(file_path)
-    type = fileName[:-len(EXT)]
+
+    file_name = os.path.basename(file_path)
+    type_ = file_name[:-len(EXT)]
     # determine the type name
     if package_context:
         while package_context.endswith(SEP):
             package_context = package_context[:-1] #strip message separators
-        type = "%s%s%s"%(package_context, SEP, type)
-    if not roslib.names.is_valid_local_name(type):
-        raise MsgSpecException("%s: %s is not a legal type name"%(file_path, type))
+        type_ = "%s%s%s"%(package_context, SEP, type_)
+    if not roslib.names.is_legal_resource_name(type_):
+        raise MsgSpecException("%s: [%s] is not a legal type name"%(file_path, type_))
     
     f = open(file_path, 'r')
     try:
         try:
             text = f.read()
-            return (type, load_from_string(text, package_context))
+            return (type_, load_from_string(text, package_context))
         except MsgSpecException, e:
-            raise MsgSpecException('%s: %s'%(fileName, e))
+            raise MsgSpecException('%s: %s'%(file_name, e))
     finally:
         f.close()
 

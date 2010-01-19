@@ -42,6 +42,136 @@ import roslib.rosenv
 from math import sqrt
 from optparse import OptionParser
 
+
+license_map = {
+    "bsd": "green",
+    "zlib": "green",
+    "apache": "green",
+    "free": "green",
+    "bsl1.0": "green",
+    "lgpl": "dodgerblue",
+    "mit": "dodgerblue",
+    "gpl": "orange",
+    "research-only": "red",
+    }
+
+status_map = {
+    "doc reviewed": "green",
+    "api cleared": "dodgerblue",
+    "api conditionally cleared": "orange",
+    "proposal cleared": "pink",
+    "unreviewed": "red",
+    "experimental": "yellow",
+    "3rdparty": "white",
+    "3rdparty doc reviewed": "green",
+    "na": "gray85",
+    "test": "gray85",
+    "deprecated": "magenta",        
+    "ROS_BUILD_BLACKLIST": "black"
+}
+
+
+class PackageCharacteristics:
+    def __init__(self):
+        self.color_by = None
+        
+        self._file_colors = None
+        self._status_colors = {}
+        self._rosmake_result_colors = {}
+        self._license_color = {}
+        self._license = {}
+        self._review_status = {}
+        self._review_notes = {}
+        
+
+    def set_color_by(self, method, option=None):
+        self.color_by = method
+        if self.color_by == "file":
+            self._color_filename = option
+
+    def load_color_from_file(self):
+        if self._file_colors:
+            return True
+        with open(self._color_filename,'r') as color_file:
+            self._file_colors = {}
+            for line in color_file:
+                try:
+                    k, v = line.split()
+                    self.file_colors[k] = v
+                except:
+                    print "ERROR: badly formatted color line: %s"%line
+
+    def get_file_color(self, pkg):
+        self.load_color_from_file()
+        return self._file_colors.get(pkg, 'purple')
+
+    def get_license(self, pkg):
+        if pkg in self._license:
+            return self._license[pkg]
+        self._license[pkg] = roslib.manifest.parse_file(roslib.manifest.manifest_file(pkg)).license.lower()
+        return self._license[pkg]
+
+    def get_license_color(self, pkg):
+        if pkg in self._license_color:
+            return self._license_color[pkg]
+
+        license = self.get_license(pkg)
+        self._license_color[pkg] = license_map.get(license, 'purple')
+
+        if not license in license_map:
+            print "Unknown: ", pkg, license
+
+        return self._license_color[pkg]
+        
+    def get_review_status(self, pkg):
+        if pkg in self._review_status:
+            return self._review_status[pkg]
+        f = roslib.manifest.manifest_file(pkg)
+        try:
+            self._review_status[pkg] = roslib.manifest.parse_file(f).status.lower()
+        except:
+            print "error parsing manifest '%s'"%f
+            
+        # show blacklisting
+        if os.path.exists(os.path.join(os.path.dirname(f), "ROS_BUILD_BLACKLIST")):
+            print f, "is blacklisted"
+            self._review_status[pkg] = "ROS_BUILD_BLACKLIST"
+        return self._review_status[pkg]
+        
+    def get_review_notes(self, pkg):
+        if pkg in self._review_notes:
+            return self._review_notes[pkg]
+        f = roslib.manifest.manifest_file(pkg)
+        try:
+            self._review_notes[pkg] = roslib.manifest.parse_file(f).notes
+        except:
+            print "error parsing manifest '%s'"%f
+            
+        # show blacklisting
+        if os.path.exists(os.path.join(os.path.dirname(f), "ROS_BUILD_BLACKLIST")):
+            print f, "is blacklisted"
+            self._review_notes[pkg] +=" ROS_BUILD_BLACKLIST"
+        # show ROS_NOBUILD flag
+        if os.path.exists(os.path.join(os.path.dirname(f), "ROS_NOBUILD")):
+            print f, "is installed"
+            self._review_notes[pkg] +=" ROS_NOBUILD"
+        return self._review_notes[pkg]
+        
+    def get_review_color(self, pkg):
+        status = self.get_review_status(pkg)
+        return status_map.get(status, 'purple')
+            
+
+    def get_color(self, pkg):
+        if self.color_by == "file":
+            return self.get_file_color(pkg)
+        if self.color_by == "review":
+            return self.get_review_color(pkg)
+        if self.color_by == "license":
+            return self.get_license_color(pkg)
+        else:
+            return "gainsboro"
+
 ## Build the dictionary of dependencies for a list of packages
 ## @param names [str]: list of package names to target. If empty, all packages will be targetted.
 ## @param target1 bool: if True, only target direct dependencies for packages listed in \a names
@@ -87,82 +217,6 @@ def get_deps(d, name):
         pass #print "bad Key" # don't accumulate deps for a package not in the tree
     return accum
 
-## Load color data from file
-def get_color(filename):
-    color_dictionary = {}
-    try:
-        with open(filename,'r') as color_file:
-            for line in color_file:
-                try:
-                    k, v = line.split()
-                    color_dictionary[k] = v
-                except:
-                    print "ERROR: badly formatted color line: %s"%line
-    except IOError:
-        print "Couldn't open color file: \"%s\""%filename
-    return color_dictionary
-        
-license_map = {
-    "bsd": "green",
-    "zlib": "green",
-    "apache": "green",
-    "free": "green",
-    "bsl1.0": "green",
-    "lgpl": "dodgerblue",
-    "mit": "dodgerblue",
-    "gpl": "orange",
-    "research-only": "red",
-    }
-
-## Get colors from license status
-def get_license_color():
-    color_map = {}
-    for pkg in roslib.packages.list_pkgs():
-        license = roslib.manifest.parse_file(roslib.manifest.manifest_file(pkg)).license.lower()
-        color_map[pkg] = license_map.get(license, 'purple')
-        if not license in license_map:
-            print "Unknown: ", pkg, license
-    return color_map
-
-status_map = {
-    "doc reviewed": "green",
-    "api cleared": "dodgerblue",
-    "api conditionally cleared": "orange",
-    "proposal cleared": "pink",
-    "unreviewed": "red",
-    "experimental": "yellow",
-    "3rdparty": "white",
-    "3rdparty doc reviewed": "green",
-    "na": "gray85",
-    "test": "gray85",
-    "deprecated": "magenta",        
-    "ROS_BUILD_BLACKLIST": "black"
-}
-
-## Get the colors from package review status
-def get_status_color():
-    color_dict = {}
-    notes_dict = {}
-    for pkg in roslib.packages.list_pkgs():
-        f = roslib.manifest.manifest_file(pkg)
-        try:
-            status = roslib.manifest.parse_file(f).status.lower()
-            notes_dict[pkg] = roslib.manifest.parse_file(f).notes
-        except:
-            print "error parsing manifest '%s'"%f
-        color_dict[pkg] = status_map.get(status, 'purple')
-            
-        # show blacklisting
-        if os.path.exists(os.path.join(os.path.dirname(f), "ROS_BUILD_BLACKLIST")):
-            print f, "is blacklisted"
-            color_dict[pkg] = 'black'
-            notes_dict[pkg] +=" ROS_BUILD_BLACKLIST"
-        # show ROS_NOBUILD flag
-        if os.path.exists(os.path.join(os.path.dirname(f), "ROS_NOBUILD")):
-            print f, "is installed"
-            notes_dict[pkg] +=" ROS_NOBUILD"
-    return color_dict, notes_dict
-
 rosmakeall_color_map = { "rosmakeall-testfailures.txt": "orange", "rosmakeall-buildfailures.txt": "red"}
 
 def get_rosmakeall_color():
@@ -201,29 +255,12 @@ def classify_packages(pkg_dict):
     found_stack = ''
     stack_dict = {}
     try:
-        # Check version, make postscript if too old to make pdf
-        args = ["rosstack", "list"]
-        vstr, verr = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-        stack_entries = vstr.split('\n')
-        stacks = []
-        stack_paths = {}
-        for entry in stack_entries:
-            if  len(entry.split()) == 2:
-                n, p = entry.split()
-                stacks.append(n)
-                stack_paths[n] = p
-            elif entry.strip():
-                print >> sys.stderr, "rosstack list returned wrong number of arguments %d not the expected 2: %s"%len(entry.split(), entry)
-        #print stacks, stack_paths
-        #sys.exit(-1)
+        stacks = roslib.stacks.list_stacks()
 
         for pkg in pkg_dict:
-            pkg_path = os.path.realpath(roslib.packages.get_pkg_dir(pkg))
-
             found_stack = "Unreleased"
             for stack in stacks:
-                realpath_stack = os.path.realpath(stack_paths[stack])+"/" # slash needed to prevent partial stack name matches aka ros matching ros-pkg
-                if pkg_path.startswith(realpath_stack):
+                if stack == roslib.stacks.stack_of(pkg):
                     #print "matching %s with %s"%(pkg_path, realpath_stack)
                     found_stack = stack
                     break
@@ -232,8 +269,8 @@ def classify_packages(pkg_dict):
             if found_stack == "Unreleased":
                 stack_dict["Unreleased"] = "Not Contained in a stack"
             else:
-                #print "adding package %s to stack %s with path %s"%(pkg, found_stack, stack_paths[found_stack])
-                stack_dict[found_stack] = stack_paths[found_stack]
+                print "adding package %s to stack %s with path %s"%(pkg, found_stack, roslib.stacks.get_stack_dir(found_stack))
+                stack_dict[found_stack] = roslib.stacks.get_stack_dir(found_stack)
 
             # Record the stack on the list of classes
             if found_stack in classes:
@@ -303,24 +340,22 @@ def vdmain():
         exclude.extend(['roscpp','std_msgs', 'rospy', 'std_srvs', 'robot_msgs', 'robot_srvs', 'rosconsole', 'tf'])
         
     color_sources = [x for x in [options.review_status, options.license, options.rosmake, options.color_file] if x]
-    notes_dict = {}
     color_palate = None
-    if len(color_sources) != 1:
-        color_dict = {}
-    if options.color_file:
-        color_dict = get_color(options.color_file)
-    elif options.review_status:
-        print "Coloring by package review status"
-        color_dict, notes_dict = get_status_color()
-        color_palate = status_map
+
+    pkg_characterists = PackageCharacteristics()
+    if options.review_status:
+        pkg_characterists.set_color_by("review")
     elif options.license:
-        print "Coloring by package licensing"
-        color_dict = get_license_color()
-        color_palate = license_map
-    elif options.rosmake:
-        print "Coloring by rosmakeall results"
-        color_dict = get_rosmakeall_color()
-        color_palate = rosmakeall_color_map
+        pkg_characterists.set_color_by("license")
+    elif options.color_file:
+        pkg_characterists.set_color_by("file", options.color_file)
+        
+
+    if False:
+        if options.rosmake:
+            print "Coloring by rosmakeall results"
+            color_dict = get_rosmakeall_color()
+            color_palate = rosmakeall_color_map
 
     if options.output_filename:
         output_filename = os.path.realpath(options.output_filename)
@@ -366,7 +401,7 @@ def vdmain():
         for pkg, deps in pkg_dictionary.iteritems():
             node_args = []
             ##Coloring
-            color = color_dict.get(pkg, 'gainsboro')
+            color = pkg_characterists.get_color(pkg)
             node_args.append("color=%s"%color)
             if color == 'black':
                 node_args.append("fontcolor=white")
@@ -385,9 +420,10 @@ def vdmain():
                 node_args.append('peripheries=6, style=bold')
             elif pkg in exclude: 
                 node_args.append('peripheries=3, style=dashed')
-
-            if len(notes_dict.get(pkg, '')) > 0:
-              node_args.append('label="%s\\n(%s)"' % (pkg, notes_dict[pkg]))
+                
+            notes = pkg_characterists.get_review_notes(pkg)
+            if len(notes) > 0:
+              node_args.append('label="%s\\n(%s)"' % (pkg, notes))
 
             if options.hide:
                if len(roslib.rospack.rospack_depends_on(pkg)) == 0 and len(roslib.rospack.rospack_depends(pkg)) == 0: #TODO: This is pretty slow

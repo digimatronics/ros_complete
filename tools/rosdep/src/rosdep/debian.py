@@ -28,36 +28,55 @@
 
 # Author Tully Foote/tfoote@willowgarage.com
 
-from __future__ import with_statement
-from linux_helpers import *
+import subprocess
 import os.path 
+import roslib.os_detect
 
 ###### DEBIAN SPECIALIZATION #########################
-def dpkg_detect(p):
-    cmd = ['dpkg-query', '-W', '-f=\'${Status}\'', p]
-    pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (std_out, std_err) = pop.communicate()
-    std_out = std_out.strip('\'')
-    std_out_list = std_out.split()
-    if len(std_out_list) == 3:
-        return (std_out_list[2] =='installed')
-    else:
-        return False
 
-###### Debian SPECIALIZATION #########################
-class Debian:
+###### Rosdep Test OS #########################
+class RosdepTestOS(roslib.os_detect.OSBase):
+    def __init__(self):
+        self.name = "uninitialized"
     def check_presence(self):
-        if "Debian" == lsb_get_os():
+        if "ROSDEP_TEST_OS" in os.environ:
             return True
         return False
 
-    def get_version(self):
-        return lsb_get_release_codename()
     def get_name(self):
-        return "debian"
+        return os.environ.get("ROSDEP_TEST_OS", "rosdep_test_os")
+
+    def get_version(self):
+        return os.environ.get("ROSDEP_TEST_VERSION", "rosdep_test_version")
+    
+    def strip_detected_packages(self, packages):
+        return packages
+
+    def generate_package_install_command(self, packages, default_yes):
+        if default_yes:
+            return "#yes"
+        else:
+            return "#no"
+
+
+class AptGetInstall():
+
+    def dpkg_detect(self, pkgs):
+        ret_list = []
+        cmd = ['dpkg-query', '-W', '-f=\'${Package} ${Status}\n\'']
+        cmd.extend(pkgs)
+        pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (std_out, std_err) = pop.communicate()
+        std_out = std_out.replace('\'','')
+        pkg_list = std_out.split('\n')
+        for pkg in pkg_list:
+            pkg_row = pkg.split()
+            if len(pkg_row) == 4 and (pkg_row[3] =='installed'):
+                ret_list.append( pkg_row[0])
+        return ret_list
 
     def strip_detected_packages(self, packages):
-        return [p for p in packages if not dpkg_detect(p)]
+        return list(set(packages) - set(self.dpkg_detect(packages)))
 
     def generate_package_install_command(self, packages, default_yes):
         if not packages:
@@ -67,62 +86,47 @@ class Debian:
         else:
             return "#Packages\nsudo apt-get install " + ' '.join(packages)
 
-###### END Debian SPECIALIZATION ########################
-
-
-###### UBUNTU SPECIALIZATION #########################
-class Ubuntu(Debian):
+###### Debian SPECIALIZATION #########################
+class Debian(roslib.os_detect.Debian, AptGetInstall):
     """ This is an implementation of a standard interface for
     interacting with rosdep.  This defines all Ubuntu sepecific
     methods, including detecting the OS/Version number.  As well as
     how to check for and install packages."""
-    def check_presence(self):
-        if "Ubuntu" == lsb_get_os():
-            return True
-        return False
+    pass
+###### END Debian SPECIALIZATION ########################
 
-    def get_version(self):
-        return lsb_get_release_version()
-    def get_name(self):
-        return "ubuntu"
+###### UBUNTU SPECIALIZATION #########################
+class Ubuntu(roslib.os_detect.Ubuntu, AptGetInstall):
+    """ This is an implementation of a standard interface for
+    interacting with rosdep.  This defines all Ubuntu sepecific
+    methods, including detecting the OS/Version number.  As well as
+    how to check for and install packages."""
+    pass
 
 ###### END UBUNTU SPECIALIZATION ########################
 
 ###### Mint SPECIALIZATION #########################
-class Mint:
-    def check_presence(self):
-        try:
-            filename = "/etc/issue"
-            if os.path.exists(filename):
-                with open(filename, 'r') as fh:                
-                    os_list = fh.read().split()
-                if os_list and os_list[0] == "Linux" and os_list[1] == "Mint":
-                    return True
-        except:
-            print "Mint failed to detect OS"
-        return False
-
+class Mint(AptGetInstall):
+    """ This is an implementation of a standard interface for
+    interacting with rosdep.  Mint is closely coupled to Ubuntu, it
+    will masquerade as ubuntu for the purposes of rosdep. """
+    
+    def __init__(self):
+        self.mint_detector = roslib.os_detect.Mint()
+        self.version_map = {'8':'9.10', 
+                            '7':'9.04',
+                            '6':'8.10',
+                            '5':'8.04'}
     def get_version(self):
-        try:
-            filename = "/etc/issue"
-            if os.path.exists(filename):
-                with open(filename, 'r') as fh:
-                    os_list = fh.read().split()
-                if os_list[0] == "Linux" and os_list[1] == "Mint":
-                    return os_list[2]
-        except:
-            print "Mint failed to get version"
-            return False
-
-        return False
+        return self.version_map[self.mint_detector.get_version()]
 
     def get_name(self):
-        return "mint"
+        return 'ubuntu'
 
-    def strip_detected_packages(self, packages):
-        return [p for p in packages if not dpkg_detect(p)]
+    def check_presence(self):
+        return self.mint_detector.check_presence()
+        
 
-    def generate_package_install_command(self, packages, default_yes):        
-        return "#Packages\nsudo apt-get install " + ' '.join(packages)
+    pass
 
 ###### END Mint SPECIALIZATION ########################

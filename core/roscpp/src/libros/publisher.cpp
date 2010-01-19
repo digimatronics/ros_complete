@@ -40,7 +40,7 @@ Publisher::Impl::Impl()
 Publisher::Impl::~Impl()
 {
   if (WallTime::now().toSec() - constructed_ < 0.001)
-    ROS_WARN("Publisher destroyed immediately after creation.  Did you forget to store the handle?");
+    ROS_WARN("Publisher on '%s' destroyed immediately after creation.  Did you forget to store the handle?", topic_.c_str());
   unadvertise();
 }
 
@@ -78,10 +78,18 @@ Publisher::~Publisher()
 
 void Publisher::publish(const SerializedMessage& m) const
 {
-  if (impl_ && impl_->isValid())
+  if (!impl_)
   {
-    TopicManager::instance()->publish(impl_->topic_, m);
+    ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
   }
+
+  if (!impl_->isValid())
+  {
+    ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
+    return;
+  }
+
+  TopicManager::instance()->publish(impl_->topic_, m);
 }
 
 void Publisher::incrementSequence() const

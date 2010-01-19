@@ -32,6 +32,10 @@
 #
 # Revision $Id$
 
+"""
+roswtf command-line tool.
+"""
+
 import os
 import socket
 import sys
@@ -142,7 +146,7 @@ def _roswtf_main():
             print "Stack:",curr_stack            
             ctx = WtfContext.from_stack(curr_stack)
         else:
-            print "No package in context"
+            print "No package or stack in context"
             ctx = WtfContext.from_env()
 
     # static checks
@@ -185,7 +189,7 @@ def _roswtf_main():
             print "\nCannot communicate with master, unable to diagnose [%s]"%(', '.join(names))
             return
         else:
-            print "\nCannot communicate with master, ignoring graph checks"
+            print "\nROS Master does not appear to be running.\nOnline graph checks will not be run.\nROS_MASTER_URI is [%s]"%(ctx.ros_master_uri)
             return
 
         # spin up a roswtf node so we can subscribe to messages

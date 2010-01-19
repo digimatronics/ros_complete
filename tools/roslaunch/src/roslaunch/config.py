@@ -40,14 +40,9 @@ the roslaunch file.
 import os
 import logging
 import sys
-import traceback
-import socket
-import random
 import types
 
-import roslib.network
-import roslib.packages
-import roslib.rosenv
+import roslib.names
 
 from roslaunch.core import Master, local_machine, get_ros_root, is_machine_local, RLException
 import roslaunch.xmlloader
@@ -58,6 +53,7 @@ def load_roscore(loader, config, verbose=True):
     @param config ROSLaunchConfig
     @param loader XmlLoader
     """
+    import roslib.packages
     f_roscore = os.path.join(roslib.packages.get_pkg_dir('roslaunch'), 'roscore.xml')
     logging.getLogger('roslaunch').info('loading roscore config file %s'%f_roscore)            
     loader.load(f_roscore, config, core=True, verbose=verbose)    
@@ -263,6 +259,7 @@ class ROSLaunchConfig(object):
         """
         name = m.name
         if m.address == 'localhost': #simplify address comparison
+            import roslib.network
             address = roslib.network.get_local_address()
             self.logger.info("addMachine[%s]: remapping localhost address to %s"%(name, address))
         if name in self.machines:
@@ -336,9 +333,7 @@ class ROSLaunchConfig(object):
             # assign to local machine
             return self.machines['']            
 
-
-        
-def load_config_default(roslaunch_files, port, roslaunch_strs=None, loader=None, verbose=True):
+def load_config_default(roslaunch_files, port, roslaunch_strs=None, loader=None, verbose=False):
     """
     Base routine for creating a ROSLaunchConfig from a set of 
     roslaunch_files and or launch XML strings and initializing it. This
@@ -346,10 +341,12 @@ def load_config_default(roslaunch_files, port, roslaunch_strs=None, loader=None,
     on port.
     @param roslaunch_files: list of launch files to load
     @type  roslaunch_files: [str]
-    @param port: roscore/master port
+    @param port: roscore/master port override. Set to 0 or None to use default.
     @type  port: int
     @param roslaunch_strs: (optional) roslaunch XML strings to load
     @type  roslaunch_strs: [str]
+    @param verbose: (optional) print info to screen about model as it is loaded. 
+    @type  verbose: bool
     @return: initialized rosconfig instance
     @rytpe: L{ROSLaunchConfig} initialized rosconfig instance
     """

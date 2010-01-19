@@ -52,6 +52,8 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filter/bzip2.hpp>
 
+#include <iostream>
+
 namespace ros
 {
 namespace record
@@ -198,7 +200,7 @@ public:
          version_major_(0),
          version_minor_(0),
          time_scale_(time_scale),
-         done_(false),
+         done_(true),
          first_duration_(0,0),
          duration_(0,0),
          header_buffer_(NULL),
@@ -251,7 +253,7 @@ public:
     done_ = false;
   }
 
-  bool open(const std::string &file_name, ros::Time start_time)
+  bool open(const std::string &file_name, ros::Time start_time, bool try_future = false)
   {
     start_time_ = start_time;
 
@@ -263,12 +265,23 @@ public:
       return false;
     }
 
+
     std::string ext = boost::filesystem::extension(file_name);
+    if (ext != ".bag")
+    {
+      ROS_ERROR("File: '%s' does not have .bag extension",file_name.c_str());
+      return false;
+    }
+
+    // Removing compression until we work out how to play nicely with index: JML
+    /*
     if (ext == ".gz")
       record_stream_.push(boost::iostreams::gzip_decompressor());
     else if (ext == ".bz2")
       record_stream_.push(boost::iostreams::bzip2_decompressor());
+    */
     record_stream_.push(record_file_);
+
 
     char logtypename[100];
 
@@ -334,6 +347,18 @@ public:
       }
     }
 
+    
+    int cur_version_major;
+    int cur_version_minor;
+    sscanf(VERSION.c_str(), "%d.%d", &cur_version_major, &cur_version_minor);
+
+    if (!try_future && version_ > cur_version_major*100 + cur_version_minor)
+    {
+      ROS_ERROR("'%s' has version %d.%d, but Reader only knows about versions up to %s.", file_name.c_str(), version_major_, version_minor_, VERSION.c_str());
+      return false;
+    }
+
+    done_ = false;
     readNextMsg();
 
     return true;
@@ -490,6 +515,7 @@ protected:
     record_stream_.read((char*)&header_len, 4);
     if (record_stream_.eof())
       return false;
+
     if(header_buffer_size_ < header_len)
     {
       header_buffer_size_ = header_len;
@@ -519,33 +545,80 @@ protected:
     M_string::const_iterator fitr;
     M_stringPtr fields_ptr = header.getValues();
     M_string& fields = *fields_ptr;
+
     if((fitr = checkField(fields, OP_FIELD_NAME,
                           1, 1, true)) == fields.end())
       return false;
-    memcpy(&op,fitr->second.data(),1);
-    // Extra checking on the value of op
-    if((op != OP_MSG_DEF) && (op != OP_MSG_DATA))
-    {
-      ROS_ERROR("Field %s has invalid value %u\n",
-                OP_FIELD_NAME.c_str(), op);
-      return false;
-    }
-    if((fitr = checkField(fields, TOPIC_FIELD_NAME,
-                          1, UINT_MAX, true)) == fields.end())
-      return false;
-    topic_name = fitr->second;
-    if((fitr = checkField(fields, MD5_FIELD_NAME,
-                          32, 32, true)) == fields.end())
-      return false;
-    md5sum = fitr->second;
-    if((fitr = checkField(fields, TYPE_FIELD_NAME,
-                          1, UINT_MAX, true)) == fields.end())
-      return false;
-    datatype = fitr->second;
 
-    // Some fields are only required for certain values of op
-    if(op == OP_MSG_DEF)
+    memcpy(&op,fitr->second.data(),1);
+
+    // Read the body length
+    record_stream_.read((char*)&next_msg_size_, 4);
+    if (record_stream_.eof())
+      return false;
+
+    // Extra checking on the value of op
+    switch (op)
     {
+    case OP_MSG_DATA:
+      if((fitr = checkField(fields, TOPIC_FIELD_NAME,
+                          1, UINT_MAX, true)) == fields.end())
+        return false;
+      topic_name = fitr->second;
+
+      if((fitr = checkField(fields, MD5_FIELD_NAME,
+                            32, 32, true)) == fields.end())
+        return false;
+      md5sum = fitr->second;
+
+      if((fitr = checkField(fields, TYPE_FIELD_NAME,
+                            1, UINT_MAX, true)) == fields.end())
+        return false;
+      datatype = fitr->second;      
+
+      if((fitr = checkField(fields, SEC_FIELD_NAME,
+                            4, 4, true)) == fields.end())
+        return false;
+      memcpy(&next_msg_dur.sec,fitr->second.data(),4);
+
+      if((fitr = checkField(fields, NSEC_FIELD_NAME,
+                            4, 4, true)) == fields.end())
+        return false;
+      memcpy(&next_msg_dur.nsec,fitr->second.data(),4);
+
+      next_msg_name_ = topic_name;
+
+
+      // If this is the first time that we've encountered this topic, we need
+      // to create a PlayerHelper, which inherits from ros::Message and is
+      // used to publish messages from this topic.
+      if (topics_.find(topic_name) == topics_.end())
+      {
+        PlayerHelper* l = new PlayerHelper(this, topic_name,
+                                           md5sum, datatype,
+                                           message_definition);
+        topics_[topic_name] = l;
+      }
+      
+      return true;
+
+
+    case OP_MSG_DEF:
+      if((fitr = checkField(fields, TOPIC_FIELD_NAME,
+                          1, UINT_MAX, true)) == fields.end())
+        return false;
+      topic_name = fitr->second;
+
+      if((fitr = checkField(fields, MD5_FIELD_NAME,
+                            32, 32, true)) == fields.end())
+        return false;
+      md5sum = fitr->second;
+
+      if((fitr = checkField(fields, TYPE_FIELD_NAME,
+                            1, UINT_MAX, true)) == fields.end())
+        return false;
+      datatype = fitr->second;      
+
       // Note that the field length can be zero.  This can happen if a
       // publisher didn't supply the definition, e.g., this bag was created
       // by recording from the playback of a pre-1.2 bag.
@@ -553,38 +626,35 @@ protected:
                             0, UINT_MAX, true)) == fields.end())
         return false;
       message_definition = fitr->second;
+
+      // If this is the first time that we've encountered this topic, we need
+      // to create a PlayerHelper, which inherits from ros::Message and is
+      // used to publish messages from this topic.
+      if (topics_.find(topic_name) == topics_.end())
+      {
+        PlayerHelper* l = new PlayerHelper(this, topic_name,
+                                           md5sum, datatype,
+                                           message_definition);
+        topics_[topic_name] = l;
+      }      
+
+      return true;
+
+
+    case OP_FILE_HEADER:
+      return true;
+
+
+    case OP_INDEX_DATA:
+      return true;
+
+    default:
+      ROS_ERROR("Field %s has invalid value %u\n",
+                OP_FIELD_NAME.c_str(), op);
+      return false;      
     }
-    else if(op == OP_MSG_DATA)
-    {
-      if((fitr = checkField(fields, SEC_FIELD_NAME,
-                            4, 4, true)) == fields.end())
-        return false;
-      memcpy(&next_msg_dur.sec,fitr->second.data(),4);
-      if((fitr = checkField(fields, NSEC_FIELD_NAME,
-                            4, 4, true)) == fields.end())
-        return false;
-      memcpy(&next_msg_dur.nsec,fitr->second.data(),4);
-    }
 
-    next_msg_name_ = topic_name;
-
-    // If this is the first time that we've encountered this topic, we need
-    // to create a PlayerHelper, which inherits from ros::Message and is
-    // used to publish messages from this topic.
-    if (topics_.find(topic_name) == topics_.end())
-    {
-      PlayerHelper* l = new PlayerHelper(this, topic_name,
-                                         md5sum, datatype,
-                                         message_definition);
-      topics_[topic_name] = l;
-    }
-
-    // Read the body length
-    record_stream_.read((char*)&next_msg_size_, 4);
-    if (record_stream_.eof())
-      return false;
-
-    return true;
+    return false;
   }
 
   bool readNextMsg()
@@ -597,7 +667,7 @@ protected:
 
     ros::Duration next_msg_dur;
 
-    if (version_ == 102)
+    if (version_ >= 102)
     {
       unsigned char op;
       if(!parseVersion102Header(op, next_msg_dur))
@@ -608,18 +678,12 @@ protected:
 
       // If it was just a definition, we return here, to avoid publishing
       // the zero-length body that follows
-      if(op == OP_MSG_DEF)
+      if(op != OP_MSG_DATA)
       {
-        if(next_msg_size_ != 0)
-        {
-          ROS_ERROR("Non-zero message body followed definition-only header; bag is malformed.");
-          done_ = true;
-          return false;
-        }
-        else
-        {
-          return readNextMsg();
-        }
+        // Just throw these bytes away for now.
+        record_stream_.ignore(next_msg_size_);
+
+        return readNextMsg();
       }
     }
     else
@@ -757,7 +821,7 @@ public:
     return d;
   }
 
-  bool open(std::vector<std::string> file_names, ros::Time start, double time_scale=1)
+  bool open(std::vector<std::string> file_names, ros::Time start, double time_scale=1, bool try_future = false)
   {
 
     ros::Duration first_duration;
@@ -768,7 +832,7 @@ public:
     {
       Player* l = new Player(time_scale);
 
-      if (l->open(*name_it, start))
+      if (l->open(*name_it, start, try_future))
       {
         players_.push_back(l);
 

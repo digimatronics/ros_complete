@@ -60,14 +60,61 @@ import rospy.validators
 
 logger = logging.getLogger('rospy.service')
 
-## Process incoming service connection. For use with
-## TCPROSServer. Reads in service name from handshake and creates the
-## appropriate service handler for the connection.
-## @param sock socket: socket connection
-## @param client_addr (str, int): client address
-## @param header dict: key/value pairs from handshake header
-## @return str: error string or None 
+def convert_return_to_response(response, response_class):
+    """
+    Convert return value of function to response instance. The
+    rules/precedence for this are:
+
+    1. If the return type is the same as the response type, no conversion
+    is done.
+
+    2. If the return type is a dictionary, it is used as a keyword-style
+    initialization for a new response instance.
+
+    3. If the return type is *not* a list type, it is passed in as a single arg
+    to a new response instance.
+
+    4. If the return type is a list/tuple type, it is used as a args-style
+    initialization for a new response instance.
+    """
+    if isinstance(response, response_class):
+        return response
+    elif type(response) == dict:
+        # kwds response
+        try:
+            return response_class(**response)
+        except AttributeError, e:
+            raise ServiceException("handler returned invalid value: %s"%str(e))
+    elif response == None:
+        raise ServiceException("service handler returned None")
+    elif type(response) not in [list, tuple]:
+        # single, non-list arg
+        try:
+            return response_class(response)
+        except TypeError, e:
+            raise ServiceException("handler returned invalid value: %s"%str(e))
+    else:
+        # user returned a list, which has some ambiguous cases. Our resolution is that
+        # all list/tuples are converted to *args
+        try:
+            return response_class(*response)
+        except TypeError, e:
+            raise ServiceException("handler returned wrong number of values: %s"%str(e))
+
 def service_connection_handler(sock, client_addr, header):
+    """
+    Process incoming service connection. For use with
+    TCPROSServer. Reads in service name from handshake and creates the
+    appropriate service handler for the connection.
+    @param sock: socket connection
+    @type  sock: socket
+    @param client_addr: client address
+    @type  client_addr: (str, int)
+    @param header: key/value pairs from handshake header
+    @type  header: dict
+    @return: error string or None 
+    @rtype: str
+    """
     for required in ['service', 'md5sum', 'callerid']:
         if not required in header:
             return "Missing required '%s' field"%required
@@ -107,8 +154,6 @@ class TCPService(TCPROSTransportProtocol):
         """
         super(TCPService, self).__init__(resolved_name, service_class._request_class, buff_size=buff_size)
         self.service_class = service_class
-
-    ## @param self
 
     def get_header_fields(self):
         """
@@ -169,7 +214,17 @@ class TCPROSServiceClient(TCPROSTransportProtocol):
         b.seek(pos)
         if not ok:
             str = self._read_service_error(sock, b)
+            
+            #_read_ok_byte has to reset state of the buffer to
+            #consumed as this exception will bypass rest of
+            #deserialized_messages logic. we currently can't have
+            #multiple requests in flight, so we can keep this simple
+            b.seek(0)
+            b.truncate(0)
             raise ServiceException("service [%s] responded with an error: %s"%(self.resolved_name, str))
+        else:
+            # success, set seek point to start of message
+            b.seek(pos)
         
     def read_messages(self, b, msg_queue, sock):
         """
@@ -191,23 +246,25 @@ class TCPROSServiceClient(TCPROSTransportProtocol):
         if b.tell() == 1:
             b.seek(0)
         
-    ## read service error from sock 
-    ## @param self
-    ## @param sock socket: socket to read from
-    ## @param b StringIO: currently read data from sock
     def _read_service_error(self, sock, b):
+        """
+        Read service error from sock 
+        @param sock: socket to read from
+        @type  sock: socket
+        @param b: currently read data from sock
+        @type  b: StringIO
+        """
         buff_size = 256 #can be small given that we are just reading an error string
         while b.tell() < 5:
             recv_buff(sock, b, buff_size)
         bval = b.getvalue()
         (length,) = struct.unpack('<I', bval[1:5]) # ready in len byte
-        while b.tell() < 5 + length:
+        while b.tell() < (5 + length):
             recv_buff(sock, b, buff_size)
         bval = b.getvalue()
         return struct.unpack('<%ss'%length, bval[5:5+length])[0] # ready in len byte
 
     
-## \ingroup clientapi
 class ServiceProxy(_Service):
     """
     Create a handle to a ROS service for invoking calls.
@@ -224,12 +281,12 @@ class ServiceProxy(_Service):
         @type  name: str
         @param service_class: auto-generated service class
         @type  service_class: Service class
-        @param persistent: if True, proxy maintains a persistent
+        @param persistent: (optional) if True, proxy maintains a persistent
         connection to service. While this results in better call
         performance, persistent connections are discouraged as they are
         less resistent to network issues and service restarts.
         @type  persistent: bool
-        @param headers: arbitrary headers 
+        @param headers: (optional) arbitrary headers 
         @type  headers: dict
         """
         super(ServiceProxy, self).__init__(name, service_class)
@@ -245,27 +302,28 @@ class ServiceProxy(_Service):
                                             self.service_class, headers=headers)
         self.transport = None #for saving persistent connections
 
+    # #425
     def __call__(self, *args, **kwds):
         """
-        callable-style version of the service api (#425)
+        Callable-style version of the service API. This accepts either a request message instance,
+        or you can call directly with arguments to create a new request instance. e.g.::
+        
+          add_two_ints(AddTwoIntsRequest(1, 2))
+          add_two_ints(1, 2)
+          add_two_ints(a=1, b=2)          
+        
         @param args: arguments to remote service
+        @param kwds: message keyword arguments
         @raise ROSSerializationException: If unable to serialize
         message. This is usually a type error with one of the fields.
         """
-        #@param kwds: message keyword arguments
-
-        if len(args) == 1 and self.request_class == args[0].__class__:
-            return self.call(args[0], **kwds)
-        else:
-            return self.call(self.request_class(*args), **kwds)
+        return self.call(*args, **kwds)
     
-    def _get_service_uri(self, request, timeout):
+    def _get_service_uri(self, request):
         """
         private routine for getting URI of service to call
         @param request: request message
-        @type  request: Message
-        @param timeout: timeout in seconds
-        @type  timeout: float
+        @type  request: L{rospy.Message}
         """
         if not isinstance(request, roslib.message.Message):
             raise TypeError("request object is not a valid request message instance")
@@ -293,34 +351,35 @@ class ServiceProxy(_Service):
                 logger.error("[%s]: socket error contacting service, master is probably unavailable",self.resolved_name)
         return self.uri
 
-    def call(self, request, timeout=None):
+    def call(self, *args, **kwds):
         """
-        Call the service 
-        @param request: service request message instance
-        @type  request: Messsage
-        @param timeout: (keyword arg) number of seconds before request times out
-        @type  timeout: float
+        Call the service. This accepts either a request message instance,
+        or you can call directly with arguments to create a new request instance. e.g.::
+        
+          add_two_ints(AddTwoIntsRequest(1, 2))
+          add_two_ints(1, 2)
+          add_two_ints(a=1, b=2)          
+        
         @raise TypeError: if request is not of the valid type (Message)
         @raise ServiceException: if communication with remote service fails
+        @raise ROSInterruptException: if node shutdown (e.g. ctrl-C) interrupts service call
         @raise ROSSerializationException: If unable to serialize
         message. This is usually a type error with one of the fields.
         """
-        # #1997: deprecating timeout parameter in ROS 0.10, remove in ROS 0.11
-        if timeout is not None:
-            import warnings
-            warnings.warn("Deprecated 'timeout' parameter to ServiceProxy call. This parameter is no longer used.",
-                          category=DeprecationWarning, stacklevel=2)
+
+        # convert args/kwds to request message class
+        request = rospy.msg.args_kwds_to_message(self.request_class, args, kwds) 
             
         # initialize transport
         if self.transport is None:
-            service_uri = self._get_service_uri(request, timeout)
+            service_uri = self._get_service_uri(request)
             dest_addr, dest_port = rospy.core.parse_rosrpc_uri(service_uri)
 
             # connect to service            
             transport = TCPROSTransport(self.protocol, self.resolved_name)
             transport.buff_size = self.buff_size
             try:
-                transport.connect(dest_addr, dest_port, service_uri, timeout=timeout)
+                transport.connect(dest_addr, dest_port, service_uri)
             except TransportInitError, e:
                 # can be a connection or md5sum mismatch
                 raise ServiceException("unable to connect to service: %s"%e)
@@ -332,15 +391,22 @@ class ServiceProxy(_Service):
         self.seq += 1
         transport.send_message(request, self.seq)
 
-        responses = transport.receive_once()
-        if len(responses) == 0:
-            raise ServiceException("service [%s] returned no response"%self.resolved_name)
-        elif len(responses) > 1:
-            raise ServiceException("service [%s] returned multiple responses: %s"%(self.resolved_name, len(responses)))
-        
-        if not self.persistent:
-            transport.close()
-            self.transport = None
+        try:
+            responses = transport.receive_once()
+            if len(responses) == 0:
+                raise ServiceException("service [%s] returned no response"%self.resolved_name)
+            elif len(responses) > 1:
+                raise ServiceException("service [%s] returned multiple responses: %s"%(self.resolved_name, len(responses)))
+        except rospy.exceptions.TransportException, e:
+            # convert lower-level exception to exposed type
+            if rospy.core.is_shutdown():
+                raise rospy.exceptions.ROSInterruptException("node shutdown interrupted service call")
+            else:
+                raise ServiceException("transport error completing service call: %s"%(str(e)))
+        finally:
+            if not self.persistent:
+                transport.close()
+                self.transport = None
         return responses[0]
 
     
@@ -365,14 +431,32 @@ class Service(_Service):
         @type  name: str
         @param service_class: ServiceDefinition class
         @type  service_class: ServiceDefinition class
+        
         @param handler: callback function for processing service
         request. Function takes in a ServiceRequest and returns a
-        ServiceResponse of the appropriate type.
+        ServiceResponse of the appropriate type. Function may also
+        return a list, tuple, or dictionary with arguments to initialize
+        a ServiceResponse instance of the correct type.
+
+        If handler cannot process request, it may either return None,
+        to indicate failure, or it may raise a rospy.ServiceException
+        to send a specific error message to the client. Returning None
+        is always considered a failure.
+        
         @type  handler: fn(req)->resp
         @param buff_size: size of buffer for reading incoming requests. Should be at least size of request message
         @type  buff_size: int
         """
         super(Service, self).__init__(name, service_class)
+
+        if not name or not isinstance(name, basestring):
+            raise ValueError("service name is not a non-empty string")
+        # #2202
+        if not roslib.names.is_legal_name(name):
+            import warnings
+            warnings.warn("'%s' is not a legal ROS graph resource name. This may cause problems with other ROS tools"%name, stacklevel=2)
+
+        
         self.handler = handler
         self.registered = False
         self.seq = 0
@@ -426,26 +510,25 @@ class Service(_Service):
         @type  err_msg: str
         """
         transport.write_data(struct.pack('<BI%ss'%len(err_msg), 0, len(err_msg), err_msg))
-        
+
     def _handle_request(self, transport, request):
         """
         Process a single incoming request.
         @param transport: transport instance
         @type  transport: L{TCPROSTransport}
         @param request: Message
+        @type  request: roslib.message.Message
         """
         try:
-            response = self.handler(request)
-            if response is None:
-                try:
-                    self._write_service_error(transport, "service did not generate a response")
-                except:
-                    logger.error(traceback.format_exc())
-            else:
-                self.seq += 1
-                # ok byte
-                transport.write_buff.write(struct.pack('<B', 1))
-                transport.send_message(response, self.seq)
+            # convert return type to response Message instance
+            response = convert_return_to_response(self.handler(request), self.response_class)
+            self.seq += 1
+            # ok byte
+            transport.write_buff.write(struct.pack('<B', 1))
+            transport.send_message(response, self.seq)
+        except ServiceException, e:
+            rospy.core.rospydebug("handler raised ServiceException: %s"%(e))
+            self._write_service_error(transport, "service cannot process request: %s"%e)
         except Exception, e:
             logerr("Error processing request: %s\n%s"%(e,traceback.print_exc()))
             self._write_service_error(transport, "error processing request: %s"%e)

@@ -47,15 +47,17 @@ def record_cmd(argv):
                       help="record all topics")
     parser.add_option("-q", "--quiet",    dest="quiet",    default=False, action="store_true",
                       help="suppress console output")
-    parser.add_option("-p", "--prefix",   dest="prefix",   default=None,  action="store",
+    parser.add_option("-o", "--output-prefix",   dest="prefix",   default=None,  action="store",
                       help="append PREFIX to beginning of bag name (name will always end with date stamp)")
-    parser.add_option("-n", "--name",     dest="name",     default=None,  action="store",
+    parser.add_option("-O", "--output-name",     dest="name",     default=None,  action="store",
                       help="record to bag with namename NAME.bag")
-    parser.add_option("-z", "--gzip",     dest="gzip",     default=False, action="store_true",
-                      help="compress the message with gzip")                      
-    parser.add_option("-j", "--bzip",     dest="bzip",     default=False, action="store_true",
-                      help="compress the message with bzip2")
-    parser.add_option("-b", "--buffsize", dest="buffsize", default='256', type='int', action="store",
+#    parser.add_option("-z", "--gzip",     dest="gzip",     default=False, action="store_true",
+#                      help="compress the message with gzip")                      
+#    parser.add_option("-j", "--bzip",     dest="bzip",     default=False, action="store_true",
+#                      help="compress the message with bzip2")
+    parser.add_option("--split", dest="split", default=0, type='int', action="store",
+                      help="split bag into files of size SIZE", metavar="SIZE")
+    parser.add_option("-b", "--buffsize", dest="buffsize", default=256, type='int', action="store",
                       help="use in internal buffer of SIZE MB (Default: %default, 0 = infinite)", metavar="SIZE")
     parser.add_option("-l", "--limit",    dest="num",    default=0,     type='int', action="store",
                       help="only record NUM messages on each topic")
@@ -63,7 +65,7 @@ def record_cmd(argv):
     (options, args) = parser.parse_args(argv)
 
     if (len(args) == 0 and not options.all):
-        parser.error("You must specify a topicname or else use the '-a' option.")
+        parser.error("You must specify a topic name or else use the '-a' option.")
 
     if (options.prefix is not None and options.name is not None):
         parser.error("Can't set both prefix and name.")
@@ -72,12 +74,13 @@ def record_cmd(argv):
 
     cmd.extend(["-m", str(options.buffsize)])
     cmd.extend(["-c", str(options.num)])
+    cmd.extend(["-S", str(options.split)])
 
     if options.prefix: cmd.extend(["-f", options.prefix])
     if options.name:   cmd.extend(["-F", options.name])
     if options.all:    cmd.extend(["-a"])
-    if options.gzip:   cmd.extend(["-z"])
-    if options.bzip:   cmd.extend(["-j"])
+ #   if options.gzip:   cmd.extend(["-z"])
+ #   if options.bzip:   cmd.extend(["-j"])
 
     cmd.extend(args)
 

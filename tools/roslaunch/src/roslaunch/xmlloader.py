@@ -41,23 +41,18 @@ from __future__ import with_statement
 import itertools
 import os
 import sys
-import xmlrpclib
-import yaml
-import traceback
 
 from xml.dom.minidom import parse, parseString
 from xml.dom import Node as DomNode
-from core import *
 
 from roslib.names import make_global_ns, ns_join, is_global, is_private, PRIV_NAME
-from roslib.packages import InvalidROSPkgException
 import roslib.substitution_args
 
+from roslaunch.core import *
 from roslaunch.loader import Loader, LoaderContext, command_line_param
 
 # use in our namespace
 SubstitutionException = roslib.substitution_args.SubstitutionException
-
 
 NS='ns'
 CLEAR_PARAMS='clear_params'
@@ -145,8 +140,12 @@ class XmlLoader(Loader):
     def resolve_args(self, args, context):
         """
         Wrapper around roslib.substitution_args.resolve_args to set common parameters
-        """        
-        return roslib.substitution_args.resolve_args(args, context=context.resolve_dict, resolve_anon=self.resolve_anon)
+        """
+        # resolve_args gets called a lot, so we optimize by testing for dollar sign before resolving
+        if args and '$' in args:
+            return roslib.substitution_args.resolve_args(args, context=context.resolve_dict, resolve_anon=self.resolve_anon)
+        else:
+            return args
 
     def opt_attrs(self, tag, context, attrs):
         """
@@ -269,7 +268,7 @@ class XmlLoader(Loader):
                 raise XmlParseException("'time-limit' must be a positive number")
         if retry:
             try:
-                retry = string.atoi(retry)
+                retry = int(retry)
             except ValueError:
                 raise XmlParseException("'retry' must be a number: [%s]"%retry)
 
@@ -680,6 +679,8 @@ class XmlLoader(Loader):
                 print "... loading XML"
             root = parseString(xml_text).getElementsByTagName('launch')
         except Exception, e:
+            import traceback
+            import logging
             logging.getLogger('roslaunch').error("Invalid roslaunch XML syntax:\nstring[%s]\ntraceback[%s]"%(xml_text, traceback.format_exc()))
             raise XmlParseException("Invalid roslaunch XML syntax: %s"%e)
         

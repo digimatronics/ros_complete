@@ -83,7 +83,7 @@ def main():
                       action="store_true", help="do not deduplicate")
     parser.add_option("--default-yes", "-y", dest="default_yes", default=False, 
                       action="store_true", help="Tell the package manager to default to y or fail when installing")
-    parser.add_option("-r", "-k", dest="robust", default=False, 
+    parser.add_option("-r", dest="robust", default=False, 
                       action="store_true", help="Continue installing despite errors.")
     parser.add_option("-a", "--all", dest="rosdep_all", default=False, 
                       action="store_true", help="select all packages")
@@ -119,42 +119,50 @@ def main():
             parser.error("-a, --all is not a valid option for this command")
 
     ### Find all dependencies
-    r = core.Rosdep(verified_packages, robust=options.robust)
+    try:
+        r = core.Rosdep(verified_packages, robust=options.robust)
+    except roslib.os_detect.OSDetectException, ex:
+        print "rosdep ABORTING.  Failed to detect OS: %s"%ex
+        return 1
 
     if options.verbose:
-        print "Detected OS: " + r.osi.get_os_name()
-        print "Detected Version: " + r.osi.get_os_version()
+        print "Detected OS: " + r.osi.get_name()
+        print "Detected Version: " + r.osi.get_version()
 
     try:
         if command == "generate_bash" or command == "satisfy":
             print r.generate_script(include_duplicates=options.include_duplicates, default_yes=options.default_yes)
-            return True
+            return 0
         elif command == "install":
             r.install(options.include_duplicates, options.default_yes);
-            return True
+            return 0
     except core.RosdepException, e:
         print "ERROR: %s"%e
-        return False
+        return 1
         
     if command == "depdb":
         print r.depdb(verified_packages)
-        return True
+        return 0
 
     elif command == "what_needs":
         print '\n'.join(r.what_needs(rdargs))
-        return True
+        return 0
 
     elif command == "where_defined":
         print r.where_defined(rdargs)
-        return True
+        return 0
 
     elif command == "check":
-        output = r.check()
+        return_val = 0
+        (output, scripts) = r.check()
         if len(rejected_packages) > 0:
-            print "Arguments %s are not packages"%rejected_packages
-            return False
-        if len(output) == 0:
-            return True
-        else:
-            print "check failed", output
-            return False
+            print >> sys.stderr, "Arguments %s are not packages"%rejected_packages
+            return_val = 1
+        if len(output) != 0:
+            print >> sys.stderr, output
+            return 1
+        if len(scripts)>0:
+            print >> sys.stderr, scripts
+            # not an error condition
+
+        return return_val

@@ -72,7 +72,7 @@ def instantiate_template(template, stack, brief, description, author, depends, l
     """
     return template%locals()
 
-def _update_depends(stack_manifest, depends):
+def _update_depends(depends):
     new_depends = []
     for s, pkgs in depends.iteritems():
         d = roslib.stack_manifest.StackDepend(s)
@@ -115,7 +115,7 @@ def create_stack(stack, stack_dir, stack_manifest, author, depends, licenses, sh
         review = '  <review status="unreviewed" notes=""/>'
 
     licenses = ','.join(licenses)
-    depends = _update_depends(stack_manifest, depends)
+    depends = _update_depends(depends)
     
     p = os.path.abspath(stack_dir)
     if not os.path.exists(p):
@@ -132,7 +132,25 @@ def create_stack(stack, stack_dir, stack_manifest, author, depends, licenses, sh
                 f.write(contents)
     print "\nPlease edit %s/stack.xml to finish creating your stack"%stack
 
-def compute_stack_depends_and_licenses(stack, packages):
+def compute_stack_depends_and_licenses(stack_dir):
+    """
+    @return: depends, licenses
+    @rtype: {str: [str]}, [str]
+    @raise: roslib.packages.InvalidROSPkgException
+    """
+    stack = os.path.basename(os.path.abspath(stack_dir))    
+    if os.path.exists(stack_dir):
+        packages = roslib.packages.list_pkgs_by_path(os.path.abspath(stack_dir))
+        depends, licenses = _compute_stack_depends_and_licenses(stack, packages)
+    else:
+        depends = dict()
+        licenses = ['BSD']
+    # add in bare ros dependency into any stack as an implicit depend
+    if not 'ros' in depends:
+        depends['ros'] = []
+    return depends, licenses
+    
+def _compute_stack_depends_and_licenses(stack, packages):
     pkg_depends = []
     licenses = []
     for pkg in packages:
@@ -142,6 +160,8 @@ def compute_stack_depends_and_licenses(stack, packages):
         
     stack_depends = {}
     for pkg in pkg_depends:
+        if pkg in packages:
+            continue
         st = roslib.stacks.stack_of(pkg)
         if not st:
             print_warning("WARNING: stack depends on [%s], which is not in a stack"%pkg)
@@ -166,14 +186,8 @@ def roscreatestack_main():
     stack_dir = args[0]
     stack = os.path.basename(os.path.abspath(stack_dir))
 
-    # check whether or not stack directory exists
     try:
-        if os.path.exists(stack_dir):
-            packages = roslib.packages.list_pkgs(pkg_dirs=[os.path.abspath(stack_dir)])
-            depends, licenses = compute_stack_depends_and_licenses(stack, packages)
-        else:
-            depends = dict()
-            licenses = ['BSD']
+        depends, licenses = compute_stack_depends_and_licenses(stack_dir)
     except roslib.packages.InvalidROSPkgException, e:
         print >> sys.stderr, str(e)
         sys.exit(1)

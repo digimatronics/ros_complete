@@ -104,14 +104,36 @@ public:
    * \brief returns whether or not the queue is empty
    */
   bool isEmpty();
+  /**
+   * \brief Removes all callbacks from the queue.  Does \b not wait for calls currently in progress to finish.
+   */
   void clear();
 
+  /**
+   * \brief Enable the queue (queue is enabled by default)
+   */
   void enable();
+  /**
+   * \brief Disable the queue, meaning any calls to addCallback() will have no effect
+   */
   void disable();
+  /**
+   * \brief Returns whether or not this queue is enabled
+   */
   bool isEnabled();
 
 protected:
   void setupTLS();
+
+  struct IDInfo
+  {
+    uint64_t id;
+    boost::shared_mutex calling_rw_mutex;
+  };
+  typedef boost::shared_ptr<IDInfo> IDInfoPtr;
+  typedef std::map<uint64_t, IDInfoPtr> M_IDInfo;
+
+  IDInfoPtr getIDInfo(uint64_t id);
 
   struct CallbackInfo
   {
@@ -127,14 +149,16 @@ protected:
   L_CallbackInfo callbacks_;
   boost::mutex mutex_;
   boost::condition_variable condition_;
-  boost::shared_mutex calling_rw_mutex_;
+
+  boost::mutex id_info_mutex_;
+  M_IDInfo id_info_;
 
   struct TLS
   {
     TLS()
-    : calling_in_this_thread(false)
+    : calling_in_this_thread(0xffffffffffffffffULL)
     {}
-    bool calling_in_this_thread;
+    uint64_t calling_in_this_thread;
     L_CallbackInfo callbacks;
   };
   boost::thread_specific_ptr<TLS> tls_;

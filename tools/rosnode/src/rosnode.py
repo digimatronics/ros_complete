@@ -50,7 +50,6 @@ import xmlrpclib
 from optparse import OptionParser
 
 import roslib.scriptutil as scriptutil 
-import rospy
 
 class ROSNodeException(Exception):
     """
@@ -266,25 +265,28 @@ def rosnode_ping(node_name, max_count=None, verbose=False):
     lastcall = 0.
     count = 0
     acc = 0.
-    while not rospy.is_shutdown():
-        try:
-            start = time.time()
-            pid = _succeed(node.getPid(ID))
-            end = time.time()
-            
-            dur = (end-start)*1000.
-            acc += dur
-            count += 1
-            
-            if verbose:
-                print "xmlrpc reply from %s\ttime=%fms"%(node_api, dur)
-            # 1s between pings
-        except socket.error:
-            print >> sys.stderr, "connection to [%s] timed out"%node_name
-            return False
-        if max_count and count >= max_count:
-            break
-        time.sleep(1.0)
+    try:
+        while True:
+            try:
+                start = time.time()
+                pid = _succeed(node.getPid(ID))
+                end = time.time()
+
+                dur = (end-start)*1000.
+                acc += dur
+                count += 1
+
+                if verbose:
+                    print "xmlrpc reply from %s\ttime=%fms"%(node_api, dur)
+                # 1s between pings
+            except socket.error:
+                print >> sys.stderr, "connection to [%s] timed out"%node_name
+                return False
+            if max_count and count >= max_count:
+                break
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        pass
             
     if verbose and count > 1:
         print "ping average: %fms"%(acc/count)
@@ -493,7 +495,7 @@ def _rosnode_cmd_list(argv):
                       dest="list_uri", default=False,
                       action="store_true",
                       help="list XML-RPC URIs")
-    parser.add_option("-a",
+    parser.add_option("-a","--all",
                       dest="list_all", default=False,
                       action="store_true",
                       help="list all information")
@@ -541,8 +543,8 @@ def _rosnode_cmd_kill(argv):
     @raise ROSNodeException: if user enters in unrecognized nodes
     """
     args = argv[2:]
-    parser = OptionParser(usage="usage: %prog kill <node1> [node2...]", prog=NAME)
-    parser.add_option("-a",
+    parser = OptionParser(usage="usage: %prog kill [node]...", prog=NAME)
+    parser.add_option("-a","--all",
                       dest="kill_all", default=False,
                       action="store_true",
                       help="kill all nodes")
@@ -612,7 +614,7 @@ def _rosnode_cmd_ping(argv):
     """
     args = argv[2:]    
     parser = OptionParser(usage="usage: %prog ping [options] <node>", prog=NAME)
-    parser.add_option("--all",
+    parser.add_option("--all", "-a",
                       dest="ping_all", default=False,
                       action="store_true",
                       help="ping all nodes")

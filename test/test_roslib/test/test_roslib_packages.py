@@ -40,6 +40,7 @@ import roslib.rosenv
 import roslib.packages
 import rostest
 
+
 class RoslibPackagesTest(unittest.TestCase):
   
   def test_list_pkgs(self):
@@ -81,6 +82,14 @@ class RoslibPackagesTest(unittest.TestCase):
     bar_p = os.path.join(d, 'p1', 'bar')
     self.assertEquals(foo_p, cache['foo'][0])
     self.assertEquals(bar_p, cache['bar'][0])
+    
+  def test_find_node(self):
+    import roslib.packages
+    d = roslib.packages.get_pkg_dir('test_roslib')
+    p = os.path.join(d, 'test', 'fake_node.py')
+    self.assertEquals(p, roslib.packages.find_node('test_roslib', 'fake_node.py'))
+    
+    self.assertEquals(None, roslib.packages.find_node('test_roslib', 'not_a_node'))
     
   def test_get_pkg_dir(self):
     import roslib.packages
@@ -134,6 +143,20 @@ class RoslibPackagesTest(unittest.TestCase):
         paths = get_package_paths(ros_root_required, env)
         self.assertEquals(v + [rr], paths)
 
+
+  def test__platform_supported(self):
+    self.assertTrue(roslib.packages._platform_supported(os.path.join(roslib.packages.get_pkg_dir("test_roslib"), "test", "platform_supported.manifest.xml"), "test_os", "test_version"))
+    self.assertFalse(roslib.packages._platform_supported(os.path.join(roslib.packages.get_pkg_dir("test_roslib"), "test", "platform_supported.manifest.xml"), "test_os", "not_test_version"))
+    self.assertFalse(roslib.packages._platform_supported(os.path.join(roslib.packages.get_pkg_dir("test_roslib"), "test", "platform_supported.manifest.xml"), "not_test_os", "test_version"))
+    self.assertFalse(roslib.packages._platform_supported(os.path.join(roslib.packages.get_pkg_dir("test_roslib"), "test", "platform_supported.manifest.xml"), "not_test_os", "not_test_version"))
+
+  def test_platform_supported_tripwire(self):
+    self.assertFalse(roslib.packages.platform_supported("test_roslib", "nonextant_os", "noextant_version"))
+
+  def test_current_platform_supported_tripwire(self):
+    roslib.packages.current_platform_supported("test_roslib")
+
+    
     
 if __name__ == '__main__':
   rostest.unitrun('test_roslib', 'test_packages', RoslibPackagesTest, coverage_packages=['roslib.packages'])

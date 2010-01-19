@@ -42,8 +42,6 @@ introspecting information about services, as well as using this
 introspection to dynamically call services.
 """
 
-import roslib; roslib.load_manifest('rosservice')
-
 NAME='rosservice'
 
 import cStringIO
@@ -282,7 +280,8 @@ def _rosservice_list(namespace=None, print_nodes=False):
 
 def _rosservice_info(service_name):
     """
-    Implements 'rosservice info'. Prints information about a service
+    Implements 'rosservice info'. Prints information about a service.
+    
     @param service_name: name of service to get info for
     @type  service_name: str
     @raise ROSServiceIOException: if the I/O issues prevent retrieving service information    
@@ -303,7 +302,7 @@ def _rosservice_info(service_name):
         return
     print "Type: %s"%t
     args = get_service_args(service_name)
-    if not args:
+    if args is None:
         print >> sys.stderr, "ERROR: service is no longer available"
         return
     print "Args: %s"%args
@@ -568,6 +567,9 @@ def _rosservice_cmd_call(argv):
     if not service_args and has_service_args(service_name, service_class=service_class):
         for service_args in _stdin_yaml_arg():
             if service_args:
+                # #2080: argument to _rosservice_call must be a list
+                if type(service_args) == dict:
+                    service_args = [service_args]
                 _rosservice_call(service_name, service_args, verbose=options.verbose, service_class=service_class) 
     else:
         _rosservice_call(service_name, service_args, verbose=options.verbose, service_class=service_class)
@@ -595,7 +597,12 @@ def _stdin_yaml_arg():
                     continue
                 elif arg.strip() != '---':
                     buff = buff + arg
-            yield yaml.load(buff.rstrip())
+            try:
+                yield yaml.load(buff.rstrip())
+            except Exception, e:
+                print >> sys.stderr, "Invalid YAML: %s"%str(e)
+            # reset arg
+            arg = 'x'
     except select.error:
         return # most likely ctrl-c interrupt
 
@@ -645,10 +652,12 @@ def _rosservice_cmd_info(argv):
 def _fullusage():
     """Print generic usage for rosservice"""
     print """Commands:
-\trosservice list\tprint information about active services
+\trosservice args\tprint service arguments
 \trosservice call\tcall the service with the provided args
-\trosservice type\tprint service type
 \trosservice find\tfind services by service type
+\trosservice info\tprint information about service
+\trosservice list\tlist active services
+\trosservice type\tprint service type
 \trosservice uri\tprint service ROSRPC uri
 
 Type rosservice <command> -h for more detailed usage, e.g. 'rosservice call -h'
@@ -692,6 +701,3 @@ def rosservicemain(argv=sys.argv):
         sys.exit(2)
     except KeyboardInterrupt:
         pass
-    
-if __name__ == '__main__':
-    rosservicemain()

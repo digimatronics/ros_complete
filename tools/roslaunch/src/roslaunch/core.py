@@ -37,18 +37,11 @@ Core roslaunch model and lower-level utility routines.
 """
 
 import os
-import getpass
 import logging
 import socket
-import string
 import sys
-import urlparse
-import xmlrpclib
 
-import roslib.names 
 import roslib.network
-import roslib.packages
-import roslib.scriptutil 
 import roslib.substitution_args
 import roslib.rosenv
 
@@ -306,9 +299,20 @@ class Master:
 
     def get(self):
         """
-        @return ServerProxy: XMLRPC proxy for communicating with master
+        @return: XMLRPC proxy for communicating with master
+        @rtype: xmlrpclib.ServerProxy
         """
+        import xmlrpclib
         return xmlrpclib.ServerProxy(self.uri)
+    
+    def get_multi(self):
+        """
+        @return: multicall XMLRPC proxy for communicating with master
+        @rtype: xmlrpclib.MultiCall
+        """
+        import xmlrpclib
+        return xmlrpclib.MultiCall(self.get())
+
     def set_port(self, port):
         """
         Override port specification of Master. This only has an effect on masters that have not
@@ -511,6 +515,7 @@ class Node(object):
         self.package = package
         self.type = node_type
         self.name = name or None
+        import roslib.names 
         self.namespace = roslib.names.make_global_ns(namespace or '/')
         self.machine_name = machine_name or None
         

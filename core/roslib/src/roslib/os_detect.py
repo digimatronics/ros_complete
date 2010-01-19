@@ -28,12 +28,17 @@
 
 # Author Tully Foote/tfoote@willowgarage.com
 
-#"""
-#Library and command-line tool for calculating rosdeps.
-#"""
+"""
+Library for detecting the current OS, including detecting specific
+Linux distributions. 
+
+The APIs of this library are still very coupled with the rosdep 
+command-line tool.
+"""
 
 from __future__ import with_statement
 
+import roslib.exceptions
 import roslib.rospack
 import roslib.stacks
 import os
@@ -45,6 +50,9 @@ import yaml
 
 ####### Linux Helper Functions #####
 def lsb_get_os():
+    """
+    Linux: wrapper around lsb_release to get the current OS
+    """
     try:
         cmd = ['lsb_release', '-si']
         pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -54,6 +62,9 @@ def lsb_get_os():
         return None
     
 def lsb_get_codename():
+    """
+    Linux: wrapper around lsb_release to get the current OS codename
+    """
     try:
         cmd = ['lsb_release', '-sc']
         pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -62,7 +73,10 @@ def lsb_get_codename():
     except:
         return None
     
-def lsb_get_release_version():
+def lsb_get_version():
+    """
+    Linux: wrapper around lsb_release to get the current OS version
+    """
     try:
         cmd = ['lsb_release', '-sr']
         pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -71,9 +85,23 @@ def lsb_get_release_version():
     except:
         return None
 
+class OSDetectException(roslib.exceptions.ROSLibException): pass
+
+class OSBase:
+    def check_presence(self):
+        raise OSDetectException("check_presence unimplemented")
+
+    def get_name(self):
+        raise OSDetectException("check_presence unimplemented")
+
+    def get_version(self):
+        raise OSDetectException("check_presence unimplemented")
 
 ###### Debian SPECIALIZATION #########################
-class Debian:
+class Debian(OSBase):
+    """
+    Detect Debian OS.
+    """
     def check_presence(self):
         if "Debian" == lsb_get_os():
             return True
@@ -99,56 +127,44 @@ class Ubuntu(Debian):
         return False
 
     def get_version(self):
-        return lsb_get_codename()
+        return lsb_get_version()
     def get_name(self):
         return "ubuntu"
 
 ###### END UBUNTU SPECIALIZATION ########################
 
 ###### Mint SPECIALIZATION #########################
-class Mint:
+class Mint(OSBase):
+    """
+    Detect Mint variants of Debian.
+    """
     def check_presence(self):
-        try:
-            filename = "/etc/issue"
-            if os.path.exists(filename):
-                with open(filename, 'r') as fh:                
-                    os_list = fh.read().split()
-                if os_list and os_list[0] == "Linux" and os_list[1] == "Mint":
-                    return True
-        except:
-            print "Mint failed to detect OS"
+        if "LinuxMint" == lsb_get_os():
+            return True
         return False
 
     def get_version(self):
-        try:
-            filename = "/etc/issue"
-            if os.path.exists(filename):
-                with open(filename, 'r') as fh:
-                    os_list = fh.read().split()
-                if os_list[0] == "Linux" and os_list[1] == "Mint":
-                    return os_list[2]
-        except:
-            print "Mint failed to get version"
-            return False
-
-        return False
+        return lsb_get_version()
 
     def get_name(self):
         return "mint"
 ###### END Mint SPECIALIZATION ########################
 
 ###### Fedora SPECIALIZATION #########################
-class Fedora:
+class Fedora(OSBase):
+    """
+    Detect Fedora OS.
+    """
     def check_presence(self):
         try:
-            filename = "/etc/redhat_release"
+            filename = "/etc/redhat-release"
             if os.path.exists(filename):
                 with open(filename, 'r') as fh:                
                     os_list = fh.read().split()
                 if os_list and os_list[0] == "Fedora" and os_list[1] == "release":
                     return True
         except:
-            print "Fedora failed to detect OS"
+            pass
         return False
 
     def get_version(self):
@@ -172,16 +188,19 @@ class Fedora:
 
 ###### Rhel SPECIALIZATION #########################
 class Rhel(Fedora):
+    """
+    Detect Redhat OS.
+    """
     def check_presence(self):
         try:
-            filename = "/etc/redhat_release"
+            filename = "/etc/redhat-release"
             if os.path.exists(filename):
                 with open(filename, 'r') as fh:                
                     os_list = fh.read().split()
                 if os_list and os_list[2] == "Enterprise":
                     return True
         except:
-            print "Rhel failed to detect OS"
+            pass
         return False
 
     def get_version(self):
@@ -205,13 +224,19 @@ class Rhel(Fedora):
 
 ###### Macports SPECIALIZATION #########################
 def port_detect(p):
+    """
+    Detect presence of Macports by running "port installed" command.
+    """
     cmd = ['port', 'installed', p]
     pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (std_out, std_err) = pop.communicate()
     
     return (std_out.count("(active)") > 0)
 
-class Macports:
+class Macports(OSBase):
+    """
+    Detect OS X and Macports.
+    """
     def check_presence(self):
         filename = "/usr/bin/sw_vers"
         if os.path.exists(filename):
@@ -227,7 +252,10 @@ class Macports:
 ###### END Macports SPECIALIZATION ########################
 
 ###### Arch SPECIALIZATION #########################
-class Arch:
+class Arch(OSBase):
+    """
+    Detect Arch Linux.
+    """
 
     def check_presence(self):
         filename = "/etc/arch-release"
@@ -256,7 +284,68 @@ class Arch:
 
 ###### END Arch SPECIALIZATION ########################
 
-class Override:
+
+###### Cygwin SPECIALIZATION #########################
+class Cygwin(OSBase):
+    """
+    Detect Cygwin presence on Windows OS.
+    """
+    def check_presence(self):
+        filename = "/usr/bin/cygwin1.dll"
+        if os.path.exists(filename):
+            return True
+        return False
+    
+    def get_version(self):
+        cmd = ['uname','-r'];
+        pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (std_out, std_err) = pop.communicate()
+        return std_out.strip()
+
+    def get_name(self):
+        return "cygwin"
+
+###### END Cygwin SPECIALIZATION ########################
+
+###### Gentoo Sepcialization ###############################
+class Gentoo(OSBase):
+    """
+    Detect Gentoo OS.
+    """
+    def check_presence(self):
+        try:
+            filename = "/etc/gentoo-release"
+            if os.path.exists(filename):
+                with open(filename, 'r') as fh:                
+                    os_list = fh.read().split()
+                if os_list and os_list[0] == "Gentoo" and os_list[1] == "Base":
+                    return True
+        except:
+            pass#print >> sys.stderr, "Gentoo failed to detect OS"
+        return False
+
+    def get_version(self):
+        try:
+            filename = "/etc/gentoo-release"
+            if os.path.exists(filename):
+                with open(filename, 'r') as fh:
+                    os_list = fh.read().split()
+                if os_list[0] == "Gentoo" and os_list[1] == "Base":
+                    return os_list[4]
+        except:
+            print >> sys.stderr, "Gentoo failed to get version"
+            return False
+
+        return False
+
+    def get_name(self):
+        return "gentoo"
+
+###### END Gentoo Sepcialization ###############################
+
+
+#### Override class for debugging and unsupported OSs ###########
+class Override(OSBase):
     def __init__(self):
         self._os_name = "uninitialized from ROS_OS_OVERRIDE=name:version"
         self._os_version = "uninitialized from ROS_OS_OVERRIDE=name:version"
@@ -277,14 +366,18 @@ class Override:
     
 
 
-class OSAbstractionException(Exception): pass
 
-class OSAbstraction:
+
+class OSDetect:
     """ This class will iterate over registered classes to lookup the
-    active OS and Version of that OS for lookup in rosdep.yaml"""
-    def __init__(self, os_list = [Debian(), Ubuntu(), Mint(), Macports(), Arch(), Fedora(), Rhel()]):
+    active OS and version"""
+    def __init__(self, os_list = [Debian(), Ubuntu(), Mint(), Macports(), Arch(), Fedora(), Rhel(), Gentoo(), Cygwin()]):
         self._os_list = [ Override()]
         self._os_list.extend(os_list)
+
+        self._os_class = None
+        self._os_name = None
+        self._os_version = None
 
         self.detect_os()
 
@@ -299,27 +392,22 @@ class OSAbstraction:
                 self._os_version = os_class.get_version()
                 self._os_class = os_class
                 return True
+        attempted_oss = [o.get_name() for o in self._os_list]
+        raise OSDetectException("Could not detect OS, tried %s"%attempted_oss)
         return False
 
-    def get_os_specific_class(self):
+    def get_os(self):
         if not self._os_class:
-            if not self.detect_os():
-                raise OSAbstractionException("No OS detected")
-        else:
-            return self._os_class
+            self.detect_os()
+        return self._os_class
 
     def get_name(self):
         if not self._os_name:
-            os_class = self.get_os()
-            if os_class:
-                return os_class.get_name()
-            else:
-                return False
+            self.detect_os()
         return self._os_name
 
     def get_version(self):
         if not self._os_version:
-            if self.os_class:
-                self._os_version = self.os_class.get_version()
+            not self.detect_os()
         return self._os_version
 

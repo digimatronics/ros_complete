@@ -39,7 +39,6 @@ state of the ROS Parameter Server using YAML files.
 """
 
 NAME = 'rosparam'
-import roslib; roslib.load_manifest('rosparam')
 
 ## namespace key. Use of this in a YAML document specifies the
 ## namespace of all the params.  NOTE: phasing out most use of this
@@ -339,7 +338,9 @@ def delete_param(param, verbose=False):
 
 def _set_param(param, value, verbose=False):
     """
-    Set param on the Parameter Server. Unlike L{set_param()}, this takes in a Python value to set instead of YAML.
+    Set param on the Parameter Server. Unlike L{set_param()}, this
+    takes in a Python value to set instead of YAML.
+    
     @param param: parameter name
     @type  param: str
     @param value XmlRpcLegalValue: value to upload
@@ -368,7 +369,8 @@ def _set_param(param, value, verbose=False):
 
 def set_param(param, value, verbose=False):
     """
-    Set param on the ROS parameter server using a YAML value
+    Set param on the ROS parameter server using a YAML value.
+    
     @param param: parameter name
     @type  param: str
     @param value: yaml-encoded value
@@ -504,6 +506,13 @@ def _rosparam_cmd_set_load(cmd, argv):
         parser.error("too many arguments")
 
     if cmd == 'set':
+        # #2237: the empty string is really hard to specify on the
+        # command-line due to bash quoting rules. We cheat here and
+        # let an empty Python string be an empty YAML string (instead
+        # of YAML null, which has no meaning to the Parameter Server
+        # anyway).
+        if arg2 == '':
+            arg2 = '!!str'
         set_param(script_resolve_name(NAME, arg), arg2, verbose=options.verbose)
     else:
         paramlist = load_file(arg, default_namespace=script_resolve_name(NAME, arg2), verbose=options.verbose)
@@ -518,7 +527,7 @@ def _rosparam_cmd_list(argv):
     @param argv: command-line args
     @type  argv: str
     """
-    parser = OptionParser(usage="usage: %prog load [namespace]", prog=NAME)
+    parser = OptionParser(usage="usage: %prog list [namespace]", prog=NAME)
     options, args = parser.parse_args(argv[2:])
 
     ns = GLOBALNS
@@ -608,7 +617,4 @@ yaml.add_implicit_resolver(u'!degrees', pattern)
 pattern = re.compile(r'^rad\([^\)]*\)$')
 yaml.add_implicit_resolver(u'!radians', pattern)
 
-
-if __name__ == '__main__':
-    yamlmain()
 
