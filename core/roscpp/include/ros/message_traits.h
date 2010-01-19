@@ -145,6 +145,12 @@ inline roslib::Header* getHeader(M& msg)
   return &msg.header;
 }
 
+template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator>
+inline roslib::Header* getHeader(const M<Allocator>& msg)
+{
+  return &msg.header;
+}
+
 template<typename M>
 inline bool isSimple()
 {
