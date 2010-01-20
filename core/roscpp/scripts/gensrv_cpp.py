@@ -62,6 +62,12 @@ def write_end(s, pkg, srv):
 def write_generic_includes(s):
     s.write('#include "ros/service_traits.h"\n\n')
     
+def write_trait_char_class(s, class_name, cpp_msg, value):
+    s.write('template<>\nstruct %s<%s> {\n'%(class_name, cpp_msg))
+    s.write('  static const char* value() \n  {\n    return "%s";\n  }\n\n'%(value))
+    s.write('  static const char* value(const %s&) { return value(); } \n'%(cpp_msg))
+    s.write('};\n\n')
+    
 def write_traits(s, spec, pkg, msg, cpp_name_prefix):
     gendeps_dict = roslib.gentools.get_dependencies(spec, pkg)
     md5sum = roslib.gentools.compute_md5(gendeps_dict)
@@ -70,12 +76,15 @@ def write_traits(s, spec, pkg, msg, cpp_name_prefix):
     cpp_msg = '%s%s'%(cpp_name_prefix, msg)
     s.write('namespace ros\n{\n')
     s.write('namespace service_traits\n{\n')
-    s.write('template<> inline const char* md5sum<%s>() { return "%s"; }\n'%(cpp_msg, md5sum))
-    s.write('template<> inline const char* datatype<%s>() { return "%s"; }\n'%(cpp_msg, datatype))
-    s.write('template<> inline const char* md5sum<%s::Request>() { return "%s"; }\n'%(cpp_msg, md5sum))
-    s.write('template<> inline const char* datatype<%s::Request>() { return "%s"; }\n'%(cpp_msg, datatype))
-    s.write('template<> inline const char* md5sum<%s::Response>() { return "%s"; }\n'%(cpp_msg, md5sum))
-    s.write('template<> inline const char* datatype<%s::Response>() { return "%s"; }\n'%(cpp_msg, datatype))
+    
+    write_trait_char_class(s, 'MD5Sum', cpp_msg, md5sum);
+    write_trait_char_class(s, 'DataType', cpp_msg, datatype);
+    request_with_allocator = '%s::Request_<Allocator> '%(cpp_msg)
+    response_with_allocator = '%s::Response_<Allocator> '%(cpp_msg)
+    genmsg_cpp.write_trait_char_class(s, 'MD5Sum', request_with_allocator, md5sum)
+    genmsg_cpp.write_trait_char_class(s, 'DataType', request_with_allocator, datatype)
+    genmsg_cpp.write_trait_char_class(s, 'MD5Sum', response_with_allocator, md5sum)
+    genmsg_cpp.write_trait_char_class(s, 'DataType', response_with_allocator, datatype)
     s.write('} // namespace message_traits\n')
     s.write('} // namespace ros\n\n')
 

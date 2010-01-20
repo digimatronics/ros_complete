@@ -170,33 +170,6 @@ inline bool hasHeader()
   return HasHeader<M>::value;
 }
 
-struct Traits
-{
-  bool has_header;
-  roslib::Header* header;
-  bool is_simple;
-  bool is_fixed_size;
-
-  std::string md5sum;
-  std::string datatype;
-  std::string definition;
-};
-
-template<typename M>
-inline Traits traits()
-{
-  Traits t;
-  t.has_header = hasHeader<M>();
-  t.header = getHeader<M>();
-  t.is_simple = isSimple<M>();
-  t.is_fixed_size = isFixedSize<M>();
-  t.md5sum = md5sum<M>();
-  t.datatype = datatype<M>();
-  t.definition = definition<M>();
-
-  return t;
-}
-
 } // namespace message_traits
 } // namespace ros
 

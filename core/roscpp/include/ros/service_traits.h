@@ -34,42 +34,55 @@ namespace service_traits
 {
 
 template<typename M>
+struct MD5Sum
+{
+  static const char* value()
+  {
+    return M::__s_getServerMD5Sum().c_str();
+  }
+
+  static const char* value(const M& m)
+  {
+    return m.__getServerMD5Sum().c_str();
+  }
+};
+
+template<typename M>
+struct DataType
+{
+  static const char* value()
+  {
+    return M::__s_getDataType().c_str();
+  }
+
+  static const char* value(const M& m)
+  {
+    return m.__getDataType().c_str();
+  }
+};
+
+template<typename M>
 inline const char* md5sum()
 {
-  return M::__s_getServerMD5Sum().c_str();
+  return MD5Sum<M>::value();
 }
 
 template<typename M>
 inline const char* datatype()
 {
-  return M::__s_getServiceDataType().c_str();
+  return DataType<M>::value();
 }
 
 template<typename M>
-inline const char* md5sum(const M&)
+inline const char* md5sum(const M& m)
 {
-  return md5sum<M>();
+  return MD5Sum<M>::value(m);
 }
 
 template<typename M>
-inline const char* datatype(const M&)
+inline const char* datatype(const M& m)
 {
-  return datatype<M>();
-}
-
-struct Traits
-{
-  std::string md5sum;
-  std::string datatype;
-};
-
-template<typename M>
-inline Traits traits()
-{
-  Traits t;
-  t.md5sum = md5sum<M>();
-  t.datatype = datatype<M>();
-  return t;
+  return DataType<M>::value(m);
 }
 
 } // namespace message_traits
