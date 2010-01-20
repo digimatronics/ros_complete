@@ -107,7 +107,7 @@ struct Definition
 template<typename M>
 struct Header
 {
-  roslib::Header* value(M& m) { return &m.header; }
+  static roslib::Header* value(M& m) { return &m.header; }
 };
 
 template<typename M>
@@ -147,9 +147,15 @@ inline const char* definition(const M& m)
 }
 
 template<typename M>
-inline roslib::Header* getHeader(M& msg)
+inline typename boost::enable_if_c<HasHeader<M>::value, roslib::Header*>::type header(M& msg)
 {
   return Header<M>::value(msg);
+}
+
+template<typename M>
+inline typename boost::disable_if_c<HasHeader<M>::value, roslib::Header*>::type header(M& msg)
+{
+  return 0;
 }
 
 template<typename M>
