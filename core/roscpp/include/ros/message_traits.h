@@ -28,18 +28,18 @@
 #ifndef ROSCPP_MESSAGE_TRAITS_H
 #define ROSCPP_MESSAGE_TRAITS_H
 
-#define ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, alloc) \
+#define ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, alloc) \
   namespace ns \
   { \
     template<template <typename T> class Allocator > struct msg##_; \
-    typedef msg##_<alloc> msg; \
-    typedef boost::shared_ptr<msg> msg##Ptr; \
-    typedef boost::shared_ptr<msg const> msg##ConstPtr; \
+    typedef msg##_<alloc> new_name; \
+    typedef boost::shared_ptr<msg> new_name##Ptr; \
+    typedef boost::shared_ptr<msg const> new_name##ConstPtr; \
   }
 
-#define ROSCPP_FORWARD_DECLARE_MESSAGE(ns, msg) ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, std::allocator)
+#define ROSCPP_FORWARD_DECLARE_MESSAGE(ns, msg, new_name) ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, std::allocator)
 
-ROSCPP_FORWARD_DECLARE_MESSAGE(roslib, Header);
+ROSCPP_FORWARD_DECLARE_MESSAGE(roslib, Header, Header);
 
 namespace ros
 {
