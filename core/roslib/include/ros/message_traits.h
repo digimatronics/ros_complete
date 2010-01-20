@@ -25,10 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_MESSAGE_TRAITS_H
-#define ROSCPP_MESSAGE_TRAITS_H
+#ifndef ROSLIB_MESSAGE_TRAITS_H
+#define ROSLIB_MESSAGE_TRAITS_H
 
-#define ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, alloc) \
+#include <boost/utility/enable_if.hpp>
+
+#define ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, alloc) \
   namespace ns \
   { \
     template<template <typename T> class Allocator > struct msg##_; \
@@ -37,12 +39,12 @@
     typedef boost::shared_ptr<msg const> new_name##ConstPtr; \
   }
 
-#define ROSCPP_FORWARD_DECLARE_MESSAGE(ns, msg, new_name) ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, std::allocator)
+#define ROS_FORWARD_DECLARE_MESSAGE(ns, msg, new_name) ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, std::allocator)
 
-ROSCPP_FORWARD_DECLARE_MESSAGE(roslib, Header, Header);
+ROS_FORWARD_DECLARE_MESSAGE(roslib, Header, Header);
 
-#define ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator) \
-  ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator);
+#define ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator) \
+  ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator);
 
 namespace ros
 {
@@ -182,4 +184,4 @@ inline bool hasHeader()
 } // namespace message_traits
 } // namespace ros
 
-#endif // ROSCPP_MESSAGE_TRAITS_H
+#endif // ROSLIB_MESSAGE_TRAITS_H

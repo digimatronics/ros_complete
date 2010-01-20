@@ -36,6 +36,8 @@
 
 #include <boost/type_traits/add_const.hpp>
 #include <boost/type_traits/remove_const.hpp>
+#include <boost/type_traits/is_base_of.hpp>
+#include <boost/utility/enable_if.hpp>
 
 namespace ros
 {
@@ -58,7 +60,7 @@ typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPt
 /**
  * \brief Concrete generic implementation of SubscriptionMessageHelper for any normal message type
  */
-template<class M>
+template<typename M, typename Enabled = void>
 class SubscriptionMessageHelperT : public SubscriptionMessageHelper
 {
 public:
@@ -67,6 +69,17 @@ public:
   SubscriptionMessageHelperT(const Callback& callback)
   : callback_(callback)
   {}
+
+  template<typename T>
+  typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+  {
+    t->__connection_header = connection_header;
+  }
+
+  template<typename T>
+  typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+  {
+  }
 
   virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header)
   {
@@ -78,18 +91,16 @@ public:
     ser::Buffer b(buffer, length);
     ser::deserialize(b, *msg);
 
-    msg->__connection_header = connection_header;
+    assignConnectionHeader(msg, connection_header);
 
     return VoidPtr(msg);
   }
+
   virtual void call(const VoidPtr& msg)
   {
     MPtr casted_msg = boost::static_pointer_cast<M>(msg);
     callback_(casted_msg);
   }
-
-  virtual std::string getMD5Sum() { return message_traits::md5sum<M>(); }
-  virtual std::string getDataType() { return message_traits::datatype<M>(); }
 
 private:
   Callback callback_;

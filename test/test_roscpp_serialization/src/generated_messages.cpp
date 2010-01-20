@@ -45,13 +45,13 @@
 
 using namespace test_roscpp_serialization;
 
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, ArrayOfFixedLength, MyArrayOfFixedLength, Allocator);
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, ArrayOfVariableLength, MyArrayOfVariableLength, Allocator);
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, EmbeddedFixedLength, MyEmbeddedFixedLength, Allocator);
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, EmbeddedVariableLength, MyEmbeddedVariableLength, Allocator);
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, FixedLength, MyFixedLength, Allocator);
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, VariableLength, MyVariableLength, Allocator);
-ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, WithHeader, MyWithHeader, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, ArrayOfFixedLength, MyArrayOfFixedLength, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, ArrayOfVariableLength, MyArrayOfVariableLength, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, EmbeddedFixedLength, MyEmbeddedFixedLength, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, EmbeddedVariableLength, MyEmbeddedVariableLength, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, FixedLength, MyFixedLength, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, VariableLength, MyVariableLength, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, WithHeader, MyWithHeader, Allocator);
 
 TEST(GeneratedMessages, traitsWithStandardMessages)
 {

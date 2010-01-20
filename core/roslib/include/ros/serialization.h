@@ -29,10 +29,10 @@
 #define ROSCPP_SERIALIZATION_H
 
 #include "types.h"
-#include "common.h"
+#include "serialized_message.h"
 #include "message_traits.h"
 #include "builtin_message_traits.h"
-#include "ros/time.h"
+#include "time.h"
 
 #include <boost/array.hpp>
 #include <boost/call_traits.hpp>

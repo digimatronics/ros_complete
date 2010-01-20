@@ -30,7 +30,7 @@
 
 #include "forwards.h"
 #include "common.h"
-#include "serialization.h"
+#include "ros/serialization.h"
 #include "rosout_appender.h"
 
 #include "XmlRpcValue.h"
