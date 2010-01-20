@@ -41,6 +41,9 @@
 
 ROSCPP_FORWARD_DECLARE_MESSAGE(roslib, Header, Header);
 
+#define ROSCPP_TYPEDEF_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator) \
+  ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator);
+
 namespace ros
 {
 namespace message_traits

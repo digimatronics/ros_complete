@@ -11,4 +11,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 rosbuild_genmsg()
 rosbuild_gensrv()
 
+include_directories(include)
+
 rosbuild_add_gtest(serialization src/serialization.cpp)
+rosbuild_add_gtest(generated_messages src/generated_messages.cpp)

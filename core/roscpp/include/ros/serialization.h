@@ -142,10 +142,11 @@ ROSCPP_CREATE_SIMPLE_SERIALIZER(float);
 ROSCPP_CREATE_SIMPLE_SERIALIZER(double);
 
 // string
-template<>
-struct Serializer<std::string>
+template<template<typename T> class Allocator >
+struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
 {
-  inline static Buffer write(Buffer buffer, const std::string& str)
+  typedef std::basic_string<char, std::char_traits<char>, Allocator<char> > StringType;
+  inline static Buffer write(Buffer buffer, const StringType& str)
   {
     size_t len = str.size();
     buffer = serialize<uint32_t>(buffer, (uint32_t)len);
@@ -157,13 +158,13 @@ struct Serializer<std::string>
     return buffer;
   }
 
-  inline static Buffer read(Buffer buffer, std::string& str)
+  inline static Buffer read(Buffer buffer, StringType& str)
   {
     uint32_t len;
     buffer = deserialize(buffer, len);
     if (len > 0)
     {
-      str = std::string((char*)buffer.advance(len), len);
+      str = StringType((char*)buffer.advance(len), len);
     }
     else
     {
@@ -172,7 +173,7 @@ struct Serializer<std::string>
     return buffer;
   }
 
-  inline static uint32_t serializedLength(const std::string& str)
+  inline static uint32_t serializedLength(const StringType& str)
   {
     return 4 + (uint32_t)str.size();
   }

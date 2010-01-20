@@ -34,25 +34,12 @@
  */
 
 #include <gtest/gtest.h>
-#include "ros/serialization.h"
 #include <roslib/Header.h>
-#include <boost/shared_array.hpp>
+#include "test_roscpp_serialization/helpers.h"
 
 using namespace ros;
 using namespace ros::serialization;
-
-typedef boost::shared_array<uint8_t> Array;
-
-template<typename T>
-Array serializeAndDeserialize(const T& ser_val, T& deser_val)
-{
-  uint32_t len = serializationLength(ser_val);
-  boost::shared_array<uint8_t> b(new uint8_t[len]);
-  serialize(Buffer(b.get(), len), ser_val);
-  deserialize(Buffer(b.get(), len), deser_val);
-
-  return b;
-}
+using namespace test_roscpp_serialization;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Tests for compilation/validity of serialization/deserialization of primitive types
