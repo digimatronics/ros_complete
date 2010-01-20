@@ -107,6 +107,12 @@ struct Definition
 };
 
 template<typename M>
+struct Header
+{
+  roslib::Header* value(M& m) { return &m.header; }
+};
+
+template<typename M>
 inline const char* md5sum()
 {
   return MD5Sum<M>::value();
@@ -145,7 +151,7 @@ inline const char* definition(const M& m)
 template<typename M>
 inline roslib::Header* getHeader(M& msg)
 {
-  return &msg.header;
+  return Header<M>::value(msg);
 }
 
 template<typename M>
