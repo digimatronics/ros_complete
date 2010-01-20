@@ -28,8 +28,6 @@
 #ifndef ROSCPP_MESSAGE_TRAITS_H
 #define ROSCPP_MESSAGE_TRAITS_H
 
-#include "ros/assert.h"
-
 #define ROSCPP_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, alloc) \
   namespace ns \
   { \
