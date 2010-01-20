@@ -240,7 +240,7 @@ def write_deprecated_member_functions(s, spec, pkg, msg):
     fields = spec.fields()
     s.write('  ROSCPP_DEPRECATED virtual const std::string __getDataType() const { return "%s/%s"; }\n'%(pkg,msg))
     s.write('  ROSCPP_DEPRECATED virtual const std::string __getMD5Sum() const { return "%s"; }\n'%(md5sum))
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return %s; }\n'%(full_text))
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return "%s"; }\n'%(full_text))
     
     s.write('  ROSCPP_DEPRECATED virtual uint8_t *serialize(uint8_t *write_ptr, uint32_t seq) const\n  {\n')
     s.write('    ros::serialization::Buffer buffer(write_ptr, 1000000000);\n')
@@ -276,11 +276,20 @@ def compute_full_text_escaped(gen_deps_dict):
     for line in lines:
         line.replace('\\', '\\\\')
         line.replace('"', '\\"')
-        s.write('"%s\\n"\n'%(line))
+        s.write('%s\\n \\\n'%(line))
         
     val = s.getvalue()
     s.close()
     return val
+
+def write_trait_char_class(s, class_name, cpp_msg_with_alloc, value):
+    s.write('template<template<typename T> class Allocator >\nstruct %s<%s> {\n'%(class_name, cpp_msg_with_alloc))
+    s.write('  static const char* value() \n  {\n    return "%s";\n  }\n\n'%(value))
+    s.write('  static const char* value(const %s&) { return value(); } \n'%(cpp_msg_with_alloc))
+    s.write('};\n\n')
+    
+def write_trait_true_class(s, class_name, cpp_msg_with_alloc):
+    s.write('template<template<typename T> class Allocator > struct %s<%s> : public TrueType {};\n'%(class_name, cpp_msg_with_alloc))
 
 def write_traits(s, spec, pkg, msg, cpp_name_prefix, datatype = None):
     # generate dependencies dictionary
@@ -294,18 +303,15 @@ def write_traits(s, spec, pkg, msg, cpp_name_prefix, datatype = None):
     (cpp_msg_unqualified, cpp_msg_with_alloc, _) = cpp_message_declarations(cpp_name_prefix, msg)
     s.write('namespace ros\n{\n')
     s.write('namespace message_traits\n{\n')
-    s.write('template<template<typename T> class Allocator > struct MD5Sum<%s> { static const char* value() { return "%s"; } };\n'%(cpp_msg_with_alloc, md5sum))
-    s.write('template<template<typename T> class Allocator > struct DataType<%s> { static const char* value() { return "%s"; } };\n'%(cpp_msg_with_alloc, datatype))
-    
-    s.write('template<template<typename T> class Allocator > struct Definition<%s> { static const char* value() {\n  return\n'%(cpp_msg_with_alloc))     
-    s.write(full_text);
-    s.write(';\n}\n};\n\n')
+    write_trait_char_class(s, 'MD5Sum', cpp_msg_with_alloc, md5sum)
+    write_trait_char_class(s, 'DataType', cpp_msg_with_alloc, datatype)
+    write_trait_char_class(s, 'Definition', cpp_msg_with_alloc, full_text)
     
     if (spec.has_header()):
-        s.write('template<template<typename T> class Allocator > struct HasHeader<%s> : public TrueType {};\n'%(cpp_msg_with_alloc))
+        write_trait_true_class(s, 'HasHeader', cpp_msg_with_alloc)
         
     if (is_fixed_length(spec, pkg)):
-        s.write('template<template<typename T> class Allocator > struct IsFixedSize<%s> : public TrueType {};\n'%(cpp_msg_with_alloc))
+        write_trait_true_class(s, 'IsFixedSize', cpp_msg_with_alloc)
         
     s.write('\n')
         
