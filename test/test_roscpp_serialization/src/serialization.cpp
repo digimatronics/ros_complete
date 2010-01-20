@@ -35,6 +35,7 @@
 
 #include <gtest/gtest.h>
 #include "ros/serialization.h"
+#include <roslib/Header.h>
 #include <boost/shared_array.hpp>
 
 using namespace ros;
@@ -184,7 +185,216 @@ TEST(Serialization, fixedLengthArray_string)
   EXPECT_TRUE(ser_val == deser_val);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////
+// Test custom types and traits
+////////////////////////////////////////////////////////////////////////////////////////////
 
+// Class used to make sure fixed-size simple structs use a memcpy when serializing an array of them
+// serialization only serializes a, memcpy will get both a and b.
+struct FixedSizeSimple
+{
+  FixedSizeSimple()
+  : a(0)
+  , b(0)
+  {}
+
+  int32_t a;
+  int32_t b;
+};
+
+namespace ros
+{
+namespace message_traits
+{
+template<> struct IsFixedSize<FixedSizeSimple> : public TrueType {};
+template<> struct IsSimple<FixedSizeSimple> : public TrueType {};
+} // namespace message_traits
+
+namespace serialization
+{
+template<>
+struct Serializer<FixedSizeSimple>
+{
+  inline static Buffer write(Buffer buffer, const FixedSizeSimple& v)
+  {
+    buffer = serialize(buffer, v.a);
+    return buffer;
+  }
+
+  inline static Buffer read(Buffer buffer, FixedSizeSimple& v)
+  {
+    buffer = deserialize(buffer, v.a);
+    return buffer;
+  }
+
+  inline static uint32_t serializedLength(const FixedSizeSimple& v)
+  {
+    return 4;
+  }
+};
+} // namespace serialization
+} // namespace ros
+
+TEST(Serialization, fixedSizeSimple_vector)
+{
+  {
+    FixedSizeSimple in, out;
+    in.a = 1;
+    in.b = 1;
+
+    serializeAndDeserialize(in, out);
+    ASSERT_EQ(out.a, 1);
+    ASSERT_EQ(out.b, 0);
+  }
+
+  {
+    std::vector<FixedSizeSimple> in, out;
+    in.resize(1);
+    in[0].a = 1;
+    in[0].b = 1;
+
+    serializeAndDeserialize(in, out);
+    ASSERT_EQ(out[0].a, 1);
+    ASSERT_EQ(out[0].b, 1);
+  }
+}
+
+TEST(Serialization, fixedSizeSimple_array)
+{
+  boost::array<FixedSizeSimple, 2> in, out;
+  in[0].a = 1;
+  in[0].b = 1;
+
+  serializeAndDeserialize(in, out);
+  ASSERT_EQ(out[0].a, 1);
+  ASSERT_EQ(out[0].b, 1);
+}
+
+// Class used to make sure fixed-size non-simple structs only query the length of the first element
+// in an array.
+struct FixedSizeNonSimple
+{
+  FixedSizeNonSimple()
+  : length_to_report(4)
+  {}
+
+  int32_t length_to_report;
+};
+
+namespace ros
+{
+namespace message_traits
+{
+template<> struct IsFixedSize<FixedSizeNonSimple> : public TrueType {};
+} // namespace message_traits
+
+namespace serialization
+{
+template<>
+struct Serializer<FixedSizeNonSimple>
+{
+  inline static uint32_t serializedLength(const FixedSizeNonSimple& v)
+  {
+    return v.length_to_report;
+  }
+};
+} // namespace serialization
+} // namespace ros
+
+TEST(Serialization, fixedSizeNonSimple_vector)
+{
+  std::vector<FixedSizeNonSimple> in;
+  in.resize(2);
+  in[1].length_to_report = 100;
+
+  int32_t len = ros::serialization::serializationLength(in);
+  ASSERT_EQ(len, 12);  // 12 = 4 bytes for each item + 4-byte array length
+}
+
+TEST(Serialization, fixedSizeNonSimple_array)
+{
+  boost::array<FixedSizeNonSimple, 2> in;
+  in[1].length_to_report = 100;
+
+  int32_t len = ros::serialization::serializationLength(in);
+  ASSERT_EQ(len, 8);  // 8 = 4 bytes for each item
+}
+
+// Class used to make sure variable-size structs query the length of the every element
+// in an array.
+struct VariableSize
+{
+  VariableSize()
+  : length_to_report(4)
+  {}
+
+  int32_t length_to_report;
+};
+
+namespace ros
+{
+namespace serialization
+{
+template<>
+struct Serializer<VariableSize>
+{
+  inline static uint32_t serializedLength(const VariableSize& v)
+  {
+    return v.length_to_report;
+  }
+};
+} // namespace serialization
+} // namespace ros
+
+TEST(Serialization, variableSize_vector)
+{
+  std::vector<VariableSize> in;
+  in.resize(2);
+  in[1].length_to_report = 100;
+
+  int32_t len = ros::serialization::serializationLength(in);
+  ASSERT_EQ(len, 108);  // 108 = 4 bytes for the first item + 100 bytes for the second + 4-byte array length
+}
+
+TEST(Serialization, variableSize_array)
+{
+  boost::array<VariableSize, 2> in;
+  in[1].length_to_report = 100;
+
+  int32_t len = ros::serialization::serializationLength(in);
+  ASSERT_EQ(len, 104);  // 104 = 4 bytes for the first item + 100 bytes for the second
+}
+
+// Class with a header, used to ensure message_traits::header(m) returns the header
+struct WithHeader
+{
+  roslib::Header header;
+};
+
+// Class without a header, used to ensure message_traits::header(m) return NULL
+struct WithoutHeader
+{
+};
+
+namespace ros
+{
+namespace message_traits
+{
+template<> struct HasHeader<WithHeader> : public TrueType {};
+} // namespace message_traits
+} // namespace ros
+
+TEST(MessageTraits, headers)
+{
+  WithHeader wh;
+  WithoutHeader woh;
+
+  wh.header.seq = 100;
+  ASSERT_TRUE(ros::message_traits::header(wh) != 0);
+  ASSERT_EQ(ros::message_traits::header(wh)->seq, 100UL);
+
+  ASSERT_TRUE(ros::message_traits::header(woh) == 0);
+}
 
 int main(int argc, char** argv)
 {
