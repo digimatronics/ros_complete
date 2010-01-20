@@ -34,6 +34,8 @@
 #include "builtin_message_traits.h"
 #include "time.h"
 
+#include <vector>
+
 #include <boost/array.hpp>
 #include <boost/call_traits.hpp>
 #include <boost/utility/enable_if.hpp>
@@ -269,7 +271,7 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::disable_if<mt
 
   inline static uint32_t serializedLength(const VecType& v)
   {
-    uint32_t size = 4; 
+    uint32_t size = 4;
     ConstIteratorType it = v.begin();
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
