@@ -325,7 +325,7 @@ bool TopicManager::advertise(const AdvertiseOptions& ops, const SubscriberCallba
       return true;
     }
 
-    pub = PublicationPtr(new Publication(ops.topic, ops.datatype, ops.md5sum, ops.message_definition, ops.queue_size, ops.latch));
+    pub = PublicationPtr(new Publication(ops.topic, ops.datatype, ops.md5sum, ops.message_definition, ops.queue_size, ops.latch, ops.has_header));
     pub->addCallbacks(callbacks);
     advertised_topics_.push_back(pub);
   }
@@ -640,7 +640,6 @@ void TopicManager::publish(const std::string& topic, const SerializedMessage& m)
   }
 
   PublicationPtr p = lookupPublicationWithoutLock(topic);
-  p->incrementSequence();
   if (p->hasSubscribers() || p->isLatching())
   {
     ROS_DEBUG_NAMED("superdebug", "Publishing message on topic [%s] with sequence number [%d]", p->getName().c_str(), p->getSequence());
@@ -648,6 +647,10 @@ void TopicManager::publish(const std::string& topic, const SerializedMessage& m)
     boost::mutex::scoped_lock lock(publish_queue_mutex_);
     publish_queue_.push_back(std::make_pair(p, m));
     poll_manager_->getPollSet().signal();
+  }
+  else
+  {
+    p->incrementSequence();
   }
 }
 

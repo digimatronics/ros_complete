@@ -58,7 +58,8 @@ public:
             const std::string& _md5sum,
             const std::string& message_definition,
             size_t max_queue,
-            bool latch);
+            bool latch,
+            bool has_header);
 
   ~Publication();
 
@@ -132,7 +133,7 @@ public:
    */
   bool isDropped() { return dropped_; }
 
-  void incrementSequence() { ++seq_; }
+  uint32_t incrementSequence();
 
   size_t getNumCallbacks();
 
@@ -156,6 +157,7 @@ private:
   std::string message_definition_;
   size_t max_queue_;
   uint32_t seq_;
+  boost::mutex seq_mutex_;
 
   typedef std::vector<SubscriberCallbacksPtr> V_Callback;
   V_Callback callbacks_;
@@ -168,6 +170,7 @@ private:
   bool dropped_;
 
   bool latch_;
+  bool has_header_;
   SerializedMessage last_message_;
 };
 

@@ -30,6 +30,8 @@
 #include "ros/connection.h"
 #include "ros/callback_queue_interface.h"
 #include "ros/single_subscriber_publisher.h"
+#include "ros/serialization.h"
+#include <roslib/Header.h>
 
 namespace ros
 {
@@ -39,7 +41,8 @@ Publication::Publication(const std::string &name,
                          const std::string &_md5sum,
                          const std::string& message_definition,
                          size_t max_queue,
-                         bool latch)
+                         bool latch,
+                         bool has_header)
 : name_(name),
   datatype_(datatype),
   md5sum_(_md5sum),
@@ -47,7 +50,8 @@ Publication::Publication(const std::string &name,
   max_queue_(max_queue),
   seq_(0),
   dropped_(false),
-  latch_(latch)
+  latch_(latch),
+  has_header_(has_header)
 {
 }
 
@@ -103,6 +107,19 @@ bool Publication::enqueueMessage(const SerializedMessage& m)
   if (dropped_)
   {
     return false;
+  }
+
+  uint32_t seq = incrementSequence();
+  if (has_header_)
+  {
+    // If we have a header, we know it's immediately after the message length
+    // Deserialize it, write the sequence, and then serialize it again.
+    namespace ser = ros::serialization;
+    roslib::Header header;
+    ser::Buffer buffer(m.buf.get() + 4, m.num_bytes - 4);
+    ser::deserialize(buffer, header);
+    header.seq = seq;
+    ser::serialize(buffer, header);
   }
 
   for(V_SubscriberLink::iterator i = subscriber_links_.begin();
@@ -311,6 +328,15 @@ size_t Publication::getNumCallbacks()
 {
   boost::mutex::scoped_lock lock(callbacks_mutex_);
   return callbacks_.size();
+}
+
+uint32_t Publication::incrementSequence()
+{
+  boost::mutex::scoped_lock lock(seq_mutex_);
+  uint32_t old_seq = seq_;
+  ++seq_;
+
+  return old_seq;
 }
 
 } // namespace ros

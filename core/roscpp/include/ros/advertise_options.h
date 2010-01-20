@@ -67,6 +67,7 @@ struct AdvertiseOptions
   , disconnect_cb(_disconnect_cb)
   , callback_queue(0)
   , latch(false)
+  , has_header(false)
   {}
 
   /**
@@ -90,6 +91,7 @@ struct AdvertiseOptions
     md5sum = message_traits::md5sum<M>();
     datatype = message_traits::datatype<M>();
     message_definition = message_traits::definition<M>();
+    has_header = message_traits::hasHeader<M>();
   }
 
   std::string topic;                                                ///< The topic to publish on
@@ -121,6 +123,12 @@ struct AdvertiseOptions
    * to any new subscribers.
    */
   bool latch;
+
+  /** \brief Tells whether or not the message has a header.  If it does, the sequence number will be written directly into the
+   *         serialized bytes after the message has been serialized.
+   */
+  bool has_header;
+
 
   /**
    * \brief Templated helper function for creating an AdvertiseOptions for a message type with most options.

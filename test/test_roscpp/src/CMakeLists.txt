@@ -129,3 +129,6 @@ rosbuild_add_gtest_build_flags(wait_for_message)
 
 rosbuild_add_executable(loads_of_publishers loads_of_publishers.cpp)
 rosbuild_add_gtest_build_flags(loads_of_publishers)
+
+rosbuild_add_executable(incrementing_sequence incrementing_sequence.cpp)
+rosbuild_add_gtest_build_flags(incrementing_sequence)
