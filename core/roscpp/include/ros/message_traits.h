@@ -65,42 +65,48 @@ template<typename M> struct IsFixedSize : public FalseType {};
 template<typename M> struct HasHeader : public FalseType {};
 
 template<typename M>
-inline const char* md5sum()
+struct MD5Sum
 {
-  return M::__s_getMD5Sum().c_str();
-}
+  const char* value()
+  {
+    return M::__s_getMD5Sum().c_str();
+  }
+};
 
-template<template <template <typename T> class Allocator> class M>
+template<typename M>
+struct DataType
+{
+  const char* value()
+  {
+    return M::__s_getDataType().c_str();
+  }
+};
+
+template<typename M>
+struct Definition
+{
+  const char* value()
+  {
+    return M::__s_getMessageDefinition().c_str();
+  }
+};
+
+template<typename M>
 inline const char* md5sum()
 {
-  ROS_BREAK();
-  return 0;
+  return MD5Sum<M>::value();
 }
 
 template<typename M>
 inline const char* datatype()
 {
-  return M::__s_getDataType().c_str();
-}
-
-template<template <template <typename T> class Allocator> class M>
-inline const char* datatype()
-{
-  ROS_BREAK();
-  return 0;
+  return DataType<M>::value();
 }
 
 template<typename M>
 inline const char* definition()
 {
-  return M::__s_getMessageDefinition().c_str();
-}
-
-template<template <template <typename T> class Allocator> class M>
-inline const char* definition()
-{
-  ROS_BREAK();
-  return 0;
+  return Definition<M>::value();
 }
 
 template<typename M>
@@ -109,22 +115,10 @@ inline const char* md5sum(const M&)
   return md5sum<M>();
 }
 
-template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator >
-inline const char* md5sum(const M<Allocator>&)
-{
-  return md5sum<M<Allocator> >();
-}
-
 template<typename M>
 inline const char* datatype(const M&)
 {
   return datatype<M>();
-}
-
-template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator>
-inline const char* datatype(const M<Allocator>&)
-{
-  return datatype<M<Allocator> >();
 }
 
 template<typename M>
@@ -133,20 +127,8 @@ inline const char* definition(const M&)
   return definition<M>();
 }
 
-template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator>
-inline const char* definition(const M<Allocator>&)
-{
-  return definition<M<Allocator> >();
-}
-
 template<typename M>
 inline roslib::Header* getHeader(M& msg)
-{
-  return &msg.header;
-}
-
-template<template <template <typename T> class Allocator> class M, template<typename T> class Allocator>
-inline roslib::Header* getHeader(const M<Allocator>& msg)
 {
   return &msg.header;
 }

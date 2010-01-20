@@ -53,6 +53,10 @@ Array serializeAndDeserialize(const T& ser_val, T& deser_val)
   return b;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Tests for compilation/validity of serialization/deserialization of primitive types
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #define PRIMITIVE_SERIALIZATION_TEST(Type, SerInit, DeserInit) \
   TEST(Serialization, Type) \
   { \
@@ -179,6 +183,8 @@ TEST(Serialization, fixedLengthArray_string)
   Array b = serializeAndDeserialize(ser_val, deser_val);
   EXPECT_TRUE(ser_val == deser_val);
 }
+
+
 
 int main(int argc, char** argv)
 {

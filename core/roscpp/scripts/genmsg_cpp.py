@@ -294,12 +294,12 @@ def write_traits(s, spec, pkg, msg, cpp_name_prefix, datatype = None):
     (cpp_msg_unqualified, cpp_msg_with_alloc, _) = cpp_message_declarations(cpp_name_prefix, msg)
     s.write('namespace ros\n{\n')
     s.write('namespace message_traits\n{\n')
-    s.write('template<> inline const char* md5sum<%s>() { return "%s"; }\n'%(cpp_msg_unqualified, md5sum))
-    s.write('template<> inline const char* datatype<%s>() { return "%s"; }\n'%(cpp_msg_unqualified, datatype))
-         
-    s.write('template<> inline const char* definition<%s>()\n{\n  return\n'%(cpp_msg_unqualified))
+    s.write('template<template<typename T> class Allocator > struct MD5Sum<%s> { static const char* value() { return "%s"; } };\n'%(cpp_msg_with_alloc, md5sum))
+    s.write('template<template<typename T> class Allocator > struct DataType<%s> { static const char* value() { return "%s"; } };\n'%(cpp_msg_with_alloc, datatype))
+    
+    s.write('template<template<typename T> class Allocator > struct Definition<%s> { static const char* value() {\n  return\n'%(cpp_msg_with_alloc))     
     s.write(full_text);
-    s.write(';\n}\n\n')
+    s.write(';\n}\n};\n\n')
     
     if (spec.has_header()):
         s.write('template<template<typename T> class Allocator > struct HasHeader<%s> : public TrueType {};\n'%(cpp_msg_with_alloc))

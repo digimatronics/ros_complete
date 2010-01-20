@@ -1,0 +1,16 @@
+<package>
+  <description brief="test_roscpp_serialization">
+
+     test_roscpp_serialization
+
+  </description>
+  <author>Josh Faust</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/test_roscpp_serialization</url>
+  <depend package="roscpp"/>
+  <depend package="roslib"/>
+
+</package>
+
+

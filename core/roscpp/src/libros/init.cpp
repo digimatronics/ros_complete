@@ -369,6 +369,8 @@ void init(const M_string& remappings, const std::string& name, uint32_t options)
     g_ok = true;
 
     ROSCONSOLE_AUTOINIT;
+    // Disable SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
     ros::Time::init();
     network::init(remappings);
     master::init(remappings);
