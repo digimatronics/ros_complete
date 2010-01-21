@@ -25,39 +25,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_EXCEPTIONS_H
-#define ROSCPP_EXCEPTIONS_H
-
-#include <ros/exception.h>
+#include <ros/serialization.h>
 
 namespace ros
 {
-
-/**
- * \brief Thrown when an invalid node name is specified to ros::init()
- */
-class InvalidNodeNameException : public ros::Exception
+namespace serialization
 {
-public:
-  InvalidNodeNameException(const std::string& name, const std::string& reason)
-  : Exception("Invalid node name [" + name + "]: " + reason)
-  {}
-};
-
-/**
- * \brief Thrown when an invalid graph resource name is specified to any roscpp
- * function.
- */
-class InvalidNameException : public ros::Exception
+void throwBufferOverrun()
 {
-public:
-  InvalidNameException(const std::string& msg)
-  : Exception(msg)
-  {}
-};
-
-
-} // namespace ros
-
-#endif
-
+  throw BufferOverrunException("Buffer Overrun");
+}
+}
+}

@@ -33,6 +33,8 @@
 #include "message_traits.h"
 #include "builtin_message_traits.h"
 #include "time.h"
+#include "exception.h"
+#include "macros.h"
 
 #include <vector>
 
@@ -50,6 +52,16 @@ namespace serialization
 namespace mt = message_traits;
 namespace mpl = boost::mpl;
 
+class BufferOverrunException : public ros::Exception
+{
+public:
+  BufferOverrunException(const std::string& what)
+  : Exception(what)
+  {}
+};
+
+void throwBufferOverrun();
+
 struct Buffer
 {
   Buffer(uint8_t* _data, uint32_t _count)
@@ -58,10 +70,16 @@ struct Buffer
   {}
 
   inline uint8_t* getData() { return data_; }
-  inline uint8_t* advance(uint32_t len)
+  ROS_FORCE_INLINE uint8_t* advance(uint32_t len)
   {
     uint8_t* old_data = data_;
     data_ += len;
+    if (data_ > end_)
+    {
+      // Throwing directly here causes a significant speed hit due to the extra code generated
+      // for the throw statement
+      throwBufferOverrun();
+    }
     return old_data;
   }
 

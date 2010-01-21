@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Willow Garage, Inc.
+ * Copyright (C) 2010, Willow Garage, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -8,7 +8,7 @@
  *   * Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- *   * Neither the names of Stanford University or Willow Garage, Inc. nor the names of its
+ *   * Neither the names of Willow Garage, Inc. nor the names of its
  *     contributors may be used to endorse or promote products derived from
  *     this software without specific prior written permission.
  *
@@ -25,39 +25,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_EXCEPTIONS_H
-#define ROSCPP_EXCEPTIONS_H
+#ifndef ROSLIB_MACROS_H
+#define ROSLIB_MACROS_H
 
-#include <ros/exception.h>
-
-namespace ros
-{
-
-/**
- * \brief Thrown when an invalid node name is specified to ros::init()
- */
-class InvalidNodeNameException : public ros::Exception
-{
-public:
-  InvalidNodeNameException(const std::string& name, const std::string& reason)
-  : Exception("Invalid node name [" + name + "]: " + reason)
-  {}
-};
-
-/**
- * \brief Thrown when an invalid graph resource name is specified to any roscpp
- * function.
- */
-class InvalidNameException : public ros::Exception
-{
-public:
-  InvalidNameException(const std::string& msg)
-  : Exception(msg)
-  {}
-};
-
-
-} // namespace ros
+#if defined(__GNUC__)
+#define ROS_DEPRECATED __attribute__((deprecated))
+#define ROS_FORCE_INLINE __attribute__((always_inline))
+#elif defined(MSVC)
+#define ROS_DEPRECATED
+#define ROS_FORCE_INLINE __forceinline
+#else
+#define ROSCPP_DEPRECATED
+#define ROSCPP_FORCE_INLINE
+#endif
 
 #endif
 
