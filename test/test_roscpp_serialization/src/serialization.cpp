@@ -383,6 +383,23 @@ TEST(MessageTraits, headers)
   ASSERT_TRUE(ros::message_traits::header(woh) == 0);
 }
 
+TEST(Serialization, bufferOverrun)
+{
+  Array b(new uint8_t[4]);
+  Buffer buffer(b.get(), 4);
+  uint32_t i;
+  buffer = deserialize(buffer, i);
+  try
+  {
+    buffer = deserialize(buffer, i);
+    FAIL();
+  }
+  catch(ros::Exception&)
+  {
+    SUCCEED();
+  }
+}
+
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
