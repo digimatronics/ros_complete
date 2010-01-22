@@ -52,12 +52,12 @@ struct DataType
 {
   static const char* value()
   {
-    return M::__s_getDataType().c_str();
+    return M::__s_getServiceDataType().c_str();
   }
 
   static const char* value(const M& m)
   {
-    return m.__getDataType().c_str();
+    return m.__getServiceDataType().c_str();
   }
 };
 
