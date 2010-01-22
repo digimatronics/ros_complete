@@ -28,6 +28,9 @@
 #ifndef ROSLIB_MESSAGE_TRAITS_H
 #define ROSLIB_MESSAGE_TRAITS_H
 
+#include <ros/time.h>
+
+#include <string>
 #include <boost/utility/enable_if.hpp>
 
 #define ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, alloc) \
@@ -98,21 +101,61 @@ struct DataType
 template<typename M>
 struct Definition
 {
-  const char* value()
+  static const char* value()
   {
     return M::__s_getMessageDefinition().c_str();
   }
 
-  const char* value(const M& m)
+  static const char* value(const M& m)
   {
     return m.__getMessageDefinition().c_str();
   }
 };
 
-template<typename M>
+template<typename M, typename Enable = void>
 struct Header
 {
-  static roslib::Header* value(M& m) { return &m.header; }
+  static roslib::Header* pointer(M& m) { return 0; }
+  static roslib::Header const* pointer(const M& m) { return 0; }
+};
+
+template<typename M>
+struct Header<M, typename boost::enable_if<HasHeader<M> >::type >
+{
+  static roslib::Header* pointer(M& m) { return &m.header; }
+  static roslib::Header const* pointer(const M& m) { return &m.header; }
+};
+
+template<typename M, typename Enable = void>
+struct FrameId
+{
+  static std::string* pointer(M& m) { return 0; }
+  static std::string const* pointer(const M& m) { return 0; }
+  static std::string value(const M& m) { return std::string(); }
+};
+
+template<typename M>
+struct FrameId<M, typename boost::enable_if<HasHeader<M> >::type >
+{
+  static std::string* pointer(M& m) { return &m.header.frame_id; }
+  static std::string const* pointer(const M& m) { return &m.header.frame_id; }
+  static std::string value(const M& m) { return m.header.frame_id; }
+};
+
+template<typename M, typename Enable = void>
+struct TimeStamp
+{
+  static ros::Time* pointer(M& m) { return 0; }
+  static ros::Time const* pointer(const M& m) { return 0; }
+  static ros::Time value(const M& m) { return ros::Time(); }
+};
+
+template<typename M>
+struct TimeStamp<M, typename boost::enable_if<HasHeader<M> >::type >
+{
+  static ros::Time* pointer(M& m) { return &m.header.stamp; }
+  static ros::Time const* pointer(const M& m) { return &m.header.stamp; }
+  static ros::Time value(const M& m) { return m.header.stamp; }
 };
 
 template<typename M>
@@ -152,15 +195,39 @@ inline const char* definition(const M& m)
 }
 
 template<typename M>
-inline typename boost::enable_if_c<HasHeader<M>::value, roslib::Header*>::type header(M& msg)
+inline roslib::Header* header(M& msg)
 {
-  return Header<M>::value(msg);
+  return Header<M>::pointer(msg);
 }
 
 template<typename M>
-inline typename boost::disable_if_c<HasHeader<M>::value, roslib::Header*>::type header(M& msg)
+inline roslib::Header const* header(const M& msg)
 {
-  return 0;
+  return Header<M>::pointer(msg);
+}
+
+template<typename M>
+inline std::string* frameId(M& msg)
+{
+  return FrameId<M>::pointer(msg);
+}
+
+template<typename M>
+inline std::string const* frameId(const M& msg)
+{
+  return FrameId<M>::pointer(msg);
+}
+
+template<typename M>
+inline ros::Time* timeStamp(M& msg)
+{
+  return TimeStamp<M>::pointer(msg);
+}
+
+template<typename M>
+inline ros::Time const* timeStamp(const M& msg)
+{
+  return TimeStamp<M>::pointer(msg);
 }
 
 template<typename M>
