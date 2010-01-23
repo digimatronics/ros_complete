@@ -243,16 +243,16 @@ def write_deprecated_member_functions(s, spec, pkg, msg):
     s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return "%s"; }\n'%(full_text))
     
     s.write('  ROSCPP_DEPRECATED virtual uint8_t *serialize(uint8_t *write_ptr, uint32_t seq) const\n  {\n')
-    s.write('    ros::serialization::Buffer buffer(write_ptr, 1000000000);\n')
+    s.write('    ros::serialization::Stream stream(write_ptr, 1000000000);\n')
     for (type, name) in fields:
-        s.write('    buffer = ros::serialization::serialize(buffer, %s);\n'%(name))
-    s.write('    return buffer.getData();\n  }\n\n')
+        s.write('    ros::serialization::serialize(stream, %s);\n'%(name))
+    s.write('    return stream.getData();\n  }\n\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint8_t *deserialize(uint8_t *read_ptr)\n  {\n')
-    s.write('    ros::serialization::Buffer buffer(read_ptr, 1000000000);\n');
+    s.write('    ros::serialization::Stream stream(read_ptr, 1000000000);\n');
     for (type, name) in fields:
-        s.write('    buffer = ros::serialization::deserialize(buffer, %s);\n'%(name))
-    s.write('    return buffer.getData();\n  }\n\n')
+        s.write('    ros::serialization::deserialize(stream, %s);\n'%(name))
+    s.write('    return stream.getData();\n  }\n\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint32_t serializationLength() const\n  {\n')
     s.write('    uint32_t size = 0;\n');
@@ -327,15 +327,15 @@ def write_serialization(s, spec, pkg, msg, cpp_name_prefix):
     
     s.write('template<template<typename T> class Allocator > struct Serializer<%s>\n{\n'%(cpp_msg_with_alloc))
     
-    s.write('  inline static Buffer write(Buffer buffer, const %s& m)\n  {\n'%(cpp_msg_with_alloc))
+    s.write('  template<typename Stream> inline static void write(Stream& stream, const %s& m)\n  {\n'%(cpp_msg_with_alloc))
     for (type, name) in fields:
-        s.write('    buffer = serialize(buffer, m.%s);\n'%(name))
-    s.write('    return buffer;\n  }\n\n')
+        s.write('    serialize(stream, m.%s);\n'%(name))
+    s.write('    }\n\n')
     
-    s.write('  inline static Buffer read(Buffer buffer, %s& m)\n  {\n'%(cpp_msg_with_alloc))
+    s.write('  template<typename Stream> inline static void read(Stream& stream, %s& m)\n  {\n'%(cpp_msg_with_alloc))
     for (type, name) in fields:
-        s.write('    buffer = deserialize(buffer, m.%s);\n'%(name))
-    s.write('    return buffer;\n  }\n\n')
+        s.write('    deserialize(stream, m.%s);\n'%(name))
+    s.write('    }\n\n')
     
     s.write('  inline static uint32_t serializedLength(const %s& m)\n  {\n'%(cpp_msg_with_alloc))
     s.write('    uint32_t size = 0;\n');

@@ -202,16 +202,16 @@ namespace serialization
 template<>
 struct Serializer<FixedSizeSimple>
 {
-  inline static Buffer write(Buffer buffer, const FixedSizeSimple& v)
+  template<typename Buffer>
+  inline static void write(Buffer& buffer, const FixedSizeSimple& v)
   {
-    buffer = serialize(buffer, v.a);
-    return buffer;
+    serialize(buffer, v.a);
   }
 
-  inline static Buffer read(Buffer buffer, FixedSizeSimple& v)
+  template<typename Buffer>
+  inline static void read(Buffer& buffer, FixedSizeSimple& v)
   {
-    buffer = deserialize(buffer, v.a);
-    return buffer;
+    deserialize(buffer, v.a);
   }
 
   inline static uint32_t serializedLength(const FixedSizeSimple& v)
@@ -355,12 +355,17 @@ TEST(Serialization, variableSize_array)
 // Class with a header, used to ensure message_traits::header(m) returns the header
 struct WithHeader
 {
+  WithHeader()
+  {}
+
   roslib::Header header;
 };
 
 // Class without a header, used to ensure message_traits::header(m) return NULL
 struct WithoutHeader
 {
+  WithoutHeader()
+  {}
 };
 
 namespace ros
@@ -375,23 +380,38 @@ TEST(MessageTraits, headers)
 {
   WithHeader wh;
   WithoutHeader woh;
+  const WithHeader cwh;
+  const WithoutHeader cwoh;
 
   wh.header.seq = 100;
   ASSERT_TRUE(ros::message_traits::header(wh) != 0);
   ASSERT_EQ(ros::message_traits::header(wh)->seq, 100UL);
 
   ASSERT_TRUE(ros::message_traits::header(woh) == 0);
+
+  ASSERT_TRUE(ros::message_traits::header(cwh) != 0);
+  ASSERT_TRUE(ros::message_traits::header(cwoh) == 0);
+
+  ASSERT_TRUE(ros::message_traits::frameId(wh) != 0);
+  ASSERT_TRUE(ros::message_traits::frameId(woh) == 0);
+  ASSERT_TRUE(ros::message_traits::frameId(cwh) != 0);
+  ASSERT_TRUE(ros::message_traits::frameId(cwoh) == 0);
+
+  ASSERT_TRUE(ros::message_traits::timeStamp(wh) != 0);
+  ASSERT_TRUE(ros::message_traits::timeStamp(woh) == 0);
+  ASSERT_TRUE(ros::message_traits::timeStamp(cwh) != 0);
+  ASSERT_TRUE(ros::message_traits::timeStamp(cwoh) == 0);
 }
 
 TEST(Serialization, bufferOverrun)
 {
   Array b(new uint8_t[4]);
-  Buffer buffer(b.get(), 4);
+  Stream stream(b.get(), 4);
   uint32_t i;
-  buffer = deserialize(buffer, i);
+  deserialize(stream, i);
   try
   {
-    buffer = deserialize(buffer, i);
+    deserialize(stream, i);
     FAIL();
   }
   catch(ros::Exception&)

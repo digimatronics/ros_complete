@@ -88,8 +88,8 @@ public:
     typedef typename boost::remove_const<M>::type NonConstType;
     NonConstType* msg = new NonConstType;
 
-    ser::Buffer b(buffer, length);
-    ser::deserialize(b, *msg);
+    ser::Stream stream(buffer, length);
+    ser::deserialize(stream, *msg);
 
     assignConnectionHeader(msg, connection_header);
 

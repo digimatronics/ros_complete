@@ -44,8 +44,10 @@ Array serializeAndDeserialize(const T& ser_val, T& deser_val)
 {
   uint32_t len = ser::serializationLength(ser_val);
   boost::shared_array<uint8_t> b(new uint8_t[len]);
-  ser::serialize(ser::Buffer(b.get(), len), ser_val);
-  ser::deserialize(ser::Buffer(b.get(), len), deser_val);
+  ser::Stream stream(b.get(), len);
+  ser::serialize(stream, ser_val);
+  stream = ser::Stream(b.get(), len);
+  ser::deserialize(stream, deser_val);
 
   return b;
 }

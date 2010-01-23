@@ -31,9 +31,9 @@ namespace ros
 {
 namespace serialization
 {
-void throwBufferOverrun()
+void throwStreamOverrun()
 {
-  throw BufferOverrunException("Buffer Overrun");
+  throw StreamOverrunException("Buffer Overrun");
 }
 }
 }
