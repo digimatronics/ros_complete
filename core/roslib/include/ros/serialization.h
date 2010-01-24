@@ -141,7 +141,7 @@ struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char
   inline static void write(Stream& stream, const StringType& str)
   {
     size_t len = str.size();
-    serialize<uint32_t>(stream, (uint32_t)len);
+    stream.next((uint32_t)len);
 
     if (len > 0)
     {
@@ -153,7 +153,7 @@ struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char
   inline static void read(Stream& stream, StringType& str)
   {
     uint32_t len;
-    deserialize(stream, len);
+    stream.next(len);
     if (len > 0)
     {
       str = StringType((char*)stream.advance(len), len);
@@ -177,17 +177,15 @@ struct Serializer<ros::Time>
   template<typename Stream>
   inline static void write(Stream& stream, const ros::Time& v)
   {
-    serialize(stream, v.sec);
-    serialize(stream, v.nsec);
-
+    stream.next(v.sec);
+    stream.next(v.nsec);
   }
 
   template<typename Stream>
   inline static void read(Stream& stream, ros::Time& v)
   {
-    deserialize(stream, v.sec);
-    deserialize(stream, v.nsec);
-
+    stream.next(v.sec);
+    stream.next(v.nsec);
   }
 
   inline static uint32_t serializedLength(const ros::Time& v)
@@ -203,15 +201,15 @@ struct Serializer<ros::Duration>
   template<typename Stream>
   inline static void write(Stream& stream, const ros::Duration& v)
   {
-    serialize(stream, v.sec);
-    serialize(stream, v.nsec);
+    stream.next(v.sec);
+    stream.next(v.nsec);
   }
 
   template<typename Stream>
   inline static void read(Stream& stream, ros::Duration& v)
   {
-    deserialize(stream, v.sec);
-    deserialize(stream, v.nsec);
+    stream.next(v.sec);
+    stream.next(v.nsec);
   }
 
   inline static uint32_t serializedLength(const ros::Duration& v)
@@ -236,12 +234,12 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::disable_if<mt
   template<typename Stream>
   inline static void write(Stream& stream, const VecType& v)
   {
-    serialize<uint32_t>(stream, (uint32_t)v.size());
+    stream.next((uint32_t)v.size());
     ConstIteratorType it = v.begin();
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
     {
-      serialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -249,13 +247,13 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::disable_if<mt
   inline static void read(Stream& stream, VecType& v)
   {
     uint32_t len;
-    deserialize(stream, len);
+    stream.next(len);
     v.resize(len);
     IteratorType it = v.begin();
     IteratorType end = v.end();
     for (; it != end; ++it)
     {
-      deserialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -284,7 +282,7 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt:
   inline static void write(Stream& stream, const VecType& v)
   {
     uint32_t len = (uint32_t)v.size();
-    serialize<uint32_t>(stream, len);
+    stream.next(len);
     if (!v.empty())
     {
       const uint32_t data_len = len * sizeof(T);
@@ -296,7 +294,7 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt:
   inline static void read(Stream& stream, VecType& v)
   {
     uint32_t len;
-    deserialize(stream, len);
+    stream.next(len);
     v.resize(len);
 
     if (len > 0)
@@ -322,12 +320,12 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mpl
   template<typename Stream>
   inline static void write(Stream& stream, const VecType& v)
   {
-    serialize<uint32_t>(stream, (uint32_t)v.size());
+    stream.next((uint32_t)v.size());
     ConstIteratorType it = v.begin();
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
     {
-      serialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -335,13 +333,13 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mpl
   inline static void read(Stream& stream, VecType& v)
   {
     uint32_t len;
-    deserialize(stream, len);
+    stream.next(len);
     v.resize(len);
     IteratorType it = v.begin();
     IteratorType end = v.end();
     for (; it != end; ++it)
     {
-      deserialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -394,7 +392,7 @@ struct FixedLengthArraySerializer<T, N, typename boost::disable_if<mt::IsFixedSi
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
     {
-      serialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -405,7 +403,7 @@ struct FixedLengthArraySerializer<T, N, typename boost::disable_if<mt::IsFixedSi
     IteratorType end = v.end();
     for (; it != end; ++it)
     {
-      deserialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -464,7 +462,7 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
     {
-      serialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -475,7 +473,7 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::
     IteratorType end = v.end();
     for (; it != end; ++it)
     {
-      deserialize(stream, *it);
+      stream.next(*it);
     }
   }
 
@@ -503,15 +501,17 @@ inline uint32_t serializationLength(const boost::array<T, N>& t)
   return FixedLengthArraySerializer<T, N>::serializedLength(t);
 }
 
+enum StreamType
+{
+  Input,
+  Output,
+  Length
+};
+
 struct Stream
 {
-  Stream(uint8_t* _data, uint32_t _count)
-  : data_(_data)
-  , end_(_data + _count)
-  {}
-
   inline uint8_t* getData() { return data_; }
-  ROS_FORCE_INLINE uint8_t* advance(uint32_t len)
+  inline uint8_t* advance(uint32_t len)
   {
     uint8_t* old_data = data_;
     data_ += len;
@@ -524,9 +524,71 @@ struct Stream
     return old_data;
   }
 
+protected:
+  Stream(uint8_t* _data, uint32_t _count)
+  : data_(_data)
+  , end_(_data + _count)
+  {}
+
 private:
   uint8_t* data_;
   uint8_t* end_;
+};
+
+struct IStream : public Stream
+{
+  static const StreamType type = Input;
+
+  IStream(uint8_t* data, uint32_t count)
+  : Stream(data, count)
+  {}
+
+  template<typename T>
+  inline void next(T& t)
+  {
+    deserialize(*this, t);
+  }
+};
+
+struct OStream : public Stream
+{
+  static const StreamType type = Output;
+
+  OStream(uint8_t* data, uint32_t count)
+  : Stream(data, count)
+  {}
+
+  template<typename T>
+  inline void next(const T& t)
+  {
+    serialize(*this, t);
+  }
+};
+
+struct LStream
+{
+  static const StreamType type = Length;
+
+  LStream(uint8_t* data, uint32_t count)
+  : count_(0)
+  {}
+
+  template<typename T>
+  inline void next(const T& t)
+  {
+    serializationLength(*this, t);
+  }
+
+  inline uint8_t* advance(uint32_t len)
+  {
+    count_ += len;
+    return 0;
+  }
+
+  inline uint32_t getLength() { return count_; }
+
+private:
+  uint32_t count_;
 };
 
 template<typename M>
@@ -536,7 +598,7 @@ inline SerializedMessage serializeMessage(const M& message)
   m.num_bytes = serializationLength(message) + 4;
   m.buf.reset(new uint8_t[m.num_bytes]);
 
-  Stream s(m.buf.get(), (uint32_t)m.num_bytes);
+  OStream s(m.buf.get(), (uint32_t)m.num_bytes);
   serialize(s, (uint32_t)m.num_bytes - 4);
   serialize(s, message);
 
@@ -553,7 +615,7 @@ inline SerializedMessage serializeServiceResponse(bool ok, const M& message)
     m.num_bytes = serializationLength(message) + 5;
     m.buf.reset(new uint8_t[m.num_bytes]);
 
-    Stream s(m.buf.get(), (uint32_t)m.num_bytes);
+    OStream s(m.buf.get(), (uint32_t)m.num_bytes);
     serialize(s, (uint8_t)ok);
     serialize(s, (uint32_t)m.num_bytes - 5);
     serialize(s, message);
@@ -562,7 +624,7 @@ inline SerializedMessage serializeServiceResponse(bool ok, const M& message)
   {
     m.num_bytes = 5;
     m.buf.reset(new uint8_t[5]);
-    Stream s(m.buf.get(), (uint32_t)m.num_bytes);
+    OStream s(m.buf.get(), (uint32_t)m.num_bytes);
     serialize(s, (uint8_t)ok);
     serialize(s, (uint32_t)0);
   }
@@ -575,12 +637,12 @@ inline void deserializeMessage(const SerializedMessage& m, M& message, bool incl
 {
   if (includes_length)
   {
-    Stream s(m.buf.get() + 4, m.num_bytes - 4);
+    IStream s(m.buf.get() + 4, m.num_bytes - 4);
     deserialize(s, message);
   }
   else
   {
-    Stream s(m.buf.get(), m.num_bytes);
+    IStream s(m.buf.get(), m.num_bytes);
     deserialize(s, message);
   }
 }

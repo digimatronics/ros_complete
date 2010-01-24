@@ -68,7 +68,7 @@ int main(int, char **)
   tic();
   for (int i = 0; i < NUM_ITER; ++i)
   {
-    Stream s(m.buf.get(), m.num_bytes);
+    OStream s(m.buf.get(), m.num_bytes);
     serialize(s, pc);
   }
   printf("avg serialization took %.6f sec\n", toc() / (double)NUM_ITER);

@@ -116,10 +116,11 @@ bool Publication::enqueueMessage(const SerializedMessage& m)
     // Deserialize it, write the sequence, and then serialize it again.
     namespace ser = ros::serialization;
     roslib::Header header;
-    ser::Stream stream(m.buf.get() + 4, m.num_bytes - 4);
-    ser::deserialize(stream, header);
+    ser::IStream istream(m.buf.get() + 4, m.num_bytes - 4);
+    ser::deserialize(istream, header);
     header.seq = seq;
-    ser::serialize(stream, header);
+    ser::OStream ostream(m.buf.get() + 4, m.num_bytes - 4);
+    ser::serialize(ostream, header);
   }
 
   for(V_SubscriberLink::iterator i = subscriber_links_.begin();

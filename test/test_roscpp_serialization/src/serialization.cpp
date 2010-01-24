@@ -406,7 +406,7 @@ TEST(MessageTraits, headers)
 TEST(Serialization, bufferOverrun)
 {
   Array b(new uint8_t[4]);
-  Stream stream(b.get(), 4);
+  IStream stream(b.get(), 4);
   uint32_t i;
   deserialize(stream, i);
   try

@@ -141,3 +141,4 @@ def generate_services(argv):
 if __name__ == "__main__":
     roslib.msgs.set_verbose(False)
     generate_services(sys.argv)
+    
