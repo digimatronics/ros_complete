@@ -255,10 +255,10 @@ def write_deprecated_member_functions(s, spec, pkg, msg):
     s.write('    return stream.getData();\n  }\n\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint32_t serializationLength() const\n  {\n')
-    s.write('    uint32_t size = 0;\n');
+    s.write('    ros::serialization::LStream stream;\n');
     for (type, name) in fields:
-        s.write('    size += ros::serialization::serializationLength(%s);\n'%(name))
-    s.write('    return size;\n  }\n\n')
+        s.write('    ros::serialization::serializationLength(stream, %s);\n'%(name))
+    s.write('    return stream.getLength();\n  }\n\n')
 
 def compute_full_text_escaped(gen_deps_dict):
     """
@@ -337,11 +337,10 @@ def write_serialization(s, spec, pkg, msg, cpp_name_prefix):
         s.write('    stream.next(m.%s);\n'%(name))
     s.write('    }\n\n')
     
-    s.write('  inline static uint32_t serializedLength(const %s& m)\n  {\n'%(cpp_msg_with_alloc))
-    s.write('    uint32_t size = 0;\n');
+    s.write('  template<typename Stream> inline static void serializedLength(Stream& stream, const %s& m)\n  {\n'%(cpp_msg_with_alloc))
     for (type, name) in fields:
-        s.write('    size += serializationLength(m.%s);\n'%(name))
-    s.write('    return size;\n  }\n\n')
+        s.write('    stream.next(m.%s);\n'%(name))
+    s.write('    }\n\n')
     
     s.write('}; // struct %s\n'%(msg))
         

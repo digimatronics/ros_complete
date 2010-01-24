@@ -202,21 +202,22 @@ namespace serialization
 template<>
 struct Serializer<FixedSizeSimple>
 {
-  template<typename Buffer>
-  inline static void write(Buffer& buffer, const FixedSizeSimple& v)
+  template<typename Stream>
+  inline static void write(Stream& stream, const FixedSizeSimple& v)
   {
-    serialize(buffer, v.a);
+    serialize(stream, v.a);
   }
 
-  template<typename Buffer>
-  inline static void read(Buffer& buffer, FixedSizeSimple& v)
+  template<typename Stream>
+  inline static void read(Stream& stream, FixedSizeSimple& v)
   {
-    deserialize(buffer, v.a);
+    deserialize(stream, v.a);
   }
 
-  inline static uint32_t serializedLength(const FixedSizeSimple& v)
+  template<typename Stream>
+  inline static void serializedLength(Stream& stream, const FixedSizeSimple& v)
   {
-    return 4;
+    stream.advance(4);
   }
 };
 } // namespace serialization
@@ -280,9 +281,10 @@ namespace serialization
 template<>
 struct Serializer<FixedSizeNonSimple>
 {
-  inline static uint32_t serializedLength(const FixedSizeNonSimple& v)
+  template<typename Stream>
+  inline static void serializedLength(Stream& stream, const FixedSizeNonSimple& v)
   {
-    return v.length_to_report;
+    stream.advance(v.length_to_report);
   }
 };
 } // namespace serialization
@@ -325,9 +327,10 @@ namespace serialization
 template<>
 struct Serializer<VariableSize>
 {
-  inline static uint32_t serializedLength(const VariableSize& v)
+  template<typename Stream>
+  inline static void serializedLength(Stream& stream, const VariableSize& v)
   {
-    return v.length_to_report;
+    stream.advance(v.length_to_report);
   }
 };
 } // namespace serialization
