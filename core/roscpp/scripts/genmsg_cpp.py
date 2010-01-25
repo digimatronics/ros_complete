@@ -282,10 +282,25 @@ def compute_full_text_escaped(gen_deps_dict):
     s.close()
     return val
 
-def write_trait_char_class(s, class_name, cpp_msg_with_alloc, value):
+def is_hex_string(str):
+    for c in str:
+        if c not in '0123456789abcdefABCDEF':
+            return False
+        
+    return True
+
+def write_trait_char_class(s, class_name, cpp_msg_with_alloc, value, write_static_hex_value = False):
     s.write('template<template<typename T> class Allocator >\nstruct %s<%s> {\n'%(class_name, cpp_msg_with_alloc))
     s.write('  static const char* value() \n  {\n    return "%s";\n  }\n\n'%(value))
     s.write('  static const char* value(const %s&) { return value(); } \n'%(cpp_msg_with_alloc))
+    if (write_static_hex_value):
+        if (not is_hex_string(value)):
+            raise ValueError('%s is not a hex value'%(value))
+        
+        iter_count = len(value) / 16
+        for i in xrange(0, iter_count):
+            start = i*16
+            s.write('  static const uint64_t static_value%s = 0x%sULL;\n'%((i+1), value[start:start+16]))
     s.write('};\n\n')
     
 def write_trait_true_class(s, class_name, cpp_msg_with_alloc):
@@ -303,7 +318,7 @@ def write_traits(s, spec, pkg, msg, cpp_name_prefix, datatype = None):
     (cpp_msg_unqualified, cpp_msg_with_alloc, _) = cpp_message_declarations(cpp_name_prefix, msg)
     s.write('namespace ros\n{\n')
     s.write('namespace message_traits\n{\n')
-    write_trait_char_class(s, 'MD5Sum', cpp_msg_with_alloc, md5sum)
+    write_trait_char_class(s, 'MD5Sum', cpp_msg_with_alloc, md5sum, True)
     write_trait_char_class(s, 'DataType', cpp_msg_with_alloc, datatype)
     write_trait_char_class(s, 'Definition', cpp_msg_with_alloc, full_text)
     
