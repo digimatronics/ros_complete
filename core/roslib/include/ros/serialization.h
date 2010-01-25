@@ -97,7 +97,7 @@ struct Serializer
   }
 
   template<typename Stream>
-  inline static void serializedLength(Stream& stream, const T& t)
+  inline static void serializedLength(Stream& stream, typename boost::call_traits<T>::param_type t)
   {
     stream.advance(t.serializationLength());
   }
@@ -134,7 +134,7 @@ inline void serializationLength(Stream& stream, const T& t)
       v = *reinterpret_cast<Type*>(stream.advance(sizeof(v))); \
     } \
     \
-    template<typename Stream> inline static void serializedLength(Stream& stream, const Type& t) \
+    template<typename Stream> inline static void serializedLength(Stream& stream, const Type t) \
     { \
       stream.advance(sizeof(Type)); \
     } \
