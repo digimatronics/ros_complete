@@ -45,6 +45,8 @@
 #include <boost/mpl/or.hpp>
 #include <boost/mpl/not.hpp>
 
+#define ROS_NEW_SERIALIZATION_API 1
+
 #define ROS_DECLARE_ALLINONE_SERIALIZER \
   template<typename Stream, typename T> \
   inline static void write(Stream& stream, const T& t) \

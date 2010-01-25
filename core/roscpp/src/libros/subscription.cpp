@@ -39,6 +39,7 @@
 #include <sys/poll.h> // for POLLOUT
 #include <cerrno>
 #include <cstring>
+#include <typeinfo>
 
 #include "ros/common.h"
 #include "ros/subscription.h"
@@ -595,7 +596,11 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
 
   uint32_t drops = 0;
 
-  MessageDeserializerPtr deserializer;
+  // Cache the deserializers by type info.  If all the subscriptions are the same type this has the same performance as before.  If
+  // there are subscriptions with different C++ type (but same ROS message type), this now works correctly rather than passing
+  // garbage to the messages with different C++ types than the first one.
+  typedef std::map<const std::type_info*, MessageDeserializerPtr> M_TypeToDeserializer;
+  M_TypeToDeserializer deserializers;
 
   for (V_CallbackInfo::iterator cb = callbacks_.begin();
        cb != callbacks_.end(); ++cb)
@@ -604,6 +609,8 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
 
     ROS_ASSERT(info->callback_queue_);
 
+    const std::type_info* ti = &typeid(*info->helper_);
+    MessageDeserializerPtr& deserializer = deserializers[ti];
     if (!deserializer)
     {
       deserializer.reset(new MessageDeserializer(info->helper_, buffer, num_bytes, buffer_includes_size_header, connection_header));
@@ -620,9 +627,14 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
   }
 
   // If this link is latched, store off the message so we can immediately pass it to new subscribers later
-  if (deserializer && link->isLatched())
+  if (link->isLatched())
   {
-    latched_messages_[link] = deserializer;
+    LatchInfo li;
+    li.buffer_includes_size_header = buffer_includes_size_header;
+    li.connection_header = connection_header;
+    li.link = link;
+    li.message = SerializedMessage(buffer, num_bytes);
+    latched_messages_[link] = li;
   }
 
   return drops;
@@ -665,11 +677,12 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
         const PublisherLinkPtr& link = *it;
         if (link->isLatched())
         {
-          M_PublisherLinkToDeserializer::iterator des_it = latched_messages_.find(link);
+          M_PublisherLinkToLatchInfo::iterator des_it = latched_messages_.find(link);
           if (des_it != latched_messages_.end())
           {
-            const MessageDeserializerPtr& des = des_it->second;
+            const LatchInfo& latch_info = des_it->second;
 
+            MessageDeserializerPtr des(new MessageDeserializer(helper, latch_info.message.buf, latch_info.message.num_bytes, latch_info.buffer_includes_size_header, latch_info.connection_header));
             uint64_t id = info->subscription_queue_->push(info->helper_, des, info->has_tracked_object_, info->tracked_object_);
             SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
             info->callback_queue_->addCallback(cb, (uint64_t)info.get());

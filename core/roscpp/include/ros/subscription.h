@@ -217,8 +217,16 @@ private:
 
   TransportHints transport_hints_;
 
-  typedef std::map<PublisherLinkPtr, MessageDeserializerPtr> M_PublisherLinkToDeserializer;
-  M_PublisherLinkToDeserializer latched_messages_;
+  struct LatchInfo
+  {
+    SerializedMessage message;
+    PublisherLinkPtr link;
+    bool buffer_includes_size_header;
+    boost::shared_ptr<std::map<std::string, std::string> > connection_header;
+  };
+
+  typedef std::map<PublisherLinkPtr, LatchInfo> M_PublisherLinkToLatchInfo;
+  M_PublisherLinkToLatchInfo latched_messages_;
 };
 
 }
