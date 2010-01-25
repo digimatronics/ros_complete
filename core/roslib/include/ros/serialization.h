@@ -45,6 +45,25 @@
 #include <boost/mpl/or.hpp>
 #include <boost/mpl/not.hpp>
 
+#define ROS_DECLARE_ALLINONE_SERIALIZER \
+  template<typename Stream, typename T> \
+  inline static void write(Stream& stream, const T& t) \
+  { \
+    allinone<Stream, const T&>(stream, t); \
+  } \
+  \
+  template<typename Stream, typename T> \
+  inline static void read(Stream& stream, T& t) \
+  { \
+    allinone<Stream, T&>(stream, t); \
+  } \
+  \
+  template<typename Stream, typename T> \
+  inline static void serializedLength(Stream& stream, const T& t) \
+  { \
+    allinone<Stream, const T&>(stream, t); \
+  }
+
 namespace ros
 {
 namespace serialization
@@ -102,7 +121,7 @@ inline void serializationLength(Stream& stream, const T& t)
   Serializer<T>::serializedLength(stream, t);
 }
 
-#define ROSCPP_CREATE_SIMPLE_SERIALIZER(Type) \
+#define ROS_CREATE_SIMPLE_SERIALIZER(Type) \
   template<> struct Serializer<Type> \
   { \
     template<typename Stream> inline static void write(Stream& stream, const Type v) \
@@ -121,16 +140,16 @@ inline void serializationLength(Stream& stream, const T& t)
     } \
   };
 
-ROSCPP_CREATE_SIMPLE_SERIALIZER(uint8_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(int8_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(uint16_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(int16_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(uint32_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(int32_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(uint64_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(int64_t);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(float);
-ROSCPP_CREATE_SIMPLE_SERIALIZER(double);
+ROS_CREATE_SIMPLE_SERIALIZER(uint8_t);
+ROS_CREATE_SIMPLE_SERIALIZER(int8_t);
+ROS_CREATE_SIMPLE_SERIALIZER(uint16_t);
+ROS_CREATE_SIMPLE_SERIALIZER(int16_t);
+ROS_CREATE_SIMPLE_SERIALIZER(uint32_t);
+ROS_CREATE_SIMPLE_SERIALIZER(int32_t);
+ROS_CREATE_SIMPLE_SERIALIZER(uint64_t);
+ROS_CREATE_SIMPLE_SERIALIZER(int64_t);
+ROS_CREATE_SIMPLE_SERIALIZER(float);
+ROS_CREATE_SIMPLE_SERIALIZER(double);
 
 // string
 template<template<typename T> class Allocator >

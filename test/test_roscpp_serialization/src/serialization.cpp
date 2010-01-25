@@ -34,12 +34,16 @@
  */
 
 #include <gtest/gtest.h>
+#include <ros/static_assert.h>
 #include <roslib/Header.h>
 #include "test_roscpp_serialization/helpers.h"
 
 using namespace ros;
 using namespace ros::serialization;
 using namespace test_roscpp_serialization;
+
+ROS_STATIC_ASSERT(sizeof(ros::Time) == 8);
+ROS_STATIC_ASSERT(sizeof(ros::Duration) == 8);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Tests for compilation/validity of serialization/deserialization of primitive types
@@ -353,6 +357,37 @@ TEST(Serialization, variableSize_array)
 
   int32_t len = ros::serialization::serializationLength(in);
   ASSERT_EQ(len, 104);  // 104 = 4 bytes for the first item + 100 bytes for the second
+}
+
+struct AllInOneSerializer
+{
+  uint32_t a;
+};
+
+namespace ros
+{
+namespace serialization
+{
+template<>
+struct Serializer<AllInOneSerializer>
+{
+  template<typename Stream, typename T>
+  inline static void allinone(Stream& stream, T t)
+  {
+    stream.next(t.a);
+  }
+
+  ROS_DECLARE_ALLINONE_SERIALIZER;
+};
+} // namespace serialization
+} // namespace ros
+
+TEST(Serialization, allinone)
+{
+  AllInOneSerializer in, out;
+  in.a = 5;
+  serializeAndDeserialize(in, out);
+  ASSERT_EQ(out.a, in.a);
 }
 
 // Class with a header, used to ensure message_traits::header(m) returns the header

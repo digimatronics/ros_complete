@@ -327,20 +327,12 @@ def write_serialization(s, spec, pkg, msg, cpp_name_prefix):
     
     s.write('template<template<typename T> class Allocator > struct Serializer<%s>\n{\n'%(cpp_msg_with_alloc))
     
-    s.write('  template<typename Stream> inline static void write(Stream& stream, const %s& m)\n  {\n'%(cpp_msg_with_alloc))
+    s.write('  template<typename Stream, typename T> inline static void allinone(Stream& stream, T m)\n  {\n')
     for (type, name) in fields:
         s.write('    stream.next(m.%s);\n'%(name))
     s.write('    }\n\n')
     
-    s.write('  template<typename Stream> inline static void read(Stream& stream, %s& m)\n  {\n'%(cpp_msg_with_alloc))
-    for (type, name) in fields:
-        s.write('    stream.next(m.%s);\n'%(name))
-    s.write('    }\n\n')
-    
-    s.write('  template<typename Stream> inline static void serializedLength(Stream& stream, const %s& m)\n  {\n'%(cpp_msg_with_alloc))
-    for (type, name) in fields:
-        s.write('    stream.next(m.%s);\n'%(name))
-    s.write('    }\n\n')
+    s.write('ROS_DECLARE_ALLINONE_SERIALIZER;')
     
     s.write('}; // struct %s\n'%(msg))
         

@@ -35,6 +35,9 @@
 #include "ros/service_traits.h"
 #include "ros/serialization.h"
 
+#include <boost/type_traits/is_base_of.hpp>
+#include <boost/utility/enable_if.hpp>
+
 namespace ros
 {
 
@@ -98,6 +101,17 @@ public:
   , res_data_type_(res_data_type)
   {}
 
+  template<typename T>
+  typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+  {
+    t->__connection_header = connection_header;
+  }
+
+  template<typename T>
+  typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+  {
+  }
+
   virtual bool call(const SerializedMessage& req_bytes, SerializedMessage& res_bytes, const boost::shared_ptr<M_string>& connection_header)
   {
     namespace ser = serialization;
@@ -105,7 +119,7 @@ public:
     MResPtr res(new MRes);
 
     ser::deserializeMessage(req_bytes, *req);
-    req->__connection_header = connection_header;
+    assignConnectionHeader(req.get(), connection_header);
 
     bool ok = callback_(*req, *res);
     res_bytes = ser::serializeServiceResponse(ok, *res);
