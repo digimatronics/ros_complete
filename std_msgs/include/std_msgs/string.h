@@ -41,6 +41,8 @@ struct MD5Sum<std::basic_string<char, std::char_traits<char>, Allocator<char> > 
 {
   static const char* value()
   {
+    ROS_STATIC_ASSERT(MD5Sum<std_msgs::String>::static_value1 == 0x992ce8a1687cec8cULL);
+    ROS_STATIC_ASSERT(MD5Sum<std_msgs::String>::static_value2 == 0x8bd883ec73ca41d1ULL);
     return MD5Sum<std_msgs::String_<Allocator> >::value();
   }
 

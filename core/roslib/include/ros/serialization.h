@@ -151,6 +151,27 @@ ROS_CREATE_SIMPLE_SERIALIZER(int64_t);
 ROS_CREATE_SIMPLE_SERIALIZER(float);
 ROS_CREATE_SIMPLE_SERIALIZER(double);
 
+// bool (serialized as uint8)
+template<> struct Serializer<bool>
+{
+  template<typename Stream> inline static void write(Stream& stream, const bool v)
+  {
+    uint8_t b = (uint8_t)v;
+    *reinterpret_cast<uint8_t*>(stream.advance(1)) = b;
+  }
+
+  template<typename Stream> inline static void read(Stream& stream, bool& v)
+  {
+    uint8_t b = *reinterpret_cast<uint8_t*>(stream.advance(1));
+    v = (bool)b;
+  }
+
+  template<typename Stream> inline static void serializedLength(Stream& stream, const bool t)
+  {
+    stream.advance(1);
+  }
+};
+
 // string
 template<template<typename T> class Allocator >
 struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char> > >

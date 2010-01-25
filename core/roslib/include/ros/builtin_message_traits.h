@@ -53,6 +53,9 @@ ROSLIB_CREATE_SIMPLE_TRAITS(double);
 ROSLIB_CREATE_SIMPLE_TRAITS(Time);
 ROSLIB_CREATE_SIMPLE_TRAITS(Duration);
 
+// because std::vector<bool> is not a true vector, bool is not a simple type
+template<> struct IsFixedSize<bool> : public TrueType {};
+
 } // namespace message_traits
 } // namespace ros
 

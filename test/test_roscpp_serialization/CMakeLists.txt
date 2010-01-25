@@ -15,3 +15,8 @@ include_directories(include)
 
 rosbuild_add_gtest(serialization src/serialization.cpp)
 rosbuild_add_gtest(generated_messages src/generated_messages.cpp)
+
+rosbuild_add_executable(builtin_types src/builtin_types.cpp)
+rosbuild_declare_test(builtin_types)
+rosbuild_add_gtest_build_flags(builtin_types)
+rosbuild_add_rostest(test/builtin_types.xml)

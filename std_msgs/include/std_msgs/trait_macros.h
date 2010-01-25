@@ -29,7 +29,7 @@
 #ifndef STD_MSGS_TRAIT_MACROS_H
 #define STD_MSGS_TRAIT_MACROS_H
 
-#define STD_MSGS_DEFINE_BUILTIN_TRAITS(builtin, msg) \
+#define STD_MSGS_DEFINE_BUILTIN_TRAITS(builtin, msg, static_md5sum1, static_md5sum2) \
   namespace ros \
   { \
   namespace message_traits \
@@ -39,6 +39,8 @@
     { \
       static const char* value() \
       { \
+        ROS_STATIC_ASSERT(MD5Sum<std_msgs::msg>::static_value1 == static_md5sum1); \
+        ROS_STATIC_ASSERT(MD5Sum<std_msgs::msg>::static_value2 == static_md5sum2); \
         return MD5Sum<std_msgs::msg>::value(); \
       } \
       \
