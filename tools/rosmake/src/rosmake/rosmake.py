@@ -97,20 +97,20 @@ class RosMakeAll:
         return self.paths[package]
         
     def check_rosdep(self, packages):
-        self.print_all("Checking rosdeps compliance for system dependencies %s.  This may take a few seconds."%(', '.join(packages)))
+        warning = ''
         try:
             r = rosdep.core.Rosdep(packages, robust=True)
-        except roslib.os_detect.OSDetectException, ex:
-            return "%s"%ex
-        (output, scripts) = r.check()
+            (output, scripts) = r.check()
+        except roslib.exceptions.ROSLibException, ex:
+            return ("rosdep ABORTED: %s"%ex, '')
+
         if len(scripts) > 0:
-            self.print_all("Rosdep couldn't check scripts: %s"%scripts)
+            warning = "rosdep check could not check scripts: %s"%scripts
+            
         if len(output) == 0:
-            self.print_all( "Rosdep check passed all system dependencies in packages")# %s"% packages)
-            return []
+            return ('', warning)
         else:
-            self.print_all("Rosdep check failed to find system dependencies: %s"% output)
-            return output
+            return (output, warning)
 
     def install_rosdeps(self, packages, default_yes):
         """
@@ -120,18 +120,14 @@ class RosMakeAll:
         @param default_yes: if True, assume 'yes' to all package manager prompts.
         @type  default_yes: bool
         """
-        self.print_all("Generating Install Script using rosdep then executing. This may take a minute, you will be prompted for permissions. . .")
         try:
             r = rosdep.core.Rosdep(packages, robust=True)
-        except roslib.os_detect.OSDetectException, ex:
-            return "%s"%ex
-        try:
             r.install(include_duplicates=False, default_yes=default_yes);
-            self.print_all("Rosdep successfully installed all system dependencies")
             return None
         except rosdep.core.RosdepException, e:
-            self.print_all( "ERROR: %s"%e)
-            return "%s"%e
+            return "rosdep install FAILED: %s"%e
+        except roslib.exceptions.ROSLibExceptoin, ex:
+            return "%s"%ex
 
     def build_or_recurse(self,p):
         if p in self.build_list:
@@ -645,15 +641,30 @@ class RosMakeAll:
         # make sure all dependencies are satisfied and if not warn
         buildable_packages = []
         for p in required_packages:
-            (buildable, error, str) = self.flag_tracker.can_build(p, self.obey_whitelist, self.obey_whitelist_recursively, self.skip_blacklist, [])
+            (buildable, error, str) = self.flag_tracker.can_build(p, self.obey_whitelist, self.obey_whitelist_recursively, self.skip_blacklist, [], False)
             if buildable: 
                 buildable_packages.append(p)
 
         if options.rosdep_install:
+            self.print_all("Generating Install Script using rosdep then executing. This may take a minute, you will be prompted for permissions. . .")
             self.rosdep_install_result = self.install_rosdeps(buildable_packages, options.rosdep_yes)
+            if self.rosdep_install_result:
+                self.print_all( "rosdep install failed: %s"%self.rosdep_install_result)
+            else:
+                self.print_all("rosdep successfully installed all system dependencies")
+
         elif not options.rosdep_disabled:
-            self.rosdep_check_result = self.check_rosdep(buildable_packages)
-    
+            self.print_all("Checking rosdeps compliance for packages %s.  This may take a few seconds."%(', '.join(packages)))
+            (self.rosdep_check_result, warning) = self.check_rosdep(buildable_packages)
+
+            if warning:
+                self.print_all("rosdep produced a warning: %s"%warning)
+
+            if len(self.rosdep_check_result) == 0:
+                self.print_all( "rosdep check passed all system dependencies in packages")# %s"% packages)
+            else:
+                self.print_all("rosdep check failed to find system dependencies: %s"% self.rosdep_check_result)
+
         #generate the list of packages necessary to build(in order of dependencies)
         counter = 0
         for p in required_packages:

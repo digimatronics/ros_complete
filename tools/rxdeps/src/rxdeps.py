@@ -38,6 +38,9 @@ import getopt
 import roslib
 import roslib.rospack
 import roslib.rosenv
+import random
+import tempfile
+import shutil
 
 from math import sqrt
 from optparse import OptionParser
@@ -134,7 +137,7 @@ class PackageCharacteristics:
             
         # show blacklisting
         if os.path.exists(os.path.join(os.path.dirname(f), "ROS_BUILD_BLACKLIST")):
-            print f, "is blacklisted"
+            #print f, "is blacklisted"
             self._review_status[pkg] = "ROS_BUILD_BLACKLIST"
         return self._review_status[pkg]
         
@@ -149,7 +152,7 @@ class PackageCharacteristics:
             
         # show blacklisting
         if os.path.exists(os.path.join(os.path.dirname(f), "ROS_BUILD_BLACKLIST")):
-            print f, "is blacklisted"
+            #print f, "is blacklisted"
             self._review_notes[pkg] +=" ROS_BUILD_BLACKLIST"
         # show ROS_NOBUILD flag
         if os.path.exists(os.path.join(os.path.dirname(f), "ROS_NOBUILD")):
@@ -172,50 +175,13 @@ class PackageCharacteristics:
         else:
             return "gainsboro"
 
-## Build the dictionary of dependencies for a list of packages
-## @param names [str]: list of package names to target. If empty, all packages will be targetted.
-## @param target1 bool: if True, only target direct dependencies for packages listed in \a names
-def build_dictionary(names, exclude, target1=False):
-    pkgs = set()
-    ## If no arguments list all packages
-    if not names:
-        pkgs = roslib.packages.list_pkgs()
-        
-    ## Get all dependencies and depends of target packages
-    else:
-        for name in names:
-            if target1:
-                pkgs.update(roslib.rospack.rospack_depends_1(name))
-                pkgs.update(roslib.rospack.rospack_depends_on_1(name))
-            else:
-                pkgs.update(roslib.rospack.rospack_depends(name))
-                pkgs.update(roslib.rospack.rospack_depends_on(name))
-
-        pkgs.update(names)
-    pkgs = [p for p in pkgs if p not in exclude]
-    ## Build the dictionary of dependencies
-    dict = {}
-    for pkg in pkgs:
-        dict[pkg] = [d for d in roslib.rospack.rospack_depends_1(pkg) if not d in exclude]
-    return dict
-
-## Get all the dependencies of dependent packages (deduplicated)
-def get_child_deps(d, name):
-    accum = set()
-    for dep in d[name]:
-        accum.update(get_deps(d, dep))
-    return accum
-                     
-## Get all dependencies of this package recursively (deduplicated)
-def get_deps(d, name):
-    accum = set()
-    try:
-        for dep in d[name]:
-            accum.add(dep)
-            accum.update(get_deps(d, dep))
-    except KeyError:
-        pass #print "bad Key" # don't accumulate deps for a package not in the tree
-    return accum
+    def get_color_palate(self):
+        if self.color_by == "review":
+            return status_map
+        if self.color_by == "license":
+            return license_map
+        else:
+            return None
 
 rosmakeall_color_map = { "rosmakeall-testfailures.txt": "orange", "rosmakeall-buildfailures.txt": "red"}
 
@@ -233,58 +199,166 @@ def get_rosmakeall_color():
             sys.exit(1)
     return color_dict
 
-def get_depth(pkg_dict, pkg, depth):
-    for pkg_dep in pkg_dict[pkg]:
-    	depth = max(depth, get_depth(pkg_dict, pkg_dep, depth + 1))
-    return depth
 
-def build_rank(pkg_dict):
-    rank = {}
-    for pkg in pkg_dict:
-    	depth = get_depth(pkg_dict, pkg, 0)
-	if depth in rank:
-	   rank[depth].append(pkg)
+
+class HelperMethods:
+    def __init__(self):
+        self._stack_of = {}
+        self._packages_of = {}
+        self._deps = {}
+        self._deps1 = {}
+        self._deps_on = {}
+        self._deps_on1 = {}
+        
+    def get_stack_of(self, pkg):
+        if pkg not in self._stack_of:
+            stack = roslib.stacks.stack_of(pkg)
+            if not stack:
+                stack = "None"
+            self._stack_of[pkg] = stack
+            #print "hit cache"
+        return  self._stack_of[pkg]
+
+    def get_packages_of(self, stack):
+        if stack == "None":
+            return set()
+        if stack not in self._packages_of:
+            packages = roslib.stacks.packages_of(stack)
+            self._packages_of[stack] = packages
+            #print "hit cache"
+        return  self._packages_of[stack]
+
+    def get_deps(self, pkg):
+        if pkg not in self._deps:
+            stack = roslib.rospack.rospack_depends(pkg)
+            self._deps[pkg] = stack
+            #print "hit cache"
+        return  self._deps[pkg]
+
+    def get_deps1(self, pkg):
+        if pkg not in self._deps1:
+            stack = roslib.rospack.rospack_depends_1(pkg)
+            self._deps1[pkg] = stack
+            #print "hit cache"
+        return  self._deps1[pkg]
+
+    def get_deps_on(self, pkg):
+        if pkg not in self._deps_on:
+            stack = roslib.rospack.rospack_depends_on(pkg)
+            self._deps_on[pkg] = stack
+            #print "hit cache"
+        return  self._deps_on[pkg]
+
+    def get_deps_on1(self, pkg):
+        if pkg not in self._deps_on1:
+            stack = roslib.rospack.rospack_depends_on_1(pkg)
+            self._deps_on1[pkg] = stack
+            #print "hit cache"
+        return  self._deps_on1[pkg]
+
+    ## Get all the dependencies of dependent packages (deduplicated)
+    def get_child_deps(self, pkg):
+        accum = set()
+        for dep in self.get_deps1(pkg):
+            accum.update(self.get_deps(dep))
+        return accum
+
+    def get_internal_child_deps(self, pkg, stack = None):
+        if stack == "None":
+            return set()
+        if not stack:
+            stack = self.get_stack_of(pkg)
+            if not stack or stack == "None": 
+                return set()
+        local_pkgs = set(roslib.stacks.packages_of(stack))
+
+        accum = set()
+        for dep in self.get_deps1(pkg):
+            accum.update(self.get_deps(dep))
+
+        return accum & local_pkgs
+
+    def get_depth(self, all_pkgs, pkg, depth):
+        for pkg_dep in self.get_deps1(pkg):
+            depth = max(depth, self.get_depth(all_pkgs, pkg_dep, depth + 1))
+        return depth
+
+    def build_rank(self, all_pkgs):
+        rank = {}
+        for pkg in all_pkgs:
+            depth = self.get_depth(all_pkgs, pkg, 0)
+            if depth in rank:
+               rank[depth].append(pkg)
+            else:
+               rank[depth] = [pkg]
+
+        return rank
+
+    def get_external_pkg_dependencies(self, pkg, stack=None):
+        if not stack:
+            stack = self.get_stack_of(pkg)
+        dependent_pkgs = self.get_deps1(pkg)
+        return [ext for ext in dependent_pkgs if not self.get_stack_of(ext) == stack]
+
+    def get_internal_pkg_dependencies(self, pkg, stack = None):
+        if not stack:
+            stack = self.get_stack_of(pkg)
+        dependent_pkgs = self.get_deps1(pkg)
+        return [ext for ext in dependent_pkgs if self.get_stack_of(ext) == stack]
+
+
+    def group_pkgs_by_stack(self, pkgs):
+        stacks = {}
+        for p in pkgs:
+            stack = self.get_stack_of(p)
+            if not stack:
+                continue
+            if stack in stacks:
+                stacks[stack].add(p)
+            else:
+                stacks[stack] = set([p])
+        return stacks
+
+    def get_stack_depth(self, pkg, depth):
+        for stack_dep in self.get_deps1(pkg):
+            depth = max(depth, get_stack_depth(stack_dep, depth + 1))
+        return depth
+
+    def compute_stack_ranks(self):
+        rank = {}
+        for stack in roslib.stacks.list_stacks():
+            depth = self.get_stack_depth(stack, 0)
+            if depth in rank:
+               rank[depth].append(stack)
+            else:
+               rank[depth] = [stack]
+
+        return rank
+
+
+    # cluster definitons
+    def build_stack_list(self, stack):#, include, exclude):
+        if stack == "None":
+            stack_contents = set()
         else:
-	   rank[depth] = [pkg]
+            stack_contents = set(roslib.stacks.packages_of(stack))
 
-    return rank
+        external_dependencies = set()
+        for pkg in stack_contents:
+            external_dependencies.update(self.get_external_pkg_dependencies(pkg))
 
-def classify_packages(pkg_dict):
-    classes = {}
-    stacks = []
-    found_stack = ''
-    stack_dict = {}
-    try:
-        stacks = roslib.stacks.list_stacks()
+        external_stack_dependencies = self.group_pkgs_by_stack(external_dependencies)
 
-        for pkg in pkg_dict:
-            found_stack = "Unreleased"
-            for stack in stacks:
-                if stack == roslib.stacks.stack_of(pkg):
-                    #print "matching %s with %s"%(pkg_path, realpath_stack)
-                    found_stack = stack
-                    break
+        return stack_contents, external_stack_dependencies
 
-            # record the path to the stack
-            if found_stack == "Unreleased":
-                stack_dict["Unreleased"] = "Not Contained in a stack"
-            else:
-                print "adding package %s to stack %s with path %s"%(pkg, found_stack, roslib.stacks.get_stack_dir(found_stack))
-                stack_dict[found_stack] = roslib.stacks.get_stack_dir(found_stack)
 
-            # Record the stack on the list of classes
-            if found_stack in classes:
-               classes[found_stack].append (pkg)
-            else:
-               classes[found_stack] = [pkg]
-    except subprocess.CalledProcessError:
-        print >> sys.stderr, "failed to call [rosstack contents %s]"%stack_string
-    return (classes, stack_dict)
+
+
 
 def vdmain():
     parser = OptionParser(usage="usage: %prog [options]", prog='rxdeps')
-    parser.add_option("-r", "--rosmake", dest="rosmake", default=False,
-                      action="store_true", help="color by rosmakeall results")
+    #parser.add_option("-r", "--rosmake", dest="rosmake", default=False,
+    #                  action="store_true", help="color by rosmakeall results")
     parser.add_option("-s", "--review", dest="review_status", default=False,
                       action="store_true", help="color by review status")
     parser.add_option("--size", dest="size_by_deps", default=False,
@@ -309,6 +383,9 @@ def vdmain():
     parser.add_option("-o", metavar="FILENAME",
                       dest="output_filename", default=None, 
                       type="string", help="output_filename") 
+    parser.add_option("--graphviz-output", metavar="FILENAME",
+                      dest="graphviz_output_filename", default=None, 
+                      type="string", help="Save the intermediate output to this filename.") 
     parser.add_option("--target", metavar="PKG_NAMES_LIST,COMMA_SEPERATED",
                       dest="targets", default='', 
                       type="string", help="target packages")
@@ -330,8 +407,13 @@ def vdmain():
         exclude = []
     if options.targets:
         targets = options.targets.split(',')
+        all_pkgs = roslib.packages.list_pkgs()
+        invalidtarget = [t for t in targets if t not in all_pkgs]
+        if invalidtarget:
+            parser.error("Invalid packages set as targets, %s"%invalidtarget)
     else:
         targets = []
+
     if options.stacks:
         stacks = options.stacks.split(',')
     else:
@@ -339,9 +421,6 @@ def vdmain():
     if options.quiet:
         exclude.extend(['roscpp','std_msgs', 'rospy', 'std_srvs', 'robot_msgs', 'robot_srvs', 'rosconsole', 'tf'])
         
-    color_sources = [x for x in [options.review_status, options.license, options.rosmake, options.color_file] if x]
-    color_palate = None
-
     pkg_characterists = PackageCharacteristics()
     if options.review_status:
         pkg_characterists.set_color_by("review")
@@ -362,95 +441,147 @@ def vdmain():
     else:
         output_filename = "deps.pdf"
         
-    pkg_dictionary = build_dictionary(targets, exclude, target1=options.target1)
+    helper = HelperMethods()
 
+    all_stacks = roslib.stacks.list_stacks()
+    invalid_args = set([stack for stack in args if stack not in all_stacks])
+    if invalid_args:
+        parser.error("Invalid stacks passed as arguments %s"%invalid_args)
+
+
+    all_pkgs = set(targets)
+    args = set(args)
+    args.update([helper.get_stack_of(p) for p in targets])
+    if not args and options.cluster:
+        parser.error("Cluster option requires stacks as arguments or --target options")
+    for s in args:
+        all_pkgs.update(helper.get_packages_of(s))
+    all_pkgs_plus_1 = set()
+    for p in all_pkgs:
+        all_pkgs_plus_1.update(helper.get_deps1(p))
+    
+    
     print "Writing"
-    with open('deps.gv', 'w') as outfile:
-        outfile.write( """digraph ros {
+    outfile = tempfile.NamedTemporaryFile()
+    outfile.write( """digraph ros {
   //size="11,8";
   size="100,40";
+//clusterrank=global;
   node [color=gainsboro, style=filled];
   ranksep = 2.0;
+  compound=true;
+  
 """)
-        colors = ['red', 'blue', 'green', 'yellow', 'gold', 'orange','chocolate', 'gray44', 'deeppink', 'black']
-	classes = []
+    colors = ['red', 'blue', 'green', 'yellow', 'gold', 'orange','chocolate', 'gray44', 'deeppink', 'black']
+    # create the legend
+    color_palate = pkg_characterists.get_color_palate()
+    if color_palate:
+        outfile.write(' subgraph cluster__legend { style=bold; color=black; label = "Color Legend"; ')
+        for type in color_palate:
+            text_color="black"
+            bg_color = color_palate[type]
+            if bg_color == "black":
+                text_color = "white"  
+            outfile.write('"%s" [color="%s", fontcolor="%s"];\n '%(type, bg_color, text_color))
+        outfile.write('}\n')
+    for cl in args:#roslib.stacks.list_stacks():
         if options.cluster:
-            classes, base_dict = classify_packages(pkg_dictionary)
-            bases = base_dict.keys()
-            values = list(set(base_dict.values()))
-            i = 1
-        # create the legend
-        if color_palate:
-            outfile.write(' subgraph cluster_legend { style=bold; color=black; label = "Color Legend"; ')
-            for type in color_palate:
-                text_color="black"
-                bg_color = color_palate[type]
-                if bg_color == "black":
-                    text_color = "white"  
-                outfile.write('"%s" [color="%s", fontcolor="%s"];\n '%(type, bg_color, text_color))
-            outfile.write('}\n')
-        for cl in classes:
-            if options.cluster:
-                base_color = colors[values.index(base_dict[cl])%len(colors)]
-                outfile.write(' subgraph cluster_%d { style=bold; color=%s; label = "%s \\n (%s)"; '%(i,base_color, cl, base_dict[cl]))
-                i = i + 1
-                for pkg in classes[cl]:
-                    outfile.write(' "%s" ;'%pkg)
+            base_color = colors[random.randrange(0, len(colors))]
+            try:
+                stack_dir = roslib.stacks.get_stack_dir(cl)
+            except  roslib.exceptions.ROSLibException, ex:
+                stack_dir = "None"
+            outfile.write(' subgraph cluster__%s { style=bold; color=%s; label = "%s \\n (%s)"; '%(cl, base_color, cl, stack_dir))
+            internal, external = helper.build_stack_list(cl)
+            for pkg in internal:
+                outfile.write(' "%s" ;'%pkg)
+            for s in external:
+                try:
+                    stack_dir = roslib.stacks.get_stack_dir(s)
+                except  roslib.exceptions.ROSLibException, ex:
+                    stack_dir = "None"
+                outfile.write(' subgraph cluster__%s_%s { style=bold; color=%s; label = "Stack: %s \\n (%s)"; '%(cl, s, base_color, s, stack_dir))
+                for p in external[s]:
+                    outfile.write(' "%s.%s.%s" [ label = "%s"];'%(cl, s, p, p))
                 outfile.write('}\n')
-                
-        for pkg, deps in pkg_dictionary.iteritems():
-            node_args = []
-            ##Coloring
-            color = pkg_characterists.get_color(pkg)
-            node_args.append("color=%s"%color)
-            if color == 'black':
-                node_args.append("fontcolor=white")
-                
-            ## Shape
-            if pkg in exclude:
-                node_args.append("shape=box")
+            outfile.write('}\n')
 
-            # Size
-            if options.size_by_deps:
-                num_deps = len(roslib.rospack.rospack_depends_on(pkg))
-                node_args.append("width=%s,height=%s"%(.75 + .1 * sqrt(num_deps), .5 + .1* sqrt(num_deps)))
+    external_deps_connected = set()
+    for pkg in all_pkgs:
+        deps = helper.get_deps1(pkg)
+        node_args = []
+        ##Coloring
+        color = pkg_characterists.get_color(pkg)
+        node_args.append("color=%s"%color)
+        if color == 'black':
+            node_args.append("fontcolor=white")
 
-            ##Perimeter 
-            if pkg in targets:
-                node_args.append('peripheries=6, style=bold')
-            elif pkg in exclude: 
-                node_args.append('peripheries=3, style=dashed')
-                
-            notes = pkg_characterists.get_review_notes(pkg)
-            if len(notes) > 0:
-              node_args.append('label="%s\\n(%s)"' % (pkg, notes))
+        ## Shape
+        if pkg in exclude:
+            node_args.append("shape=box")
 
-            if options.hide:
-               if len(roslib.rospack.rospack_depends_on(pkg)) == 0 and len(roslib.rospack.rospack_depends(pkg)) == 0: #TODO: This is pretty slow
-                  print "Hiding unattached package %s"%pkg
-                  continue
+        # Size
+        if options.size_by_deps:
+            num_deps = len(roslib.rospack.rospack_depends_on(pkg))
+            node_args.append("width=%s,height=%s"%(.75 + .1 * sqrt(num_deps), .5 + .1* sqrt(num_deps)))
 
+        ##Perimeter 
+        if pkg in targets:
+            node_args.append('peripheries=6, style=bold')
+        elif pkg in exclude: 
+            node_args.append('peripheries=3, style=dashed')
+
+        notes = pkg_characterists.get_review_notes(pkg)
+        if len(notes) > 0:
+          node_args.append('label="%s\\n(%s)"' % (pkg, notes))
+
+        if options.hide:
+           if len(roslib.rospack.rospack_depends_on(pkg)) == 0 and len(helper.get_deps(pkg)) == 0: #TODO: This is pretty slow
+              print "Hiding unattached package %s"%pkg
+              continue
+
+        if pkg in all_pkgs:
             outfile.write('  "%s" [%s];\n'%(pkg, ', '.join(node_args)))
 
-            ## Edges
-            for dep in deps:
-                if not options.verbose and dep in get_child_deps(pkg_dictionary, pkg): 
+
+
+
+        ## Edges
+        for dep in deps:
+            if not options.verbose and dep in helper.get_internal_child_deps(pkg): 
+                continue
+            if dep in all_pkgs_plus_1: #Draw edges to all dependencies
+                local_stack = helper.get_stack_of(pkg)
+                dependent_stack = helper.get_stack_of(dep)
+                if local_stack not in args or not local_stack:
                     continue
-                if dep in pkg_dictionary: #Draw edges to all dependencies
+                if not (options.cluster and not dependent_stack == local_stack):
                     outfile.write( '  "%s" -> "%s";\n' % (pkg, dep))
-#	outfile.write('}\n')
-        ## rank
-	if options.rank:	
-	    rank_dictionary = build_dictionary([], [])
-	    rank = build_rank(rank_dictionary)
-            for key in rank:
-                if len(rank[key]) > 1:
-                    outfile.write('{ rank = same;')    
-                    for pkg_rank in rank[key]:
-                        if pkg_rank in pkg_dictionary:
-                            outfile.write(' "%s" ;'%pkg_rank)
-                    outfile.write('}\n')
-        outfile.write( '}\n')
+                elif options.cluster and dependent_stack:
+                    intermediate = "%s.%s.%s"%(local_stack, dependent_stack, dep)
+                    deduplication = "%s.%s"%(local_stack, dependent_stack)
+                    outfile.write( '  "%s" -> "%s"[color="blue", style="dashed"];\n' % (pkg, intermediate))
+                    if not deduplication in external_deps_connected and dependent_stack in args:
+                        outfile.write( '  "%s" -> "%s"[color="red", style="dashed", ltail=cluster__%s_%s, lhead=cluster__%s];\n' % (intermediate, dep, local_stack, dependent_stack, dependent_stack))
+                        external_deps_connected.add(deduplication)
+    #	outfile.write('}\n')
+    ## rank
+    if options.rank:	
+        rank = helper.build_rank(all_pkgs)
+        for key in rank:
+            if len(rank[key]) > 1:
+                outfile.write('{ rank = same;')    
+                for pkg_rank in rank[key]:
+                    if pkg_rank in all_pkgs:
+                        outfile.write(' "%s" ;'%pkg_rank)
+                outfile.write('}\n')
+    outfile.write( '}\n')
+    outfile.flush() # write to disk, but don't delete 
+
+    if options.graphviz_output_filename:
+        graphviz_output_filename = os.path.realpath(options.graphviz_output_filename)
+        shutil.copyfile(outfile.name, graphviz_output_filename)
+
     try:
         # Check version, make postscript if too old to make pdf
         args = ["dot", "-V"]
@@ -465,7 +596,7 @@ def vdmain():
           version = distutils.version.StrictVersion(m.group(1))
           print 'Detected dot version %s' % (version)
         if version > distutils.version.StrictVersion('2.8'):
-          subprocess.check_call(["dot", "-Tpdf", "deps.gv", "-o", output_filename])
+          subprocess.check_call(["dot", "-Tpdf", outfile.name, "-o", output_filename])
           print "%s generated"%output_filename
         else:
           orig = output_filename
@@ -473,7 +604,7 @@ def vdmain():
             output_filename = output_filename[:-3]+'ps'
           else:
             print "ERROR", output_filename
-          subprocess.check_call(["dot", "-Tps2", "deps.gv", "-o", output_filename])
+          subprocess.check_call(["dot", "-Tps2", outfile.name, "-o", output_filename])
           print "%s generated"%output_filename
           
           print "Trying to create %s..."%orig
@@ -483,4 +614,5 @@ def vdmain():
         print >> sys.stderr, "failed to generate %s"%output_filename
 
 if __name__ == '__main__':
+    random.seed()
     vdmain()
