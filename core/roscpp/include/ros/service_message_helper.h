@@ -50,7 +50,7 @@ struct ServiceMessageHelperCallParams
 /**
  * \brief Abstract base class used by service servers to deal with concrete message types through a common
  * interface.  This is one part of the roscpp API that is \b not fully stable, so overloading this class
- * is not recommended unless you have an explicit need (like to implement a scripting interface).
+ * is not recommended
  */
 class ServiceMessageHelper
 {
