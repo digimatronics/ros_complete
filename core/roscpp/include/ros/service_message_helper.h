@@ -40,6 +40,12 @@
 
 namespace ros
 {
+struct ServiceMessageHelperCallParams
+{
+  SerializedMessage request;
+  SerializedMessage response;
+  boost::shared_ptr<M_string> connection_header;
+};
 
 /**
  * \brief Abstract base class used by service servers to deal with concrete message types through a common
@@ -50,26 +56,15 @@ class ServiceMessageHelper
 {
 public:
   virtual ~ServiceMessageHelper() {}
-  virtual bool call(const SerializedMessage& req, SerializedMessage& res, const boost::shared_ptr<M_string>& connection_header) = 0;
-
-  /**
-   * \brief Returns the md5sum of this service
-   */
-  virtual std::string getMD5Sum() = 0;
-  /**
-   * \brief Returns the datatype of this service
-   */
-  virtual std::string getDataType() = 0;
-  /**
-   * \brief Returns the datatype of the request message
-   */
-  virtual std::string getRequestDataType() = 0;
-  /**
-   * \brief Returns the datatype of the response message
-   */
-  virtual std::string getResponseDataType() = 0;
+  virtual bool call(ServiceMessageHelperCallParams& params) = 0;
 };
 typedef boost::shared_ptr<ServiceMessageHelper> ServiceMessageHelperPtr;
+
+template<typename M>
+inline boost::shared_ptr<M> defaultServiceCreateFunction()
+{
+  return boost::shared_ptr<M>(new M);
+}
 
 /**
  * \brief Concrete generic implementation of ServiceMessageHelper for any normal service type
@@ -81,25 +76,15 @@ public:
   typedef boost::shared_ptr<MReq> MReqPtr;
   typedef boost::shared_ptr<MRes> MResPtr;
   typedef boost::function<bool(MReq&, MRes&)> Callback;
+  typedef boost::function<MReqPtr()> ReqCreateFunction;
+  typedef boost::function<MResPtr()> ResCreateFunction;
 
-  ServiceMessageHelperT(const Callback& callback)
+  ServiceMessageHelperT(const Callback& callback, const ReqCreateFunction& create_req = defaultServiceCreateFunction<MReq>, const ResCreateFunction& create_res = defaultServiceCreateFunction<MRes>)
   : callback_(callback)
+  , create_req_(create_req)
+  , create_res_(create_res)
   {
-    namespace st = service_traits;
-    namespace mt = message_traits;
-    md5sum_ = st::md5sum<MReq>();
-    data_type_ = st::datatype<MReq>();
-    req_data_type_ = mt::datatype<MReq>();
-    res_data_type_ = mt::datatype<MRes>();
   }
-
-  ServiceMessageHelperT(const Callback& callback, const std::string& md5sum, const std::string& data_type, const std::string& req_data_type, const std::string& res_data_type)
-  : callback_(callback)
-  , md5sum_(md5sum)
-  , data_type_(data_type)
-  , req_data_type_(req_data_type)
-  , res_data_type_(res_data_type)
-  {}
 
   template<typename T>
   typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
@@ -112,31 +97,24 @@ public:
   {
   }
 
-  virtual bool call(const SerializedMessage& req_bytes, SerializedMessage& res_bytes, const boost::shared_ptr<M_string>& connection_header)
+  virtual bool call(ServiceMessageHelperCallParams& params)
   {
     namespace ser = serialization;
-    MReqPtr req(new MReq);
-    MResPtr res(new MRes);
+    MReqPtr req(create_req_());
+    MResPtr res(create_res_());
 
-    ser::deserializeMessage(req_bytes, *req);
-    assignConnectionHeader(req.get(), connection_header);
+    ser::deserializeMessage(params.request, *req);
+    assignConnectionHeader(req.get(), params.connection_header);
 
     bool ok = callback_(*req, *res);
-    res_bytes = ser::serializeServiceResponse(ok, *res);
+    params.response = ser::serializeServiceResponse(ok, *res);
     return ok;
   }
 
-  virtual std::string getMD5Sum() { return md5sum_; }
-  virtual std::string getDataType() { return data_type_; }
-  virtual std::string getRequestDataType() { return req_data_type_; }
-  virtual std::string getResponseDataType() { return res_data_type_; }
-
 private:
   Callback callback_;
-  std::string md5sum_;
-  std::string data_type_;
-  std::string req_data_type_;
-  std::string res_data_type_;
+  ReqCreateFunction create_req_;
+  ResCreateFunction create_res_;
 };
 
 }

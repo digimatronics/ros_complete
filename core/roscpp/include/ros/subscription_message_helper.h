@@ -42,6 +42,13 @@
 namespace ros
 {
 
+struct SubscriptionMessageHelperDeserializeParams
+{
+  uint8_t* buffer;
+  uint32_t length;
+  boost::shared_ptr<M_string> connection_header;
+};
+
 /**
  * \brief Abstract base class used by subscriptions to deal with concrete message types through a common
  * interface.  This is one part of the roscpp API that is \b not fully stable, so overloading this class
@@ -51,11 +58,17 @@ class SubscriptionMessageHelper
 {
 public:
   virtual ~SubscriptionMessageHelper() {}
-  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header) = 0;
+  virtual VoidPtr deserialize(const SubscriptionMessageHelperDeserializeParams&) = 0;
 
   virtual void call(const VoidPtr& msg) = 0;
 };
 typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
+
+template<typename M>
+inline boost::shared_ptr<M> defaultMessageCreateFunction()
+{
+  return boost::shared_ptr<M>(new M);
+}
 
 /**
  * \brief Concrete generic implementation of SubscriptionMessageHelper for any normal message type
@@ -65,9 +78,13 @@ class SubscriptionMessageHelperT : public SubscriptionMessageHelper
 {
 public:
   typedef boost::shared_ptr<M> MPtr;
+  typedef typename boost::remove_const<M>::type NonConstType;
+  typedef typename boost::shared_ptr<NonConstType> NonConstTypePtr;
   typedef boost::function<void (const MPtr&)> Callback;
-  SubscriptionMessageHelperT(const Callback& callback)
+  typedef boost::function<NonConstTypePtr()> CreateFunction;
+  SubscriptionMessageHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<M>)
   : callback_(callback)
+  , create_(create)
   {}
 
   template<typename T>
@@ -81,17 +98,21 @@ public:
   {
   }
 
-  virtual VoidPtr deserialize(uint8_t* buffer, uint32_t length, const boost::shared_ptr<M_string>& connection_header)
+  void setCreateFunction(const CreateFunction& create)
+  {
+    create_ = create;
+  }
+
+  virtual VoidPtr deserialize(const SubscriptionMessageHelperDeserializeParams& params)
   {
     namespace ser = serialization;
 
-    typedef typename boost::remove_const<M>::type NonConstType;
-    NonConstType* msg = new NonConstType;
+    NonConstTypePtr msg = create_();
 
-    ser::IStream stream(buffer, length);
+    ser::IStream stream(params.buffer, params.length);
     ser::deserialize(stream, *msg);
 
-    assignConnectionHeader(msg, connection_header);
+    assignConnectionHeader(msg.get(), params.connection_header);
 
     return VoidPtr(msg);
   }
@@ -104,6 +125,7 @@ public:
 
 private:
   Callback callback_;
+  CreateFunction create_;
 };
 
 }

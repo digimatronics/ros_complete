@@ -118,7 +118,11 @@ public:
     SerializedMessage res;
     try
     {
-      bool ok = helper_->call(req, res, link_->getConnection()->getHeader().getValues());
+      ServiceMessageHelperCallParams params;
+      params.request = req;
+      params.response = res;
+      params.connection_header = link_->getConnection()->getHeader().getValues();
+      bool ok = helper_->call(params);
       link_->processResponse(ok, res);
     }
     catch (std::exception& e)

@@ -61,7 +61,11 @@ VoidPtr MessageDeserializer::deserialize()
   try
   {
     uint32_t offset = buffer_includes_size_header_ ? 4 : 0;
-    msg_ = helper_->deserialize(buffer_.get() + offset, num_bytes_ - offset, connection_header_);
+    SubscriptionMessageHelperDeserializeParams params;
+    params.buffer = buffer_.get() + offset;
+    params.length = num_bytes_ - offset;
+    params.connection_header = connection_header_;
+    msg_ = helper_->deserialize(params);
   }
   catch (std::exception& e)
   {

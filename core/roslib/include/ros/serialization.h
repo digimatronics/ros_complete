@@ -95,6 +95,7 @@ struct Serializer
   template<typename Stream>
   inline static void read(Stream& stream, typename boost::call_traits<T>::reference t)
   {
+    t.__serialized_length = stream.getLength();
     t.deserialize(stream.getData());
   }
 
@@ -572,6 +573,8 @@ struct Stream
     }
     return old_data;
   }
+
+  inline uint32_t getLength() { return (uint32_t)(end_ - data_); }
 
 protected:
   Stream(uint8_t* _data, uint32_t _count)
