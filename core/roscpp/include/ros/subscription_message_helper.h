@@ -28,6 +28,8 @@
 #ifndef ROSCPP_SUBSCRIPTION_MESSAGE_HELPER_H
 #define ROSCPP_SUBSCRIPTION_MESSAGE_HELPER_H
 
+#include <typeinfo>
+
 #include "ros/forwards.h"
 #include "ros/message_traits.h"
 #include "ros/builtin_message_traits.h"
@@ -59,8 +61,8 @@ class SubscriptionMessageHelper
 public:
   virtual ~SubscriptionMessageHelper() {}
   virtual VoidPtr deserialize(const SubscriptionMessageHelperDeserializeParams&) = 0;
-
   virtual void call(const VoidPtr& msg) = 0;
+  virtual const std::type_info& getTypeInfo() = 0;
 };
 typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
@@ -121,6 +123,11 @@ public:
   {
     MPtr casted_msg = boost::static_pointer_cast<M>(msg);
     callback_(casted_msg);
+  }
+
+  virtual const std::type_info& getTypeInfo()
+  {
+    return typeid(M);
   }
 
 private:

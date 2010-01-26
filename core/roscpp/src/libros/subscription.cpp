@@ -609,7 +609,7 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
 
     ROS_ASSERT(info->callback_queue_);
 
-    const std::type_info* ti = &typeid(*info->helper_);
+    const std::type_info* ti = &info->helper_->getTypeInfo();
     MessageDeserializerPtr& deserializer = deserializers[ti];
     if (!deserializer)
     {
