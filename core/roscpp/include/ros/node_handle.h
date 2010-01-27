@@ -318,6 +318,53 @@ Foo foo_object;
 ros::Subscriber sub = handle.subscribe("my_topic", 1, &Foo::callback, &foo_object);
 \endverbatim
    *
+   * \param M [template] M here is the callback parameter type (e.g. const boost::shared_ptr<M const>& or const M&), \b not the message type, and should almost always be deduced
+   * \param topic Topic to subscribe to
+   * \param queue_size Number of incoming messages to queue up for
+   * processing (messages in excess of this queue capacity will be
+   * discarded).
+   * \param fp Member function pointer to call when a message has arrived
+   * \param obj Object to call fp on
+   * \param transport_hints a TransportHints structure which defines various transport-related options
+   * \return On success, a Subscriber that, when all copies of it go out of scope, will unsubscribe from this topic.
+   * On failure, an empty Subscriber which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   *  \throws InvalidNameException If the topic name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class M, class T>
+  Subscriber subscribe(const std::string& topic, uint32_t queue_size, void(T::*fp)(M), T* obj, const TransportHints& transport_hints = TransportHints())
+  {
+    SubscribeOptions ops;
+    ops.template initByFullCallbackType<M>(topic, queue_size, boost::bind(fp, obj, _1));
+    ops.transport_hints = transport_hints;
+    return subscribe(ops);
+  }
+
+  /**
+   * \brief Subscribe to a topic, version for class member function with bare pointer
+   *
+   * This method connects to the master to register interest in a given
+   * topic.  The node will automatically be connected with publishers on
+   * this topic.  On each message receipt, fp is invoked and passed a shared pointer
+   * to the message received.  This message should \b not be changed in place, as it
+   * is shared with any other subscriptions to this topic.
+   *
+   * This version of subscribe is a convenience function for using member functions, and can be used like so:
+\verbatim
+void Foo::callback(const std_msgs::Empty::ConstPtr& message)
+{
+}
+
+Foo foo_object;
+ros::Subscriber sub = handle.subscribe("my_topic", 1, &Foo::callback, &foo_object);
+\endverbatim
+   *
+   * \param M [template] M here is the message type
    * \param topic Topic to subscribe to
    * \param queue_size Number of incoming messages to queue up for
    * processing (messages in excess of this queue capacity will be
@@ -363,6 +410,55 @@ boost::shared_ptr<Foo> foo_object(new Foo);
 ros::Subscriber sub = handle.subscribe("my_topic", 1, &Foo::callback, foo_object);
 \endverbatim
    *
+   * \param M [template] M here is the callback parameter type (e.g. const boost::shared_ptr<M const>& or const M&), \b not the message type, and should almost always be deduced
+   * \param topic Topic to subscribe to
+   * \param queue_size Number of incoming messages to queue up for
+   * processing (messages in excess of this queue capacity will be
+   * discarded).
+   * \param fp Member function pointer to call when a message has arrived
+   * \param obj Object to call fp on.  Since this is a shared pointer, the object will automatically be tracked with a weak_ptr
+   * so that if it is deleted before the Subscriber goes out of scope the callback will no longer be called (and therefore will not crash).
+   * \param transport_hints a TransportHints structure which defines various transport-related options
+   * \return On success, a Subscriber that, when all copies of it go out of scope, will unsubscribe from this topic.
+   * On failure, an empty Subscriber which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   *  \throws InvalidNameException If the topic name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class M, class T>
+  Subscriber subscribe(const std::string& topic, uint32_t queue_size, void(T::*fp)(M), const boost::shared_ptr<T>& obj, const TransportHints& transport_hints = TransportHints())
+  {
+    SubscribeOptions ops;
+    ops.template initByFullCallbackType<M>(topic, queue_size, boost::bind(fp, obj.get(), _1));
+    ops.tracked_object = obj;
+    ops.transport_hints = transport_hints;
+    return subscribe(ops);
+  }
+
+  /**
+   * \brief Subscribe to a topic, version for class member function with shared_ptr
+   *
+   * This method connects to the master to register interest in a given
+   * topic.  The node will automatically be connected with publishers on
+   * this topic.  On each message receipt, fp is invoked and passed a shared pointer
+   * to the message received.  This message should \b not be changed in place, as it
+   * is shared with any other subscriptions to this topic.
+   *
+   * This version of subscribe is a convenience function for using member functions on a shared_ptr:
+\verbatim
+void Foo::callback(const std_msgs::Empty::ConstPtr& message)
+{
+}
+
+boost::shared_ptr<Foo> foo_object(new Foo);
+ros::Subscriber sub = handle.subscribe("my_topic", 1, &Foo::callback, foo_object);
+\endverbatim
+   *
+   * \param M [template] M here is the message type
    * \param topic Topic to subscribe to
    * \param queue_size Number of incoming messages to queue up for
    * processing (messages in excess of this queue capacity will be
@@ -409,6 +505,51 @@ void callback(const std_msgs::Empty::ConstPtr& message)
 ros::Subscriber sub = handle.subscribe("my_topic", 1, callback);
 \endverbatim
    *
+   * \param M [template] M here is the callback parameter type (e.g. const boost::shared_ptr<M const>& or const M&), \b not the message type, and should almost always be deduced
+   * \param topic Topic to subscribe to
+   * \param queue_size Number of incoming messages to queue up for
+   * processing (messages in excess of this queue capacity will be
+   * discarded).
+   * \param fp Function pointer to call when a message has arrived
+   * \param transport_hints a TransportHints structure which defines various transport-related options
+   * \return On success, a Subscriber that, when all copies of it go out of scope, will unsubscribe from this topic.
+   * On failure, an empty Subscriber which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   *  \throws InvalidNameException If the topic name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class M>
+  Subscriber subscribe(const std::string& topic, uint32_t queue_size, void(*fp)(M), const TransportHints& transport_hints = TransportHints())
+  {
+    SubscribeOptions ops;
+    ops.template initByFullCallbackType<M>(topic, queue_size, fp);
+    ops.transport_hints = transport_hints;
+    return subscribe(ops);
+  }
+
+  /**
+   * \brief Subscribe to a topic, version for bare function
+   *
+   * This method connects to the master to register interest in a given
+   * topic.  The node will automatically be connected with publishers on
+   * this topic.  On each message receipt, fp is invoked and passed a shared pointer
+   * to the message received.  This message should \b not be changed in place, as it
+   * is shared with any other subscriptions to this topic.
+   *
+   * This version of subscribe is a convenience function for using bare functions, and can be used like so:
+\verbatim
+void callback(const std_msgs::Empty::ConstPtr& message)
+{
+}
+
+ros::Subscriber sub = handle.subscribe("my_topic", 1, callback);
+\endverbatim
+   *
+   * \param M [template] M here is the message type
    * \param topic Topic to subscribe to
    * \param queue_size Number of incoming messages to queue up for
    * processing (messages in excess of this queue capacity will be
@@ -429,7 +570,7 @@ if (handle)
   Subscriber subscribe(const std::string& topic, uint32_t queue_size, void(*fp)(const boost::shared_ptr<M const>&), const TransportHints& transport_hints = TransportHints())
   {
     SubscribeOptions ops;
-    ops.template init<M>(topic, queue_size, boost::function<void(const boost::shared_ptr<M>&)>(fp));
+    ops.template init<M>(topic, queue_size, fp);
     ops.transport_hints = transport_hints;
     return subscribe(ops);
   }
@@ -445,6 +586,7 @@ if (handle)
    *
    * This version of subscribe allows anything bindable to a boost::function object
    *
+   * \param M [template] M here is the message type
    * \param topic Topic to subscribe to
    * \param queue_size Number of incoming messages to queue up for
    * processing (messages in excess of this queue capacity will be
@@ -472,6 +614,51 @@ if (handle)
   {
     SubscribeOptions ops;
     ops.template init<M>(topic, queue_size, callback);
+    ops.tracked_object = tracked_object;
+    ops.transport_hints = transport_hints;
+    return subscribe(ops);
+  }
+
+  /**
+   * \brief Subscribe to a topic, version for arbitrary boost::function object
+   *
+   * This method connects to the master to register interest in a given
+   * topic.  The node will automatically be connected with publishers on
+   * this topic.  On each message receipt, callback is invoked and passed a shared pointer
+   * to the message received.  This message should \b not be changed in place, as it
+   * is shared with any other subscriptions to this topic.
+   *
+   * This version of subscribe allows anything bindable to a boost::function object
+   *
+   * \param M [template] the message type
+   * \param C [template] the callback parameter type (e.g. const boost::shared_ptr<M const>& or const M&)
+   * \param topic Topic to subscribe to
+   * \param queue_size Number of incoming messages to queue up for
+   * processing (messages in excess of this queue capacity will be
+   * discarded).
+   * \param callback Callback to call when a message has arrived
+   * \param tracked_object A shared pointer to an object to track for these callbacks.  If set, the a weak_ptr will be created to this object,
+   * and if the reference count goes to 0 the subscriber callbacks will not get called.
+   * Note that setting this will cause a new reference to be added to the object before the
+   * callback, and for it to go out of scope (and potentially be deleted) in the code path (and therefore
+   * thread) that the callback is invoked from.
+   * \param transport_hints a TransportHints structure which defines various transport-related options
+   * \return On success, a Subscriber that, when all copies of it go out of scope, will unsubscribe from this topic.
+   * On failure, an empty Subscriber which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   *  \throws InvalidNameException If the topic name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class M, class C>
+  Subscriber subscribe(const std::string& topic, uint32_t queue_size, const boost::function<void (C)>& callback,
+                             const VoidPtr& tracked_object = VoidPtr(), const TransportHints& transport_hints = TransportHints())
+  {
+    SubscribeOptions ops;
+    ops.template initByFullCallbackType<C>(topic, queue_size, callback);
     ops.tracked_object = tracked_object;
     ops.transport_hints = transport_hints;
     return subscribe(ops);

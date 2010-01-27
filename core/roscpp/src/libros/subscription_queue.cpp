@@ -174,7 +174,10 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     catch (boost::bad_weak_ptr&) // For the tests, where we don't create a shared_ptr
     {}
 
-    i.helper->call(msg);
+    SubscriptionMessageHelperCallParams params;
+    params.message = msg;
+    params.connection_header = i.deserializer->getConnectionHeader();
+    i.helper->call(params);
   }
 
   return CallbackInterface::Success;

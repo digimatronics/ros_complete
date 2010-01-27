@@ -114,22 +114,20 @@ public:
       }
     }
 
-    SerializedMessage req(buffer_, num_bytes_);
-    SerializedMessage res;
+    ServiceMessageHelperCallParams params;
+    params.request = SerializedMessage(buffer_, num_bytes_);
+    params.connection_header = link_->getConnection()->getHeader().getValues();
     try
     {
-      ServiceMessageHelperCallParams params;
-      params.request = req;
-      params.response = res;
-      params.connection_header = link_->getConnection()->getHeader().getValues();
+
       bool ok = helper_->call(params);
-      link_->processResponse(ok, res);
+      link_->processResponse(ok, params.response);
     }
     catch (std::exception& e)
     {
       ROS_ERROR("Exception thrown while processing service call: %s", e.what());
       SerializedMessage res = serialization::serializeServiceResponse(false, 0);
-      link_->processResponse(false, res);
+      link_->processResponse(false, params.response);
       return Invalid;
     }
 

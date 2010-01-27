@@ -38,17 +38,136 @@
 
 #include <boost/type_traits/add_const.hpp>
 #include <boost/type_traits/remove_const.hpp>
+#include <boost/type_traits/remove_reference.hpp>
 #include <boost/type_traits/is_base_of.hpp>
 #include <boost/utility/enable_if.hpp>
+#include <boost/static_assert.hpp>
 
 namespace ros
 {
+
+template<typename M>
+inline boost::shared_ptr<M> defaultMessageCreateFunction()
+{
+  return boost::shared_ptr<M>(new M);
+}
+
+template<typename T>
+typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+{
+  t->__connection_header = connection_header;
+}
+
+template<typename T>
+typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+{
+}
 
 struct SubscriptionMessageHelperDeserializeParams
 {
   uint8_t* buffer;
   uint32_t length;
   boost::shared_ptr<M_string> connection_header;
+};
+
+struct SubscriptionMessageHelperCallParams
+{
+  VoidPtr message;
+  boost::shared_ptr<M_string> connection_header;
+};
+
+template<typename M>
+class MessageEvent
+{
+public:
+  MessageEvent(const boost::shared_ptr<M const> message, const boost::shared_ptr<M_string>& connection_header)
+  : message_(message)
+  , connection_header_(connection_header)
+  {}
+
+  const boost::shared_ptr<M const>& getMessage() const { return message_; }
+  M_string& getConnectionHeader() const { return *connection_header_; }
+private:
+  boost::shared_ptr<M const> message_;
+  boost::shared_ptr<M_string> connection_header_;
+};
+
+/**
+ * \brief Internal use
+ *
+ * The CallbackAdapter is templated on the callback parameter type (\b not the bare message type), and provides 3 things:
+ *  - MessageType, which provides the bare message type, no const or reference qualifiers
+ *  - CallbackType, which provides the full Boost.Function callback type
+ *  - the static call() method, which calls the callback in the correct manner given the callback type
+ *
+ *  CallbackAdapter is then specialized to allow callbacks of any of the forms:
+\verbatim
+void callback(const boost::shared_ptr<M const>&);
+void callback(boost::shared_ptr<M const>);
+void callback(const M&);
+void callback(M);
+void callback(const MessageEvent<M>&);
+\endverbatim
+ */
+template<typename M>
+struct CallbackAdapter
+{
+  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
+  typedef boost::function<void(MessageType)> CallbackType;
+
+  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  {
+    cb(*boost::static_pointer_cast<MessageType>(params.message));
+  }
+};
+
+template<typename M>
+struct CallbackAdapter<const M&>
+{
+  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
+  typedef boost::function<void(M)> CallbackType;
+
+  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  {
+    cb(*boost::static_pointer_cast<MessageType>(params.message));
+  }
+};
+
+template<typename M>
+struct CallbackAdapter<const boost::shared_ptr<M const>& >
+{
+  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
+  typedef boost::function<void(const boost::shared_ptr<MessageType const>&)> CallbackType;
+
+  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  {
+    cb(boost::static_pointer_cast<MessageType>(params.message));
+  }
+};
+
+template<typename M>
+struct CallbackAdapter<boost::shared_ptr<M const> >
+{
+  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
+  typedef boost::function<void(const boost::shared_ptr<MessageType const>&)> CallbackType;
+
+  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  {
+    cb(boost::static_pointer_cast<MessageType>(params.message));
+  }
+};
+
+template<typename M>
+struct CallbackAdapter<const MessageEvent<M>& >
+{
+  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
+  typedef boost::function<void(const MessageEvent<MessageType>&)> CallbackType;
+
+  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  {
+    MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType>(params.message), params.connection_header);
+    cb(event);
+  }
 };
 
 /**
@@ -61,16 +180,10 @@ class SubscriptionMessageHelper
 public:
   virtual ~SubscriptionMessageHelper() {}
   virtual VoidPtr deserialize(const SubscriptionMessageHelperDeserializeParams&) = 0;
-  virtual void call(const VoidPtr& msg) = 0;
+  virtual void call(const SubscriptionMessageHelperCallParams& params) = 0;
   virtual const std::type_info& getTypeInfo() = 0;
 };
 typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
-
-template<typename M>
-inline boost::shared_ptr<M> defaultMessageCreateFunction()
-{
-  return boost::shared_ptr<M>(new M);
-}
 
 /**
  * \brief Concrete generic implementation of SubscriptionMessageHelper for any normal message type
@@ -79,26 +192,17 @@ template<typename M, typename Enabled = void>
 class SubscriptionMessageHelperT : public SubscriptionMessageHelper
 {
 public:
-  typedef boost::shared_ptr<M> MPtr;
-  typedef typename boost::remove_const<M>::type NonConstType;
+  typedef typename CallbackAdapter<M>::MessageType NonConstType;
+  typedef typename boost::add_const<NonConstType>::type ConstType;
   typedef typename boost::shared_ptr<NonConstType> NonConstTypePtr;
-  typedef boost::function<void (const MPtr&)> Callback;
+  typedef typename boost::shared_ptr<ConstType> ConstTypePtr;
+
+  typedef typename CallbackAdapter<M>::CallbackType Callback;
   typedef boost::function<NonConstTypePtr()> CreateFunction;
-  SubscriptionMessageHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<M>)
+  SubscriptionMessageHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<NonConstType>)
   : callback_(callback)
   , create_(create)
   {}
-
-  template<typename T>
-  typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
-  {
-    t->__connection_header = connection_header;
-  }
-
-  template<typename T>
-  typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
-  {
-  }
 
   void setCreateFunction(const CreateFunction& create)
   {
@@ -110,24 +214,22 @@ public:
     namespace ser = serialization;
 
     NonConstTypePtr msg = create_();
+    assignConnectionHeader(msg.get(), params.connection_header);
 
     ser::IStream stream(params.buffer, params.length);
     ser::deserialize(stream, *msg);
 
-    assignConnectionHeader(msg.get(), params.connection_header);
-
     return VoidPtr(msg);
   }
 
-  virtual void call(const VoidPtr& msg)
+  virtual void call(const SubscriptionMessageHelperCallParams& params)
   {
-    MPtr casted_msg = boost::static_pointer_cast<M>(msg);
-    callback_(casted_msg);
+    CallbackAdapter<M>::call(callback_, params);
   }
 
   virtual const std::type_info& getTypeInfo()
   {
-    return typeid(M);
+    return typeid(NonConstType);
   }
 
 private:

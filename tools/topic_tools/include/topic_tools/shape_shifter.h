@@ -77,8 +77,8 @@ public:
   virtual const std::string __getMessageDefinition()   const { return msg_def; }
   
   // You should never use a static method on a shape shifter
-  static const std::string __s_getDataType() { ROS_ASSERT_MSG(0, "Tried to get static datatype of a ShapeShifter."); return "";}
-  static const std::string __s_getMD5Sum()   { ROS_ASSERT_MSG(0, "Tried to get static md5sum of a ShapeShifter."); return "";}
+  static const std::string __s_getDataType() { return "*"; }
+  static const std::string __s_getMD5Sum()   { return "*"; }
   static const std::string __s_getMessageDefinition()   { ROS_ASSERT_MSG(0, "Tried to get static message definition of a ShapeShifter."); return "";}
 
   ros::Publisher advertise(ros::NodeHandle& nh, const std::string& topic, uint32_t queue_size_, bool latch=false) const;
@@ -109,22 +109,6 @@ public:
   
 };
   
-}
-
-namespace ros{
-
-// Template specialization of SubscribeOptions for ShapeShifter
-template<>
-void SubscribeOptions::init<topic_tools::ShapeShifter>(const std::string& _topic, uint32_t _queue_size,
-                                                       const boost::function<void (const boost::shared_ptr<topic_tools::ShapeShifter>&)>& _callback)
-{
-  topic = _topic;
-  queue_size = _queue_size;
-  md5sum = "*";
-  datatype = "*";
-  helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<topic_tools::ShapeShifter>(_callback));
-}
-
 }
 
 #endif

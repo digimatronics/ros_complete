@@ -68,7 +68,27 @@ struct SubscribeOptions
   {}
 
   /**
-   * \brief Templated initialization
+   * \brief Templated initialization, templated on callback parameter type.  Supports any callback parameters supported by the CallbackAdapter
+   * \param _topic Topic to subscribe on
+   * \param _queue_size Number of incoming messages to queue up for
+   *        processing (messages in excess of this queue capacity will be
+   *        discarded).
+   * \param _callback Callback to call when a message arrives on this topic
+   */
+  template<class M>
+  void initByFullCallbackType(const std::string& _topic, uint32_t _queue_size,
+       const boost::function<void (M)>& _callback)
+  {
+    typedef typename CallbackAdapter<M>::MessageType MessageType;
+    topic = _topic;
+    queue_size = _queue_size;
+    md5sum = message_traits::md5sum<MessageType>();
+    datatype = message_traits::datatype<MessageType>();
+    helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<M>(_callback));
+  }
+
+  /**
+   * \brief Templated initialization, templated on message type.  Only supports "const boost::shared_ptr<M const>&" callback types
    * \param _topic Topic to subscribe on
    * \param _queue_size Number of incoming messages to queue up for
    *        processing (messages in excess of this queue capacity will be
@@ -77,13 +97,14 @@ struct SubscribeOptions
    */
   template<class M>
   void init(const std::string& _topic, uint32_t _queue_size,
-       const boost::function<void (const boost::shared_ptr<M>&)>& _callback)
+       const boost::function<void (const boost::shared_ptr<M const>&)>& _callback)
   {
+    typedef typename CallbackAdapter<M>::MessageType MessageType;
     topic = _topic;
     queue_size = _queue_size;
-    md5sum = message_traits::md5sum<M>();
-    datatype = message_traits::datatype<M>();
-    helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<M>(_callback));
+    md5sum = message_traits::md5sum<MessageType>();
+    datatype = message_traits::datatype<MessageType>();
+    helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<const boost::shared_ptr<MessageType const>&>(_callback));
   }
 
   std::string topic;                                                ///< Topic to subscribe to
@@ -122,7 +143,7 @@ struct SubscribeOptions
    */
   template<class M>
   static SubscribeOptions create(const std::string& topic, uint32_t queue_size,
-                                 const boost::function<void (const boost::shared_ptr<M>&)>& callback,
+                                 const boost::function<void (const boost::shared_ptr<M const>&)>& callback,
                                  const VoidPtr& tracked_object, CallbackQueueInterface* queue)
   {
     SubscribeOptions ops;

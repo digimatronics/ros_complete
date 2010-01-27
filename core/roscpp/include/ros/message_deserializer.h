@@ -46,6 +46,7 @@ public:
   MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header);
 
   VoidPtr deserialize();
+  const boost::shared_ptr<M_string>& getConnectionHeader() { return connection_header_; }
 
 private:
   SubscriptionMessageHelperPtr helper_;

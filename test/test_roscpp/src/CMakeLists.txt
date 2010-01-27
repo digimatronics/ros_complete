@@ -132,3 +132,6 @@ rosbuild_add_gtest_build_flags(loads_of_publishers)
 
 rosbuild_add_executable(incrementing_sequence incrementing_sequence.cpp)
 rosbuild_add_gtest_build_flags(incrementing_sequence)
+
+rosbuild_add_executable(subscription_callback_types subscription_callback_types.cpp)
+rosbuild_add_gtest_build_flags(subscription_callback_types)
