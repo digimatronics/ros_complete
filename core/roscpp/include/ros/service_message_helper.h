@@ -47,6 +47,77 @@ struct ServiceMessageHelperCallParams
   boost::shared_ptr<M_string> connection_header;
 };
 
+template<typename T>
+typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignServiceConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+{
+  t->__connection_header = connection_header;
+}
+
+template<typename T>
+typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignServiceConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+{
+}
+
+template<typename M>
+inline boost::shared_ptr<M> defaultServiceCreateFunction()
+{
+  return boost::shared_ptr<M>(new M);
+}
+
+template<typename MReq, typename MRes>
+struct ServiceSpecCallParams
+{
+  boost::shared_ptr<MReq> request;
+  boost::shared_ptr<MRes> response;
+  boost::shared_ptr<M_string> connection_header;
+};
+
+template<typename MReq, typename MRes>
+class ServiceEvent
+{
+public:
+  typedef MReq RequestType;
+  typedef MRes ResponseType;
+  typedef boost::shared_ptr<RequestType> RequestPtr;
+  typedef boost::shared_ptr<ResponseType> ResponsePtr;
+  typedef boost::function<bool(ServiceEvent<RequestType, ResponseType>&)> CallbackType;
+
+  static bool call(const CallbackType& cb, ServiceSpecCallParams<RequestType, ResponseType>& params)
+  {
+    ServiceEvent<RequestType, ResponseType> event(params.request, params.response, params.connection_header);
+    return cb(event);
+  }
+
+  ServiceEvent(const boost::shared_ptr<MReq const>& req, const boost::shared_ptr<MRes>& res, const boost::shared_ptr<M_string>& connection_header)
+  : request_(req)
+  , response_(res)
+  , connection_header_(connection_header)
+  {}
+
+  const RequestType& getRequest() const { return *request_; }
+  ResponseType& getResponse() const { return *response_; }
+  M_string& getConnectionHeader() const { return *connection_header_; }
+private:
+  boost::shared_ptr<RequestType const> request_;
+  boost::shared_ptr<ResponseType> response_;
+  boost::shared_ptr<M_string> connection_header_;
+};
+
+template<typename MReq, typename MRes>
+struct ServiceSpec
+{
+  typedef MReq RequestType;
+  typedef MRes ResponseType;
+  typedef boost::shared_ptr<RequestType> RequestPtr;
+  typedef boost::shared_ptr<ResponseType> ResponsePtr;
+  typedef boost::function<bool(RequestType&, ResponseType&)> CallbackType;
+
+  static bool call(const CallbackType& cb, ServiceSpecCallParams<RequestType, ResponseType>& params)
+  {
+    return cb(*params.request, *params.response);
+  }
+};
+
 /**
  * \brief Abstract base class used by service servers to deal with concrete message types through a common
  * interface.  This is one part of the roscpp API that is \b not fully stable, so overloading this class
@@ -60,53 +131,42 @@ public:
 };
 typedef boost::shared_ptr<ServiceMessageHelper> ServiceMessageHelperPtr;
 
-template<typename M>
-inline boost::shared_ptr<M> defaultServiceCreateFunction()
-{
-  return boost::shared_ptr<M>(new M);
-}
-
 /**
  * \brief Concrete generic implementation of ServiceMessageHelper for any normal service type
  */
-template<class MReq, class MRes>
+template<typename Spec>
 class ServiceMessageHelperT : public ServiceMessageHelper
 {
 public:
-  typedef boost::shared_ptr<MReq> MReqPtr;
-  typedef boost::shared_ptr<MRes> MResPtr;
-  typedef boost::function<bool(MReq&, MRes&)> Callback;
-  typedef boost::function<MReqPtr()> ReqCreateFunction;
-  typedef boost::function<MResPtr()> ResCreateFunction;
+  typedef typename Spec::RequestType RequestType;
+  typedef typename Spec::ResponseType ResponseType;
+  typedef typename Spec::RequestPtr RequestPtr;
+  typedef typename Spec::ResponsePtr ResponsePtr;
+  typedef typename Spec::CallbackType Callback;
+  typedef boost::function<RequestPtr()> ReqCreateFunction;
+  typedef boost::function<ResponsePtr()> ResCreateFunction;
 
-  ServiceMessageHelperT(const Callback& callback, const ReqCreateFunction& create_req = defaultServiceCreateFunction<MReq>, const ResCreateFunction& create_res = defaultServiceCreateFunction<MRes>)
+  ServiceMessageHelperT(const Callback& callback, const ReqCreateFunction& create_req = defaultServiceCreateFunction<RequestType>, const ResCreateFunction& create_res = defaultServiceCreateFunction<ResponseType>)
   : callback_(callback)
   , create_req_(create_req)
   , create_res_(create_res)
   {
   }
 
-  template<typename T>
-  typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
-  {
-    t->__connection_header = connection_header;
-  }
-
-  template<typename T>
-  typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
-  {
-  }
-
   virtual bool call(ServiceMessageHelperCallParams& params)
   {
     namespace ser = serialization;
-    MReqPtr req(create_req_());
-    MResPtr res(create_res_());
+    RequestPtr req(create_req_());
+    ResponsePtr res(create_res_());
 
+    assignServiceConnectionHeader(req.get(), params.connection_header);
     ser::deserializeMessage(params.request, *req);
-    assignConnectionHeader(req.get(), params.connection_header);
 
-    bool ok = callback_(*req, *res);
+    ServiceSpecCallParams<RequestType, ResponseType> call_params;
+    call_params.request = req;
+    call_params.response = res;
+    call_params.connection_header = params.connection_header;
+    bool ok = Spec::call(callback_, call_params);
     params.response = ser::serializeServiceResponse(ok, *res);
     return ok;
   }

@@ -108,7 +108,9 @@ def generate(srv_path):
     genmsg_cpp.write_struct(s, spec.response, package, "Response", cpp_prefix)
     s.write('\n')
     s.write('Request request;\n')
-    s.write('Response response;\n')
+    s.write('Response response;\n\n')
+    s.write('typedef Request RequestType;\n')
+    s.write('typedef Response ResponseType;\n')
     s.write('}; // struct %s\n'%(name))
     s.write('} // namespace %s\n\n'%(package))
     

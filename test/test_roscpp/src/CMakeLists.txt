@@ -135,3 +135,6 @@ rosbuild_add_gtest_build_flags(incrementing_sequence)
 
 rosbuild_add_executable(subscription_callback_types subscription_callback_types.cpp)
 rosbuild_add_gtest_build_flags(subscription_callback_types)
+
+rosbuild_add_executable(service_callback_types service_callback_types.cpp)
+rosbuild_add_gtest_build_flags(service_callback_types)

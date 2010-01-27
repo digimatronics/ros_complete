@@ -68,7 +68,7 @@ struct SubscribeOptions
   {}
 
   /**
-   * \brief Templated initialization, templated on callback parameter type.  Supports any callback parameters supported by the CallbackAdapter
+   * \brief Templated initialization, templated on callback parameter type.  Supports any callback parameters supported by the SubscriptionCallbackAdapter
    * \param _topic Topic to subscribe on
    * \param _queue_size Number of incoming messages to queue up for
    *        processing (messages in excess of this queue capacity will be
@@ -79,7 +79,7 @@ struct SubscribeOptions
   void initByFullCallbackType(const std::string& _topic, uint32_t _queue_size,
        const boost::function<void (M)>& _callback)
   {
-    typedef typename CallbackAdapter<M>::MessageType MessageType;
+    typedef typename SubscriptionCallbackAdapter<M>::MessageType MessageType;
     topic = _topic;
     queue_size = _queue_size;
     md5sum = message_traits::md5sum<MessageType>();
@@ -99,7 +99,7 @@ struct SubscribeOptions
   void init(const std::string& _topic, uint32_t _queue_size,
        const boost::function<void (const boost::shared_ptr<M const>&)>& _callback)
   {
-    typedef typename CallbackAdapter<M>::MessageType MessageType;
+    typedef typename SubscriptionCallbackAdapter<M>::MessageType MessageType;
     topic = _topic;
     queue_size = _queue_size;
     md5sum = message_traits::md5sum<MessageType>();

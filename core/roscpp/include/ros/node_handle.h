@@ -730,6 +730,44 @@ if (handle)
   }
 
   /**
+   * \brief Advertise a service, version for class member function with bare pointer using ros::ServiceEvent as the callback parameter type
+   *
+   * This call connects to the master to publicize that the node will be
+   * offering an RPC service with the given name.
+   *
+   * This is a convenience function for using member functions, and can be used like so:
+\verbatim
+bool Foo::callback(ros::ServiceEvent<std_srvs::Empty::Request, std_srvs::Empty::Response>& event)
+{
+  return true;
+}
+
+Foo foo_object;
+ros::ServiceServer service = handle.advertiseService("my_service", &Foo::callback, &foo_object);
+\endverbatim
+   *
+   * \param service Service name to advertise on
+   * \param srv_func Member function pointer to call when a message has arrived
+   * \param obj Object to call srv_func on
+   * \return On success, a ServiceServer that, when all copies of it go out of scope, will unadvertise this service.
+   * On failure, an empty ServiceServer which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   *  \throws InvalidNameException If the service name begins with a tilde, or is an otherwise invalid graph resource name, or is an otherwise invalid graph resource name
+   */
+  template<class T, class MReq, class MRes>
+  ServiceServer advertiseService(const std::string& service, bool(T::*srv_func)(ServiceEvent<MReq, MRes>&), T *obj)
+  {
+    AdvertiseServiceOptions ops;
+    ops.template initBySpecType<ServiceEvent<MReq, MRes> >(service, boost::bind(srv_func, obj, _1));
+    return advertiseService(ops);
+  }
+
+  /**
    * \brief Advertise a service, version for class member function with shared_ptr
    *
    * This call connects to the master to publicize that the node will be
@@ -770,6 +808,46 @@ if (handle)
   }
 
   /**
+   * \brief Advertise a service, version for class member function with shared_ptr using ros::ServiceEvent as the callback parameter type
+   *
+   * This call connects to the master to publicize that the node will be
+   * offering an RPC service with the given name.
+   *
+   * This is a convenience function for using member functions on shared pointers, and can be used like so:
+\verbatim
+bool Foo::callback(ros::ServiceEvent<std_srvs::Empty, std_srvs::Empty>& event)
+{
+  return true;
+}
+
+boost::shared_ptr<Foo> foo_object(new Foo);
+ros::ServiceServer service = handle.advertiseService("my_service", &Foo::callback, foo_object);
+\endverbatim
+   *
+   * \param service Service name to advertise on
+   * \param srv_func Member function pointer to call when a message has arrived
+   * \param obj Object to call srv_func on.  Since this is a shared_ptr, it will automatically be tracked with a weak_ptr,
+   * and if the object is deleted the service callback will stop being called (and therefore will not crash).
+   * \return On success, a ServiceServer that, when all copies of it go out of scope, will unadvertise this service.
+   * On failure, an empty ServiceServer which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   * \throws InvalidNameException If the service name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class T, class MReq, class MRes>
+  ServiceServer advertiseService(const std::string& service, bool(T::*srv_func)(ServiceEvent<MReq, MRes>&), const boost::shared_ptr<T>& obj)
+  {
+    AdvertiseServiceOptions ops;
+    ops.template initBySpecType<ServiceEvent<MReq, MRes> >(service, boost::bind(srv_func, obj.get(), _1));
+    ops.tracked_object = obj;
+    return advertiseService(ops);
+  }
+
+  /**
    * \brief Advertise a service, version for bare function
    *
    * This call connects to the master to publicize that the node will be
@@ -801,7 +879,43 @@ if (handle)
   ServiceServer advertiseService(const std::string& service, bool(*srv_func)(MReq&, MRes&))
   {
     AdvertiseServiceOptions ops;
-    ops.template init<MReq, MRes>(service, boost::function<bool(MReq&, MRes&)>(srv_func));
+    ops.template init<MReq, MRes>(service, srv_func);
+    return advertiseService(ops);
+  }
+
+  /**
+   * \brief Advertise a service, version for bare function using ros::ServiceEvent as the callback parameter type
+   *
+   * This call connects to the master to publicize that the node will be
+   * offering an RPC service with the given name.
+   *
+   * This is a convenience function for using bare functions, and can be used like so:
+\verbatim
+bool callback(ros::ServiceEvent<std_srvs::Empty, std_srvs::Empty>& event)
+{
+  return true;
+}
+
+ros::ServiceServer service = handle.advertiseService("my_service", callback);
+\endverbatim
+   *
+   * \param service Service name to advertise on
+   * \param srv_func function pointer to call when a message has arrived
+   * \return On success, a ServiceServer that, when all copies of it go out of scope, will unadvertise this service.
+   * On failure, an empty ServiceServer which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   * \throws InvalidNameException If the service name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class MReq, class MRes>
+  ServiceServer advertiseService(const std::string& service, bool(*srv_func)(ServiceEvent<MReq, MRes>&))
+  {
+    AdvertiseServiceOptions ops;
+    ops.template initBySpecType<ServiceEvent<MReq, MRes> >(service, srv_func);
     return advertiseService(ops);
   }
 
@@ -836,6 +950,43 @@ if (handle)
   {
     AdvertiseServiceOptions ops;
     ops.template init<MReq, MRes>(service, callback);
+    ops.tracked_object = tracked_object;
+    return advertiseService(ops);
+  }
+
+  /**
+   * \brief Advertise a service, version for arbitrary boost::function object using ros::ServiceEvent as the callback parameter type
+   *
+   * Note that the template parameter S is the full event type, e.g. ros::ServiceEvent<Req, Res>
+   *
+   * This call connects to the master to publicize that the node will be
+   * offering an RPC service with the given name.
+   *
+   * This version of advertiseService allows non-class functions, as well as functor objects and boost::bind (along with anything
+   * else boost::function supports).
+   *
+   * \param service Service name to advertise on
+   * \param callback Callback to call when the service is called
+   * \param tracked_object A shared pointer to an object to track for these callbacks.  If set, the a weak_ptr will be created to this object,
+   * and if the reference count goes to 0 the subscriber callbacks will not get called.
+   * Note that setting this will cause a new reference to be added to the object before the
+   * callback, and for it to go out of scope (and potentially be deleted) in the code path (and therefore
+   * thread) that the callback is invoked from.
+   * \return On success, a ServiceServer that, when all copies of it go out of scope, will unadvertise this service.
+   * On failure, an empty ServiceServer which can be checked with:
+\verbatim
+if (handle)
+{
+...
+}
+\endverbatim
+   * \throws InvalidNameException If the service name begins with a tilde, or is an otherwise invalid graph resource name
+   */
+  template<class S>
+  ServiceServer advertiseService(const std::string& service, const boost::function<bool(S&)>& callback, const VoidPtr& tracked_object = VoidPtr())
+  {
+    AdvertiseServiceOptions ops;
+    ops.template initBySpecType<S>(service, callback);
     ops.tracked_object = tracked_object;
     return advertiseService(ops);
   }

@@ -71,7 +71,7 @@ struct AdvertiseServiceOptions
     datatype = st::datatype<MReq>();
     req_datatype = mt::datatype<MReq>();
     res_datatype = mt::datatype<MRes>();
-    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<MReq, MRes>(_callback));
+    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<ServiceSpec<MReq, MRes> >(_callback));
   }
 
   /**
@@ -91,7 +91,27 @@ struct AdvertiseServiceOptions
     datatype = st::datatype<Service>();
     req_datatype = mt::datatype<Request>();
     res_datatype = mt::datatype<Response>();
-    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<Request, Response>(_callback));
+    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<ServiceSpec<Request, Response> >(_callback));
+  }
+
+  /**
+   * \brief Templated convenience method for filling out md5sum/etc. based on the service spec type
+   * \param _service Service name to advertise on
+   * \param _callback Callback to call when this service is called
+   */
+  template<class Spec>
+  void initBySpecType(const std::string& _service, const typename Spec::CallbackType& _callback)
+  {
+    namespace st = service_traits;
+    namespace mt = message_traits;
+    typedef typename Spec::RequestType Request;
+    typedef typename Spec::ResponseType Response;
+    service = _service;
+    md5sum = st::md5sum<Request>();
+    datatype = st::datatype<Request>();
+    req_datatype = mt::datatype<Request>();
+    res_datatype = mt::datatype<Response>();
+    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<Spec>(_callback));
   }
 
   std::string service;                                                ///< Service name

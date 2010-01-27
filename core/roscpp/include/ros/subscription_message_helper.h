@@ -80,7 +80,7 @@ template<typename M>
 class MessageEvent
 {
 public:
-  MessageEvent(const boost::shared_ptr<M const> message, const boost::shared_ptr<M_string>& connection_header)
+  MessageEvent(const boost::shared_ptr<M const>& message, const boost::shared_ptr<M_string>& connection_header)
   : message_(message)
   , connection_header_(connection_header)
   {}
@@ -95,12 +95,12 @@ private:
 /**
  * \brief Internal use
  *
- * The CallbackAdapter is templated on the callback parameter type (\b not the bare message type), and provides 3 things:
+ * The SubscriptionCallbackAdapter is templated on the callback parameter type (\b not the bare message type), and provides 3 things:
  *  - MessageType, which provides the bare message type, no const or reference qualifiers
  *  - CallbackType, which provides the full Boost.Function callback type
  *  - the static call() method, which calls the callback in the correct manner given the callback type
  *
- *  CallbackAdapter is then specialized to allow callbacks of any of the forms:
+ *  SubscriptionCallbackAdapter is then specialized to allow callbacks of any of the forms:
 \verbatim
 void callback(const boost::shared_ptr<M const>&);
 void callback(boost::shared_ptr<M const>);
@@ -110,7 +110,7 @@ void callback(const MessageEvent<M>&);
 \endverbatim
  */
 template<typename M>
-struct CallbackAdapter
+struct SubscriptionCallbackAdapter
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(MessageType)> CallbackType;
@@ -122,7 +122,7 @@ struct CallbackAdapter
 };
 
 template<typename M>
-struct CallbackAdapter<const M&>
+struct SubscriptionCallbackAdapter<const M&>
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(M)> CallbackType;
@@ -134,7 +134,7 @@ struct CallbackAdapter<const M&>
 };
 
 template<typename M>
-struct CallbackAdapter<const boost::shared_ptr<M const>& >
+struct SubscriptionCallbackAdapter<const boost::shared_ptr<M const>& >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const boost::shared_ptr<MessageType const>&)> CallbackType;
@@ -146,7 +146,7 @@ struct CallbackAdapter<const boost::shared_ptr<M const>& >
 };
 
 template<typename M>
-struct CallbackAdapter<boost::shared_ptr<M const> >
+struct SubscriptionCallbackAdapter<boost::shared_ptr<M const> >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const boost::shared_ptr<MessageType const>&)> CallbackType;
@@ -158,7 +158,7 @@ struct CallbackAdapter<boost::shared_ptr<M const> >
 };
 
 template<typename M>
-struct CallbackAdapter<const MessageEvent<M>& >
+struct SubscriptionCallbackAdapter<const MessageEvent<M>& >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const MessageEvent<MessageType>&)> CallbackType;
@@ -192,12 +192,12 @@ template<typename M, typename Enabled = void>
 class SubscriptionMessageHelperT : public SubscriptionMessageHelper
 {
 public:
-  typedef typename CallbackAdapter<M>::MessageType NonConstType;
+  typedef typename SubscriptionCallbackAdapter<M>::MessageType NonConstType;
   typedef typename boost::add_const<NonConstType>::type ConstType;
   typedef typename boost::shared_ptr<NonConstType> NonConstTypePtr;
   typedef typename boost::shared_ptr<ConstType> ConstTypePtr;
 
-  typedef typename CallbackAdapter<M>::CallbackType Callback;
+  typedef typename SubscriptionCallbackAdapter<M>::CallbackType Callback;
   typedef boost::function<NonConstTypePtr()> CreateFunction;
   SubscriptionMessageHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<NonConstType>)
   : callback_(callback)
@@ -224,7 +224,7 @@ public:
 
   virtual void call(const SubscriptionMessageHelperCallParams& params)
   {
-    CallbackAdapter<M>::call(callback_, params);
+    SubscriptionCallbackAdapter<M>::call(callback_, params);
   }
 
   virtual const std::type_info& getTypeInfo()
