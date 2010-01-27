@@ -25,12 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STD_MSGS_INT16_H
-#define STD_MSGS_INT16_H
+#ifndef STD_MSGS_BUILTIN_DOUBLE_H
+#define STD_MSGS_BUILTIN_DOUBLE_H
 
 #include "trait_macros.h"
-#include <std_msgs/Int16.h>
+#include <std_msgs/Float64.h>
 
-STD_MSGS_DEFINE_BUILTIN_TRAITS(int16_t, Int16, 0x8524586e34fbd7cbULL, 0x1c08c5f5f1ca0e57ULL);
+STD_MSGS_DEFINE_BUILTIN_TRAITS(double, Float64, 0xfdb28210bfa9d7c9ULL, 0x1146260178d9a584ULL);
 
 #endif

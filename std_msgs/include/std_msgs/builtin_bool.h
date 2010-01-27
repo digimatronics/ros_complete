@@ -25,12 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STD_MSGS_INT8_H
-#define STD_MSGS_INT8_H
+#ifndef STD_MSGS_BUILTIN_BOOL_H
+#define STD_MSGS_BUILTIN_BOOL_H
 
 #include "trait_macros.h"
-#include <std_msgs/Int8.h>
+#include <std_msgs/Bool.h>
 
-STD_MSGS_DEFINE_BUILTIN_TRAITS(int8_t, Int8, 0x27ffa0c9c4b8fb84ULL, 0x92252bcad9e5c57bULL);
+STD_MSGS_DEFINE_BUILTIN_TRAITS(bool, Bool, 0x8b94c1b53db61fb6ULL, 0xaed406028ad6332aULL);
 
 #endif

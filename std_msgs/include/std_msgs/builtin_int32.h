@@ -25,8 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STD_MSGS_INT32_H
-#define STD_MSGS_INT32_H
+#ifndef STD_MSGS_BUILTIN_INT32_H
+#define STD_MSGS_BUILTIN_INT32_H
 
 #include "trait_macros.h"
 #include <std_msgs/Int32.h>

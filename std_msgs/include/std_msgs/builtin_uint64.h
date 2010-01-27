@@ -25,12 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STD_MSGS_FLOAT_H
-#define STD_MSGS_FLOAT_H
+#ifndef STD_MSGS_BUILTIN_UINT64_H
+#define STD_MSGS_BUILTIN_UINT64_H
 
 #include "trait_macros.h"
-#include <std_msgs/Float32.h>
+#include <std_msgs/UInt64.h>
 
-STD_MSGS_DEFINE_BUILTIN_TRAITS(float, Float32, 0x73fcbf46b49191e6ULL, 0x72908e50842a83d4ULL);
+STD_MSGS_DEFINE_BUILTIN_TRAITS(uint64_t, UInt64, 0x1b2a79973e8bf53dULL, 0x7b53acb71299cb57ULL);
 
 #endif

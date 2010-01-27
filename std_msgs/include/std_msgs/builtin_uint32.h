@@ -25,62 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STD_MSGS_STRING_H
-#define STD_MSGS_STRING_H
+#ifndef STD_MSGS_BUILTIN_UINT32_H
+#define STD_MSGS_BUILTIN_UINT32_H
 
 #include "trait_macros.h"
-#include <std_msgs/String.h>
+#include <std_msgs/UInt32.h>
 
-namespace ros
-{
-namespace message_traits
-{
-
-template<template<typename T> class Allocator >
-struct MD5Sum<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
-{
-  static const char* value()
-  {
-    ROS_STATIC_ASSERT(MD5Sum<std_msgs::String>::static_value1 == 0x992ce8a1687cec8cULL);
-    ROS_STATIC_ASSERT(MD5Sum<std_msgs::String>::static_value2 == 0x8bd883ec73ca41d1ULL);
-    return MD5Sum<std_msgs::String_<Allocator> >::value();
-  }
-
-  static const char* value(const std::basic_string<char, std::char_traits<char>, Allocator<char> >&)
-  {
-    return value();
-  }
-};
-
-template<template<typename T> class Allocator >
-struct DataType<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
-{
-  static const char* value()
-  {
-    return DataType<std_msgs::String_<Allocator> >::value();
-  }
-
-  static const char* value(const std::basic_string<char, std::char_traits<char>, Allocator<char> >&)
-  {
-    return value();
-  }
-};
-
-template<template<typename T> class Allocator >
-struct Definition<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
-{
-  static const char* value()
-  {
-    return Definition<std_msgs::String_<Allocator> >::value();
-  }
-
-  static const char* value(const std::basic_string<char, std::char_traits<char>, Allocator<char> >&)
-  {
-    return value();
-  }
-};
-
-}
-}
+STD_MSGS_DEFINE_BUILTIN_TRAITS(uint32_t, UInt32, 0x304a39449588c7f8ULL, 0xce2df6e8001c5fceULL);
 
 #endif
