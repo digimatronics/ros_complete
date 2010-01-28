@@ -32,6 +32,10 @@
 #ifndef ROSCONSOLE_STATIC_ASSERT_H
 #define ROSCONSOLE_STATIC_ASSERT_H
 
+// boost's static assert provides better errors messages in the failure case when using
+// in templated situations
+#include <boost/static_assert.hpp>
+
 /**
  * \def ROS_COMPILE_ASSERT(cond)
  * \brief Compile-time assert.
@@ -45,7 +49,7 @@
    ROS_COMPILE_ASSERT(sizeof(A) == 4);
  @endverbatim
  */
-#define ROS_COMPILE_ASSERT(cond) typedef char __ROS_COMPILE_ASSERT__[(cond)?1:-1]
+#define ROS_COMPILE_ASSERT(cond) BOOST_STATIC_ASSERT(cond)
 
 /**
  * \def ROS_STATIC_ASSERT(cond)
@@ -60,6 +64,7 @@
    ROS_STATIC_ASSERT(sizeof(A) == 4);
  @endverbatim
  */
-#define ROS_STATIC_ASSERT(cond) typedef char __ROS_STATIC_ASSERT__[(cond)?1:-1]
+#define ROS_STATIC_ASSERT(cond) BOOST_STATIC_ASSERT(cond)
+
 
 #endif // ROSCONSOLE_STATIC_ASSERT_H

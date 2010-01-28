@@ -59,7 +59,7 @@ void chatterCallback3(std_msgs::String::ConstPtr msg)
   ROS_INFO("I heard(3): [%s]", msg->data.c_str());
 }
 
-void chatterCallback4(const ros::MessageEvent<std_msgs::String>& event)
+void chatterCallback4(const ros::MessageEvent<std_msgs::String const>& event)
 {
   ROS_INFO("I heard(4): [%s, %s]", event.getMessage()->data.c_str(), event.getConnectionHeader()["callerid"].c_str());
 }
@@ -86,7 +86,7 @@ struct A
     ROS_INFO("A I heard(3): [%s]", msg->data.c_str());
   }
 
-  void chatterCallback4(const ros::MessageEvent<std_msgs::String>& event)
+  void chatterCallback4(const ros::MessageEvent<std_msgs::String const>& event)
   {
     ROS_INFO("A I heard(4): [%s]", event.getMessage()->data.c_str());
   }
