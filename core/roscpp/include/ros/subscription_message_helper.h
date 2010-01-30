@@ -54,13 +54,13 @@ inline boost::shared_ptr<M> defaultMessageCreateFunction()
 }
 
 template<typename T>
-typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignSubscriptionConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
 {
   t->__connection_header = connection_header;
 }
 
 template<typename T>
-typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
+typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignSubscriptionConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
 {
 }
 
@@ -80,7 +80,7 @@ struct SubscriptionMessageHelperCallParams
 /**
  * \brief Event type for subscriptions, const ros::MessageEvent<M const>& can be used in your callback instead of const boost::shared_ptr<M const>&
  *
- * Useful if you need to retrieve meta-data about the message, which currently just means the connection header associated with the message
+ * Useful if you need to retrieve meta-data about the message, such as the full connection header, or the publisher's node name
  */
 template<typename M>
 class MessageEvent
@@ -99,6 +99,11 @@ public:
    * \brief Retrieve the connection header
    */
   M_string& getConnectionHeader() const { return *connection_header_; }
+
+  /**
+   * \brief Returns the name of the node which published this message
+   */
+  const std::string& getPublisherName() const { return (*connection_header_)["callerid"]; }
 private:
   boost::shared_ptr<M> message_;
   boost::shared_ptr<M_string> connection_header_;
@@ -269,7 +274,8 @@ public:
 typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
 
 /**
- * \brief Concrete generic implementation of SubscriptionMessageHelper for any normal message type
+ * \brief Concrete generic implementation of SubscriptionMessageHelper for any normal message type.  Use directly with
+ * care, this is mostly for internal use.
  */
 template<typename M, typename Enabled = void>
 class SubscriptionMessageHelperT : public SubscriptionMessageHelper
@@ -297,7 +303,7 @@ public:
     namespace ser = serialization;
 
     NonConstTypePtr msg = create_();
-    assignConnectionHeader(msg.get(), params.connection_header);
+    assignSubscriptionConnectionHeader(msg.get(), params.connection_header);
 
     ser::IStream stream(params.buffer, params.length);
     ser::deserialize(stream, *msg);

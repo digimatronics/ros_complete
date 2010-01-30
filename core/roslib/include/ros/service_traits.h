@@ -33,6 +33,9 @@ namespace ros
 namespace service_traits
 {
 
+/**
+ * \brief Specialize to provide the md5sum for a service
+ */
 template<typename M>
 struct MD5Sum
 {
@@ -47,6 +50,9 @@ struct MD5Sum
   }
 };
 
+/**
+ * \brief Specialize to provide the datatype for a service
+ */
 template<typename M>
 struct DataType
 {
@@ -61,24 +67,36 @@ struct DataType
   }
 };
 
+/**
+ * \brief return MD5Sum<M>::value();
+ */
 template<typename M>
 inline const char* md5sum()
 {
   return MD5Sum<M>::value();
 }
 
+/**
+ * \brief return DataType<M>::value();
+ */
 template<typename M>
 inline const char* datatype()
 {
   return DataType<M>::value();
 }
 
+/**
+ * \brief return MD5Sum<M>::value(m);
+ */
 template<typename M>
 inline const char* md5sum(const M& m)
 {
   return MD5Sum<M>::value(m);
 }
 
+/**
+ * \brief return DataType<M>::value();
+ */
 template<typename M>
 inline const char* datatype(const M& m)
 {

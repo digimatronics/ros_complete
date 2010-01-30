@@ -33,18 +33,30 @@
 #include <string>
 #include <boost/utility/enable_if.hpp>
 
-#define ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, alloc) \
+/**
+ * \brief Forward-declare a message, including Ptr and ConstPtr types, with an allocator
+ *
+ * \param ns The namespace the message should be declared inside
+ * \param m The "base" message type, i.e. the name of the .m file
+ * \param new_name The name you'd like the message to have
+ * \param alloc The allocator to use, e.g. std::allocator
+ */
+#define ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, m, new_name, alloc) \
   namespace ns \
   { \
-    template<template <typename T> class Allocator > struct msg##_; \
-    typedef msg##_<alloc> new_name; \
-    typedef boost::shared_ptr<msg> new_name##Ptr; \
-    typedef boost::shared_ptr<msg const> new_name##ConstPtr; \
+    template<template <typename T> class Allocator > struct m##_; \
+    typedef m##_<alloc> new_name; \
+    typedef boost::shared_ptr<m> new_name##Ptr; \
+    typedef boost::shared_ptr<m const> new_name##ConstPtr; \
   }
 
-#define ROS_FORWARD_DECLARE_MESSAGE(ns, msg, new_name) ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, std::allocator)
+/**
+ * \brief Forward-declare a message, including Ptr and ConstPtr types, using std::allocator
+ * \param m The "base" message type, i.e. the name of the .m file
+ */
+#define ROS_FORWARD_DECLARE_MESSAGE(ns, m) ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, m, m, std::allocator)
 
-ROS_FORWARD_DECLARE_MESSAGE(roslib, Header, Header);
+ROS_FORWARD_DECLARE_MESSAGE(roslib, Header);
 
 #define ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator) \
   ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, base_name, new_name, allocator);
@@ -54,22 +66,43 @@ namespace ros
 namespace message_traits
 {
 
+/**
+ * \brief Base type for compile-type true/false tests.  Compatible with Boost.MPL.  classes inheriting from this type
+ * are \b true values.
+ */
 struct TrueType
 {
   static const bool value = true;
   typedef TrueType type;
 };
 
+/**
+ * \brief Base type for compile-type true/false tests.  Compatible with Boost.MPL.  classes inheriting from this type
+ * are \b false values.
+ */
 struct FalseType
 {
   static const bool value = false;
   typedef FalseType type;
 };
 
+/**
+ * \brief A simple datatype is one that can be memcpy'd directly in array form, i.e. it's a POD, fixed-size type and
+ * sizeof(M) == sum(serializationLength(M:a...))
+ */
 template<typename M> struct IsSimple : public FalseType {};
+/**
+ * \brief A fixed-size datatype is one whose size is constant, i.e. it has no variable-length arrays or strings
+ */
 template<typename M> struct IsFixedSize : public FalseType {};
+/**
+ * \brief HasHeader informs whether or not there is a header that gets serialized as the first thing in the message
+ */
 template<typename M> struct HasHeader : public FalseType {};
 
+/**
+ * \brief Specialize to provide the md5sum for a message
+ */
 template<typename M>
 struct MD5Sum
 {
@@ -84,6 +117,9 @@ struct MD5Sum
   }
 };
 
+/**
+ * \brief Specialize to provide the datatype for a message
+ */
 template<typename M>
 struct DataType
 {
@@ -98,6 +134,9 @@ struct DataType
   }
 };
 
+/**
+ * \brief Specialize to provide the definition for a message
+ */
 template<typename M>
 struct Definition
 {
@@ -112,6 +151,10 @@ struct Definition
   }
 };
 
+/**
+ * \brief Header trait.  In the default implementation pointer()
+ * returns &m.header if HasHeader<M>::value is true, otherwise returns NULL
+ */
 template<typename M, typename Enable = void>
 struct Header
 {
@@ -126,6 +169,11 @@ struct Header<M, typename boost::enable_if<HasHeader<M> >::type >
   static roslib::Header const* pointer(const M& m) { return &m.header; }
 };
 
+/**
+ * \brief FrameId trait.  In the default implementation pointer()
+ * returns &m.header.frame_id if HasHeader<M>::value is true, otherwise returns NULL.  value()
+ * returns m.header.frame_id or an empty string.
+ */
 template<typename M, typename Enable = void>
 struct FrameId
 {
@@ -142,6 +190,11 @@ struct FrameId<M, typename boost::enable_if<HasHeader<M> >::type >
   static std::string value(const M& m) { return m.header.frame_id; }
 };
 
+/**
+ * \brief FrameId trait.  In the default implementation pointer()
+ * returns &m.header.stamp if HasHeader<M>::value is true, otherwise returns NULL.  value()
+ * returns m.header.stamp or a zero timestamp.
+ */
 template<typename M, typename Enable = void>
 struct TimeStamp
 {
@@ -158,90 +211,135 @@ struct TimeStamp<M, typename boost::enable_if<HasHeader<M> >::type >
   static ros::Time value(const M& m) { return m.header.stamp; }
 };
 
+/**
+ * \brief returns MD5Sum<M>::value();
+ */
 template<typename M>
 inline const char* md5sum()
 {
   return MD5Sum<M>::value();
 }
 
+/**
+ * \brief returns DataType<M>::value();
+ */
 template<typename M>
 inline const char* datatype()
 {
   return DataType<M>::value();
 }
 
+/**
+ * \brief returns Definition<M>::value();
+ */
 template<typename M>
 inline const char* definition()
 {
   return Definition<M>::value();
 }
 
+/**
+ * \brief returns MD5Sum<M>::value(m);
+ */
 template<typename M>
 inline const char* md5sum(const M& m)
 {
   return MD5Sum<M>::value(m);
 }
 
+/**
+ * \brief returns DataType<M>::value(m);
+ */
 template<typename M>
 inline const char* datatype(const M& m)
 {
   return DataType<M>::value(m);
 }
 
+/**
+ * \brief returns Definition<M>::value(m);
+ */
 template<typename M>
 inline const char* definition(const M& m)
 {
   return Definition<M>::value(m);
 }
 
+/**
+ * \brief returns Header<M>::pointer(m);
+ */
 template<typename M>
-inline roslib::Header* header(M& msg)
+inline roslib::Header* header(M& m)
 {
-  return Header<M>::pointer(msg);
+  return Header<M>::pointer(m);
 }
 
+/**
+ * \brief returns Header<M>::pointer(m);
+ */
 template<typename M>
-inline roslib::Header const* header(const M& msg)
+inline roslib::Header const* header(const M& m)
 {
-  return Header<M>::pointer(msg);
+  return Header<M>::pointer(m);
 }
 
+/**
+ * \brief returns FrameId<M>::pointer(m);
+ */
 template<typename M>
-inline std::string* frameId(M& msg)
+inline std::string* frameId(M& m)
 {
-  return FrameId<M>::pointer(msg);
+  return FrameId<M>::pointer(m);
 }
 
+/**
+ * \brief returns FrameId<M>::pointer(m);
+ */
 template<typename M>
-inline std::string const* frameId(const M& msg)
+inline std::string const* frameId(const M& m)
 {
-  return FrameId<M>::pointer(msg);
+  return FrameId<M>::pointer(m);
 }
 
+/**
+ * \brief returns TimeStamp<M>::pointer(m);
+ */
 template<typename M>
-inline ros::Time* timeStamp(M& msg)
+inline ros::Time* timeStamp(M& m)
 {
-  return TimeStamp<M>::pointer(msg);
+  return TimeStamp<M>::pointer(m);
 }
 
+/**
+ * \brief returns TimeStamp<M>::pointer(m);
+ */
 template<typename M>
-inline ros::Time const* timeStamp(const M& msg)
+inline ros::Time const* timeStamp(const M& m)
 {
-  return TimeStamp<M>::pointer(msg);
+  return TimeStamp<M>::pointer(m);
 }
 
+/**
+ * \brief returns IsSimple<M>::value;
+ */
 template<typename M>
 inline bool isSimple()
 {
   return IsSimple<M>::value;
 }
 
+/**
+ * \brief returns IsFixedSize<M>::value;
+ */
 template<typename M>
 inline bool isFixedSize()
 {
   return IsFixedSize<M>::value;
 }
 
+/**
+ * \brief returns HasHeader<M>::value;
+ */
 template<typename M>
 inline bool hasHeader()
 {

@@ -72,6 +72,11 @@ struct ServiceSpecCallParams
   boost::shared_ptr<M_string> connection_header;
 };
 
+/**
+ * \brief Event type for services, ros::ServiceEvent<MReq, MRes>& can be used in your callback instead of MReq&, MRes&
+ *
+ * Useful if you need to retrieve meta-data about the call, such as the full connection header, or the caller's node name
+ */
 template<typename MReq, typename MRes>
 class ServiceEvent
 {
@@ -94,9 +99,23 @@ public:
   , connection_header_(connection_header)
   {}
 
+  /**
+   * \brief Returns a const-reference to the request
+   */
   const RequestType& getRequest() const { return *request_; }
+  /**
+   * \brief Returns a non-const reference to the response
+   */
   ResponseType& getResponse() const { return *response_; }
+  /**
+   * \brief Returns a reference to the connection header.
+   */
   M_string& getConnectionHeader() const { return *connection_header_; }
+
+  /**
+   * \brief Returns the name of the node which called this service
+   */
+  const std::string& getCallerName() const { return (*connection_header_)["callerid"]; }
 private:
   boost::shared_ptr<RequestType const> request_;
   boost::shared_ptr<ResponseType> response_;

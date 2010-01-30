@@ -47,6 +47,23 @@
 
 #define ROS_NEW_SERIALIZATION_API 1
 
+/**
+ * \brief Declare your serializer to use an allinone member instead of requiring 3 different serialization
+ * functions.
+ *
+ * The allinone method has the form:
+\verbatim
+template<typename Stream, typename T>
+inline static void allinone(Stream& stream, T t)
+{
+  stream.next(t.a);
+  stream.next(t.b);
+  ...
+}
+\endverbatim
+ *
+ * The only guarantee given is that Stream::next(T) is defined.
+ */
 #define ROS_DECLARE_ALLINONE_SERIALIZER \
   template<typename Stream, typename T> \
   inline static void write(Stream& stream, const T& t) \
@@ -83,15 +100,28 @@ public:
 
 void throwStreamOverrun();
 
+/**
+ * \brief Templated serialization class.  Default implementation provides backwards compatibility with
+ * old message types.
+ *
+ * Specializing the Serializer class is the only thing you need to do to get the ROS serialization system
+ * to work with a type.
+ */
 template<typename T>
 struct Serializer
 {
+  /**
+   * \brief Write an object to the stream.  Normally the stream passed in here will be a ros::serialization::OStream
+   */
   template<typename Stream>
   inline static void write(Stream& stream, typename boost::call_traits<T>::param_type t)
   {
     t.serialize(stream.getData(), 0);
   }
 
+  /**
+   * \brief Read an object from the stream.  Normally the stream passed in here will be a ros::serialization::IStream
+   */
   template<typename Stream>
   inline static void read(Stream& stream, typename boost::call_traits<T>::reference t)
   {
@@ -99,6 +129,9 @@ struct Serializer
     t.deserialize(stream.getData());
   }
 
+  /**
+   * \brief Determine the serialized length of an object.  Normally the stream passed in here will be a ros::serialization::LStream
+   */
   template<typename Stream>
   inline static void serializedLength(Stream& stream, typename boost::call_traits<T>::param_type t)
   {
@@ -106,18 +139,27 @@ struct Serializer
   }
 };
 
+/**
+ * \brief Serialize an object.  Stream here should normally be a ros::serialization::OStream
+ */
 template<typename T, typename Stream>
 inline void serialize(Stream& stream, const T& t)
 {
   Serializer<T>::write(stream, t);
 }
 
+/**
+ * \brief Deserialize an object.  Stream here should normally be a ros::serialization::IStream
+ */
 template<typename T, typename Stream>
 inline void deserialize(Stream& stream, T& t)
 {
   Serializer<T>::read(stream, t);
 }
 
+/**
+ * \brief Determine the serialized length of an object.  Stream here should normally be a ros::serialization::LStream
+ */
 template<typename T, typename Stream>
 inline void serializationLength(Stream& stream, const T& t)
 {
@@ -154,7 +196,9 @@ ROS_CREATE_SIMPLE_SERIALIZER(int64_t);
 ROS_CREATE_SIMPLE_SERIALIZER(float);
 ROS_CREATE_SIMPLE_SERIALIZER(double);
 
-// bool (serialized as uint8)
+/**
+ * \brief Serializer specialized for bool (serialized as uint8)
+ */
 template<> struct Serializer<bool>
 {
   template<typename Stream> inline static void write(Stream& stream, const bool v)
@@ -175,7 +219,9 @@ template<> struct Serializer<bool>
   }
 };
 
-// string
+/**
+ * \brief  Serializer specialized for std::string
+ */
 template<template<typename T> class Allocator >
 struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
 {
@@ -215,7 +261,9 @@ struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char
   }
 };
 
-// time
+/**
+ * \brief Serializer specialized for ros::Time
+ */
 template<>
 struct Serializer<ros::Time>
 {
@@ -240,7 +288,9 @@ struct Serializer<ros::Time>
   }
 };
 
-// duration
+/**
+ * \brief Serializer specialized for ros::Duration
+ */
 template<>
 struct Serializer<ros::Duration>
 {
@@ -265,14 +315,18 @@ struct Serializer<ros::Duration>
   }
 };
 
-// vectors (variable-length arrays)
-// variable-length array
+/**
+ * \brief Vector serializer.  Default implementation does nothing
+ */
 template<typename T, template<typename T> class Allocator, class Enabled = void>
-struct VariableLengthArraySerializer
+struct VectorSerializer
 {};
 
+/**
+ * \brief Vector serializer, specialized for non-fixed-size, non-simple types
+ */
 template<typename T, template<typename T> class Allocator>
-struct VariableLengthArraySerializer<T, Allocator, typename boost::disable_if<mt::IsFixedSize<T> >::type >
+struct VectorSerializer<T, Allocator, typename boost::disable_if<mt::IsFixedSize<T> >::type >
 {
   typedef std::vector<T, Allocator<T> > VecType;
   typedef typename VecType::iterator IteratorType;
@@ -317,8 +371,11 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::disable_if<mt
   }
 };
 
+/**
+ * \brief Vector serializer, specialized for fixed-size simple types
+ */
 template<typename T, template<typename T> class Allocator>
-struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt::IsSimple<T> >::type >
+struct VectorSerializer<T, Allocator, typename boost::enable_if<mt::IsSimple<T> >::type >
 {
   typedef std::vector<T, Allocator<T> > VecType;
   typedef typename VecType::iterator IteratorType;
@@ -357,8 +414,11 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mt:
   }
 };
 
+/**
+ * \brief Vector serializer, specialized for fixed-size non-simple types
+ */
 template<typename T, template<typename T> class Allocator>
-struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type >
+struct VectorSerializer<T, Allocator, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type >
 {
   typedef std::vector<T, Allocator<T> > VecType;
   typedef typename VecType::iterator IteratorType;
@@ -403,31 +463,45 @@ struct VariableLengthArraySerializer<T, Allocator, typename boost::enable_if<mpl
   }
 };
 
+/**
+ * \brief serialize version for std::vector
+ */
 template<typename T, template<typename T> class Allocator, typename Stream>
 inline void serialize(Stream& stream, const std::vector<T, Allocator<T> >& t)
 {
-  VariableLengthArraySerializer<T, Allocator>::write(stream, t);
+  VectorSerializer<T, Allocator>::write(stream, t);
 }
 
+/**
+ * \brief deserialize version for std::vector
+ */
 template<typename T, template<typename T> class Allocator, typename Stream>
 inline void deserialize(Stream& stream, std::vector<T, Allocator<T> >& t)
 {
-  VariableLengthArraySerializer<T, Allocator>::read(stream, t);
+  VectorSerializer<T, Allocator>::read(stream, t);
 }
 
+/**
+ * \brief serializationLength version for std::vector
+ */
 template<typename T, template<typename T> class Allocator, typename Stream>
 inline void serializationLength(Stream& stream, const std::vector<T, Allocator<T> >& t)
 {
-  VariableLengthArraySerializer<T, Allocator>::serializedLength(stream, t);
+  VectorSerializer<T, Allocator>::serializedLength(stream, t);
 }
 
-// fixed-length arrays
+/**
+ * \brief Array serializer, default implementation does nothing
+ */
 template<typename T, size_t N, class Enabled = void>
-struct FixedLengthArraySerializer
+struct ArraySerializer
 {};
 
+/**
+ * \brief Array serializer, specialized for non-fixed-size, non-simple types
+ */
 template<typename T, size_t N>
-struct FixedLengthArraySerializer<T, N, typename boost::disable_if<mt::IsFixedSize<T> >::type>
+struct ArraySerializer<T, N, typename boost::disable_if<mt::IsFixedSize<T> >::type>
 {
   typedef boost::array<T, N > ArrayType;
   typedef typename ArrayType::iterator IteratorType;
@@ -467,8 +541,11 @@ struct FixedLengthArraySerializer<T, N, typename boost::disable_if<mt::IsFixedSi
   }
 };
 
+/**
+ * \brief Array serializer, specialized for fixed-size, simple types
+ */
 template<typename T, size_t N>
-struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T> >::type>
+struct ArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T> >::type>
 {
   typedef boost::array<T, N > ArrayType;
   typedef typename ArrayType::iterator IteratorType;
@@ -495,8 +572,11 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T
   }
 };
 
+/**
+ * \brief Array serializer, specialized for fixed-size, non-simple types
+ */
 template<typename T, size_t N>
-struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type>
+struct ArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type>
 {
   typedef boost::array<T, N > ArrayType;
   typedef typename ArrayType::iterator IteratorType;
@@ -533,34 +613,61 @@ struct FixedLengthArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::
   }
 };
 
+/**
+ * \brief serialize version for boost::array
+ */
 template<typename T, size_t N, typename Stream>
 inline void serialize(Stream& stream, const boost::array<T, N>& t)
 {
-  FixedLengthArraySerializer<T, N>::write(stream, t);
+  ArraySerializer<T, N>::write(stream, t);
 }
 
+/**
+ * \brief deserialize version for boost::array
+ */
 template<typename T, size_t N, typename Stream>
 inline void deserialize(Stream& stream, boost::array<T, N>& t)
 {
-  FixedLengthArraySerializer<T, N>::read(stream, t);
+  ArraySerializer<T, N>::read(stream, t);
 }
 
+/**
+ * \brief serializationLength version for boost::array
+ */
 template<typename T, size_t N, typename Stream>
 inline void serializationLength(Stream& stream, const boost::array<T, N>& t)
 {
-  FixedLengthArraySerializer<T, N>::serializedLength(stream, t);
+  ArraySerializer<T, N>::serializedLength(stream, t);
 }
 
+/**
+ * \brief Enum
+ */
+namespace stream_types
+{
 enum StreamType
 {
   Input,
   Output,
   Length
 };
+}
+typedef stream_types::StreamType StreamType;
 
+/**
+ * \brief Stream base-class, provides common functionality for IStream and OStream
+ */
 struct Stream
 {
+  /*
+   * \brief Returns a pointer to the current position of the stream
+   */
   inline uint8_t* getData() { return data_; }
+  /**
+   * \brief Advances the stream, checking bounds, and returns a pointer to the position before it
+   * was advanced.
+   * \throws StreamOverrunException if len would take this stream past the end of its buffer
+   */
   ROS_FORCE_INLINE uint8_t* advance(uint32_t len)
   {
     uint8_t* old_data = data_;
@@ -574,6 +681,9 @@ struct Stream
     return old_data;
   }
 
+  /**
+   * \brief Returns the amount of space left in the stream
+   */
   inline uint32_t getLength() { return (uint32_t)(end_ - data_); }
 
 protected:
@@ -587,14 +697,20 @@ private:
   uint8_t* end_;
 };
 
+/**
+ * \brief Input stream
+ */
 struct IStream : public Stream
 {
-  static const StreamType type = Input;
+  static const StreamType stream_type = stream_types::Input;
 
   IStream(uint8_t* data, uint32_t count)
   : Stream(data, count)
   {}
 
+  /**
+   * \brief Deserialize an item from this input stream
+   */
   template<typename T>
   ROS_FORCE_INLINE void next(T& t)
   {
@@ -602,14 +718,20 @@ struct IStream : public Stream
   }
 };
 
+/**
+ * \brief Output stream
+ */
 struct OStream : public Stream
 {
-  static const StreamType type = Output;
+  static const StreamType stream_type = stream_types::Output;
 
   OStream(uint8_t* data, uint32_t count)
   : Stream(data, count)
   {}
 
+  /**
+   * \brief Serialize an item to this output stream
+   */
   template<typename T>
   ROS_FORCE_INLINE void next(const T& t)
   {
@@ -617,32 +739,51 @@ struct OStream : public Stream
   }
 };
 
+
+/**
+ * \brief Length stream
+ *
+ * LStream is not what you would normally think of as a stream, but it is used in order to support
+ * allinone serializers.
+ */
 struct LStream
 {
-  static const StreamType type = Length;
+  static const StreamType stream_type = stream_types::Length;
 
   LStream()
   : count_(0)
   {}
 
+  /**
+   * \brief Add the length of an item to this length stream
+   */
   template<typename T>
   ROS_FORCE_INLINE void next(const T& t)
   {
     serializationLength(*this, t);
   }
 
+  /**
+   * \brief increment the length by len
+   */
   ROS_FORCE_INLINE uint8_t* advance(uint32_t len)
   {
     count_ += len;
     return 0;
   }
 
+  /**
+   * \brief Get the total length of this tream
+   */
   inline uint32_t getLength() { return count_; }
 
 private:
   uint32_t count_;
 };
 
+/**
+ * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.
+ */
 template<typename T>
 inline uint32_t serializationLength(const T& t)
 {
@@ -651,22 +792,31 @@ inline uint32_t serializationLength(const T& t)
   return stream.getLength();
 }
 
+/**
+ * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.  Specialized for boost::array
+ */
 template<typename T, size_t N>
 inline uint32_t serializationLength(const boost::array<T, N>& t)
 {
   LStream stream;
-  FixedLengthArraySerializer<T, N>::serializedLength(stream, t);
+  ArraySerializer<T, N>::serializedLength(stream, t);
   return stream.getLength();
 }
 
+/**
+ * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.  Specialized for std::vector
+ */
 template<typename T, template<typename T> class Allocator>
 inline uint32_t serializationLength(const std::vector<T, Allocator<T> >& t)
 {
   LStream stream;
-  VariableLengthArraySerializer<T, Allocator>::serializedLength(stream, t);
+  VectorSerializer<T, Allocator>::serializedLength(stream, t);
   return stream.getLength();
 }
 
+/**
+ * \brief Serialize a message
+ */
 template<typename M>
 inline SerializedMessage serializeMessage(const M& message)
 {
@@ -683,6 +833,9 @@ inline SerializedMessage serializeMessage(const M& message)
   return m;
 }
 
+/**
+ * \brief Serialize a service response
+ */
 template<typename M>
 inline SerializedMessage serializeServiceResponse(bool ok, const M& message)
 {
@@ -712,6 +865,9 @@ inline SerializedMessage serializeServiceResponse(bool ok, const M& message)
   return m;
 }
 
+/**
+ * \brief Deserialize a message.  If includes_length is true, skips the first 4 bytes
+ */
 template<typename M>
 inline void deserializeMessage(const SerializedMessage& m, M& message, bool includes_length = false)
 {
