@@ -21,10 +21,12 @@
 # define strncasecmp strnicmp
 #endif
 
+#include "XmlRpcDllExport.h"
+
 namespace XmlRpc {
 
   //! Utilities for XML parsing, encoding, and decoding and message handlers.
-  class XmlRpcUtil {
+  class XMLRPC_EXPORT XmlRpcUtil {
   public:
     // hokey xml parsing
     //! Returns contents between <tag> and </tag>, updates offset to char after </tag>

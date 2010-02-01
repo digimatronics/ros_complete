@@ -62,14 +62,14 @@ public:
     if (access(cpp_dir.c_str(), F_OK))
       if (mkdir(cpp_dir.c_str(), 0755) && (errno != EEXIST))
       {
-        printf("woah! error from mkdir: [%s]\n", strerror(errno));
+        printf("Error from mkdir: [%s]\n", strerror(errno));
         exit(5);
       }
 
     if (access(tgt_dir.c_str(), F_OK) != 0)
       if (mkdir(tgt_dir.c_str(), 0755) && (errno != EEXIST))
       {
-        printf("woah! error from mkdir: [%s]\n", strerror(errno));
+        printf("Error from mkdir: [%s]\n", strerror(errno));
         exit(5);
       }
 
@@ -84,7 +84,7 @@ public:
     FILE *f = fopen(fname, "w");
     if (!f)
     {
-      printf("woah! couldn't write to %s\n", fname);
+      printf("Couldn't write to %s\n", fname);
       exit(7);
     }
 
@@ -108,7 +108,7 @@ public:
     f = fopen(fname, "w");
     if (!f)
     {
-      printf("woah! couldn't write to %s\n", fname);
+      printf("Couldn't write to %s\n", fname);
       exit(7);
     }
 
@@ -168,7 +168,7 @@ public:
     f = fopen(fname, "w");
     if (!f)
     {
-      printf("woah! couldn't write to %s\n", fname);
+      printf("Couldn't write to %s\n", fname);
       exit(7);
     }
     fprintf(f, "\n(in-package :asdf)\n\n");

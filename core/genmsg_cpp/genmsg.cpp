@@ -27,6 +27,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -36,12 +37,22 @@
 #include <stdexcept>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/param.h>
+#if !defined(WIN32)
+  #include <sys/param.h>
+  #include <stdint.h>
+#endif
 #include <cstdlib>
 #include <cstring>
-#include <stdint.h>
 #include "msgspec.h"
 #include "utils.h"
+
+#if defined(WIN32)
+  #include <windows.h>
+  #define snprintf _snprintf
+  #define popen _popen
+  #define pclose _pclose
+  #define PATH_MAX MAX_PATH
+#endif
 
 using namespace std;
 
@@ -352,8 +363,12 @@ public:
   }
   virtual string length_expr()
   {
-    uint32_t CODE_LEN = 4096;
+    unsigned int CODE_LEN = 4096;
+#if defined(WIN32)
+    char code[4096];
+#else
     char code[CODE_LEN];
+#endif
     if (len && ele_var->is_fixed_length())
     {
       ele_var->name = name + string("[0]");
@@ -563,7 +578,7 @@ public:
     else if (type == "duration")
       return "ros::Duration";
     else
-      return string("\n#error woah! unhandled primitive type ") + type +
+      return string("\n#error Unhandled primitive type ") + type +
              string("\n");
   }
   virtual string length_expr()
@@ -585,7 +600,7 @@ public:
     else if (type == "string")
       return string("4 + ") + name + string(".length()");
     else
-      return "\n#error woah! bogus length_expr in var_primitive\n";
+      return "\n#error Bad length_expr in var_primitive\n";
   }
   virtual bool is_fixed_length()
   {
@@ -636,7 +651,7 @@ public:
              indent_str + "  " + prefix + string(".") + name +
              string(" = \"blahblahblah\";\n");
     else
-      return string("\n#error woah! bogus primitive type\n");
+      return string("\n#error Bad primitive type\n");
   }
   virtual string equals(const string &prefix, int indent = 0)
   {
@@ -661,8 +676,12 @@ public:
   }
   virtual string serialization_code()
   {
-    const uint32_t CODE_LEN = 4096;
+    const unsigned int CODE_LEN = 4096;
+#if defined(WIN32)
+    char code[4096];
+#else
     char code[CODE_LEN];
+#endif
     if (type == "string")
     {
       string safe_name = name;
@@ -689,8 +708,12 @@ public:
   }
   virtual string deserialization_code()
   {
-    const uint32_t CODE_LEN = 4096;
+    const unsigned int CODE_LEN = 4096;
+#if defined(WIN32)
+    char code[4096];
+#else
     char code[CODE_LEN];
+#endif
     if (type == "string")
     {
       string safe_name = name;
@@ -766,12 +789,14 @@ public:
     // have to drag that instance around, but oh well. If this turns
     // out to be a problem, I could spit out a .cpp file and compile a
     // library. But it's so much easier to keep the whole thing in a header.
+    string preamble = string("#if defined(") + name +
+        string(")\n#undef ") + name + string("\n#endif\n");
     if (msg_spec::is_integer(type))
-      return string("  const static ") + cpp_type_name() + string(" ") +
-             name + string(" = ") + constant + ";\n";
+      return preamble + string("  const static ") + cpp_type_name() +
+             string(" ") + name + string(" = ") + constant + ";\n";
     else
-      return string("  const ") + cpp_type_name() + string(" ") + name +
-             string(";\n");
+      return preamble + string("  const ") + cpp_type_name() + string(" ") +
+             name + string(";\n");
   }
 /*
   virtual string cpp_impl_decl()
@@ -824,7 +849,7 @@ public:
     else if (type == "string")
       return "std::string";
     else
-      return string("\n#error woah! unhandled primitive type ") + type +
+      return string("\n#error Unhandled primitive type ") + type +
              string("\n");
   }
   virtual string length_expr() { return "0"; }
@@ -881,7 +906,25 @@ msg_spec::msg_spec(const string &_spec_file, const string &_package,
     {
       {
         // compute md5sum
-        string cmd = string("`rospack find roslib`/scripts/gendeps --md5 ") + spec_file;
+        FILE *roslib_dir_fp = popen("rospack find roslib", "r");
+        if (!roslib_dir_fp)
+          throw std::runtime_error("Couldn't run rospack to find roslib");
+        char roslib_dir[PATH_MAX];
+        if (!fgets(roslib_dir, PATH_MAX, roslib_dir_fp))
+          throw std::runtime_error("Couldn't read roslib dir from rospack");
+        pclose(roslib_dir_fp);
+        string roslib_dir_str(roslib_dir);
+        string token("/");
+        for (string::size_type ii = roslib_dir_str.find(token); ii != string::npos;
+             ii = roslib_dir_str.find(token, ii))
+        {
+          roslib_dir_str.replace(ii, token.length(), string("\\"));
+        }
+        roslib_dir_str.erase(remove_if(roslib_dir_str.begin(),
+                                       roslib_dir_str.end(), isspace),
+                             roslib_dir_str.end());
+        string cmd = string("python ") + roslib_dir_str + string("\\scripts\\gendeps --md5 ") +
+                        spec_file;
         FILE *md5pipe = popen(cmd.c_str(), "r");
         if (!md5pipe)
           throw std::runtime_error("couldn't launch gendeps in genmsg_cpp\n");
@@ -894,9 +937,28 @@ msg_spec::msg_spec(const string &_spec_file, const string &_package,
       }
 
       {
+        FILE *roslib_dir_fp = popen("rospack find roslib", "r");
+        if (!roslib_dir_fp)
+          throw std::runtime_error("Couldn't run rospack to find roslib");
+        char roslib_dir[PATH_MAX];
+        if (!fgets(roslib_dir, PATH_MAX, roslib_dir_fp))
+          throw std::runtime_error("Couldn't read roslib dir from rospack");
+        pclose(roslib_dir_fp);
+        string roslib_dir_str(roslib_dir);
+        string token("/");
+        for (string::size_type ii = roslib_dir_str.find(token); ii != string::npos;
+             ii = roslib_dir_str.find(token, ii))
+        {
+          roslib_dir_str.replace(ii, token.length(), string("\\"));
+        }
+        roslib_dir_str.erase(remove_if(roslib_dir_str.begin(),
+                                       roslib_dir_str.end(), isspace),
+                             roslib_dir_str.end());
         std::stringstream ss;
         // compute concatenated definition
-        string cmd = string("`rospack find roslib`/scripts/gendeps --cat ") + spec_file;
+        string cmd = string("python ") + roslib_dir_str +
+                     string("\\scripts\\gendeps --cat ") +
+                     spec_file;
         FILE *catpipe = popen(cmd.c_str(), "r");
         if (!catpipe)
           throw std::runtime_error("couldn't launch gendeps in genmsg_cpp\n");
@@ -983,9 +1045,9 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   token = strtok(NULL, " \n\t=");
   if (!token)
   {
-    printf("woah! on line %d of %s, there was only one token.\n",
+    printf("On line %d of %s, there was only one token.\n",
            linenum, spec_file.c_str());
-    printf("each line needs to have two tokens: the first is the type\n" \
+    printf("Each line needs to have two tokens: the first is the type\n" \
            "and the second is the variable name.\n");
     exit(6);
   }
@@ -1000,7 +1062,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   }
   if (!constant_allowed)
   {
-    printf("woah! constants are only allowed on primitive numeric types and "
+    printf("Constants are only allowed on primitive numeric types and "
            "strings.\n");
     exit(7);
   }

@@ -5,6 +5,12 @@ include(CheckFunctionExists)
 rosbuild_init()
 rosbuild_genmsg()
 
+# On Windows, rosconsole is needed as an include directory for ROS_INFO
+if(WIN32)
+  rosbuild_invoke_rospack(rosconsole rosconsole dir find)
+  include_directories(${rosconsole_dir}/include)
+endif(WIN32)
+
 # To get system info used in time library
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

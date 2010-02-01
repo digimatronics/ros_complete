@@ -8,10 +8,12 @@
 # pragma warning(disable:4786)    // identifier was truncated in debug info
 #endif
 
+#include "XmlRpcDllExport.h"
+
 namespace XmlRpc {
 
   //! An RPC source represents a file descriptor to monitor
-  class XmlRpcSource {
+  class XMLRPC_EXPORT XmlRpcSource {
   public:
     //! Constructor
     //!  @param fd The socket file descriptor to monitor.

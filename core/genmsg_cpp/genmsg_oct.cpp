@@ -359,7 +359,7 @@ public:
         else if (type == "duration")
             return "rosoct_duration";
         else
-            return string("\n#error woah! unhandled primitive type ") + type +
+            return string("\n#error Unhandled primitive type ") + type +
                 string("\n");
     }
     virtual string length_expr(const string& msgname)
@@ -381,7 +381,7 @@ public:
         else if (type == "string")
             return string("4 + numel(") + get_fullname(msgname) + string(")");
         else
-            return "\n#error woah! bogus length_expr in var_primitive\n";
+            return "\n#error Bad length_expr in var_primitive\n";
     }
     virtual bool is_fixed_length()
     {
@@ -514,7 +514,7 @@ public:
         else if (type == "string")
             return "std::string";
         else
-            return string("\n#error woah! unhandled primitive type ") + type +
+            return string("\n#error Unhandled primitive type ") + type +
                 string("\n");
     }
     virtual string length_expr(const string& msgname) { return "0"; }
@@ -641,7 +641,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
     size_t equals_pos = linecopy.find('=');
     token = strtok(NULL, " \n\t=");
     if (!token) {
-        printf("woah! on line %d of %s, there was only one token.\n",
+        printf("On line %d of %s, there was only one token.\n",
                linenum, spec_file.c_str());
         printf("each line needs to have two tokens: the first is the type\n" \
                "and the second is the variable name.\n");
@@ -656,7 +656,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
         return true;
     }
     if (!constant_allowed) {
-        printf("woah! constants are only allowed on primitive numeric types and "
+        printf("Constants are only allowed on primitive numeric types and "
                "strings.\n");
         exit(7);
     }

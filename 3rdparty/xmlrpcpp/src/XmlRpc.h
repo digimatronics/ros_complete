@@ -1,5 +1,6 @@
 // this file modified by Morgan Quigley on 22 April 2008 to add 
 // a std::exception-derived class
+// And also by Geoff Biggs to add DLL exports for Windows.
 #ifndef _XMLRPC_H_
 #define _XMLRPC_H_
 //
@@ -33,6 +34,7 @@
 #include "XmlRpcServerMethod.h"
 #include "XmlRpcValue.h"
 #include "XmlRpcUtil.h"
+#include "XmlRpcDllExport.h"
 
 #include <stdexcept>
 
@@ -40,7 +42,7 @@ namespace XmlRpc {
 
 
   //! An interface allowing custom handling of error message reporting.
-  class XmlRpcErrorHandler {
+  class XMLRPC_EXPORT XmlRpcErrorHandler {
   public:
     virtual ~XmlRpcErrorHandler() { }
 
@@ -60,7 +62,7 @@ namespace XmlRpc {
   };
 
   //! An interface allowing custom handling of informational message reporting.
-  class XmlRpcLogHandler {
+  class XMLRPC_EXPORT XmlRpcLogHandler {
   public:
     virtual ~XmlRpcLogHandler() { }
 

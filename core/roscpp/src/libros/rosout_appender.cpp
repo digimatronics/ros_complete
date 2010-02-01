@@ -40,6 +40,7 @@
 #include "ros/names.h"
 
 #include <log4cxx/spi/loggingevent.h>
+#include <log4cxx/helpers/transcoder.h>
 
 namespace ros
 {
@@ -81,12 +82,14 @@ void ROSOutAppender::append(const log4cxx::spi::LoggingEventPtr& event, log4cxx:
   if (event->getLevel() == log4cxx::Level::getFatal())
   {
     msg->level = roslib::Log::FATAL;
-    last_error_ = event->getMessage();
+    LOG4CXX_ENCODE_CHAR(temp_error_msg, event->getMessage());
+    last_error_ = temp_error_msg;
   }
   else if (event->getLevel() == log4cxx::Level::getError())
   {
     msg->level = roslib::Log::ERROR;
-    last_error_ = event->getMessage();
+    LOG4CXX_ENCODE_CHAR(temp_error_msg, event->getMessage());
+    last_error_ = temp_error_msg;
   }
   else if (event->getLevel() == log4cxx::Level::getWarn())
   {
@@ -102,7 +105,9 @@ void ROSOutAppender::append(const log4cxx::spi::LoggingEventPtr& event, log4cxx:
   }
 
   msg->name = this_node::getName();
-  msg->msg = event->getMessage();
+  LOG4CXX_ENCODE_CHAR(temp_error_msg, event->getMessage());
+  last_error_ = temp_error_msg;
+  msg->msg = temp_error_msg;
 
   const log4cxx::spi::LocationInfo& info = event->getLocationInformation();
   msg->file = info.getFileName();

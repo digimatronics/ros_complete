@@ -12,6 +12,8 @@
 # include <list>
 #endif
 
+#include "XmlRpcDllExport.h"
+
 namespace XmlRpc {
 
   // An RPC source represents a file descriptor to monitor
@@ -19,7 +21,7 @@ namespace XmlRpc {
 
   //! An object which monitors file descriptors for events and performs
   //! callbacks when interesting events happen.
-  class XmlRpcDispatch {
+  class XMLRPC_EXPORT XmlRpcDispatch {
   public:
     //! Constructor
     XmlRpcDispatch();

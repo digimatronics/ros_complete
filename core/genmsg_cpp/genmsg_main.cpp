@@ -28,12 +28,26 @@
 #include <cstdio>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/param.h>
+#if !defined(WIN32)
+  #include <sys/param.h>
+#endif
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
 #include "msgspec.h"
 #include "utils.h"
+
+#if defined(WIN32)
+  #include <direct.h>
+  #include <windows.h>
+  #include <io.h>
+  #define snprintf _snprintf
+  #define popen _popen
+  #define mkdir(a,b) _mkdir(a)
+  #define PATH_MAX MAX_PATH
+  #define access _access
+  #define F_OK 0x00
+#endif
 
 using namespace std;
 
@@ -49,14 +63,14 @@ public:
     if (access(cpp_dir.c_str(), F_OK))
       if (mkdir(cpp_dir.c_str(), 0755) && (errno != EEXIST))
       {
-        printf("woah! error from mkdir: [%s]\n", strerror(errno));
+        printf("Error from mkdir: [%s]\n", strerror(errno));
         exit(5);
       }
 
     if (access(tgt_dir.c_str(), F_OK) != 0)
       if (mkdir(tgt_dir.c_str(), 0755) && (errno != EEXIST))
       {
-        printf("woah! error from mkdir: [%s]\n", strerror(errno));
+        printf("Error from mkdir: [%s]\n", strerror(errno));
         exit(5);
       }
 
@@ -66,7 +80,7 @@ public:
     FILE *f = fopen(fname, "w");
     if (!f)
     {
-      printf("woah! couldn't write to %s\n", fname);
+      printf("Couldn't write to %s\n", fname);
       exit(7);
     }
 

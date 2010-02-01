@@ -40,6 +40,11 @@
 
 #include <boost/shared_array.hpp>
 #include <boost/bind.hpp>
+#include <algorithm>
+
+#if defined(min)
+#undef min
+#endif
 
 namespace ros
 {

@@ -41,7 +41,11 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/random.hpp>
 
-#include <netinet/in.h>
+#if defined(WIN32)
+  #include <winsock2.h>
+#else
+  #include <netinet/in.h>
+#endif
 
 namespace ros
 {

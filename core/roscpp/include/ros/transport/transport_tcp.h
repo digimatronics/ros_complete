@@ -35,12 +35,18 @@
 #ifndef ROSCPP_TRANSPORT_TCP_H
 #define ROSCPP_TRANSPORT_TCP_H
 
+#if defined(WIN32)
+  #include <winsock2.h>
+#endif
+
 #include <ros/types.h>
 #include <ros/transport/transport.h>
 
 #include <boost/thread/recursive_mutex.hpp>
 
-#include <netinet/in.h>
+#if !defined(WIN32)
+  #include <netinet/in.h>
+#endif
 
 namespace ros
 {

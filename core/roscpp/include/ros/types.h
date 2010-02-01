@@ -31,7 +31,7 @@
 // this is just for interoperability with visual studio, where the standard
 // integer types are not defined.
 
-#ifndef _MSC_VER
+#if !defined(WIN32)
   #include <stdint.h>
 #else
   typedef          __int64  int64_t;

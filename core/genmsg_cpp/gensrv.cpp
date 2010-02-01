@@ -27,19 +27,36 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <cstdio>
 #include <stdexcept>
 #include <vector>
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/param.h>
+#if !defined(WIN32)
+  #include <sys/param.h>
+#endif
 #include <cstring>
 #include <cstdlib>
 #include <cerrno>
 #include <sstream>
 #include "utils.h"
 #include "msgspec.h"
+
+#if defined(WIN32)
+  #include <direct.h>
+  #include <windows.h>
+  #include <io.h>
+  #define snprintf _snprintf
+  #define popen _popen
+  #define pclose _pclose
+  #define PATH_MAX MAX_PATH
+  #define mkdir(a,b) _mkdir(a)
+  #define access _access
+  #define F_OK 0x00
+#endif
+
 using namespace std;
 
 class srv_gen;
@@ -53,7 +70,19 @@ public:
   void process_file(const char *spec_file)
   {
     // compute md5sum
-    string cmd = string("`rospack find roslib`/scripts/gendeps --md5 ") + spec_file;
+    FILE *roslib_dir_fp = popen("rospack find roslib", "r");
+    if (!roslib_dir_fp)
+      throw std::runtime_error("Couldn't run rospack to find roslib");
+    char roslib_dir[PATH_MAX];
+    if (!fgets(roslib_dir, PATH_MAX, roslib_dir_fp))
+      throw std::runtime_error("Couldn't read roslib dir from rospack");
+    pclose(roslib_dir_fp);
+    string roslib_dir_str(roslib_dir);
+    roslib_dir_str.erase(remove_if(roslib_dir_str.begin(),
+                                   roslib_dir_str.end(), isspace),
+                         roslib_dir_str.end());
+    string cmd = string("python ") + roslib_dir_str +
+                 string("/scripts/gendeps --md5 ") + spec_file;
     FILE *md5pipe = popen(cmd.c_str(), "r");
     if (!md5pipe)
       throw std::runtime_error("couldn't launch md5sum in genmsg_cpp\n");
@@ -69,14 +98,14 @@ public:
     if (access(cpp_dir.c_str(), F_OK))
       if (mkdir(cpp_dir.c_str(), 0755) && (errno != EEXIST))
       {
-        printf("woah! error from mkdir: [%s]\n", strerror(errno));
+        printf("Error from mkdir: [%s]\n", strerror(errno));
         exit(5);
       }
 
     if (access(tgt_dir.c_str(), F_OK) != 0)
       if (mkdir(tgt_dir.c_str(), 0755) && (errno != EEXIST))
       {
-        printf("woah! error from mkdir: [%s]\n", strerror(errno));
+        printf("Error from mkdir: [%s]\n", strerror(errno));
         exit(5);
       }
 
@@ -115,7 +144,19 @@ public:
     {
       std::stringstream ss;
       // compute concatenated definition
-      string cmd = string("`rospack find roslib`/scripts/gendeps --cat ") + spec_file;
+      FILE *roslib_dir_fp = popen("rospack find roslib", "r");
+      if (!roslib_dir_fp)
+        throw std::runtime_error("Couldn't run rospack to find roslib");
+      char roslib_dir[PATH_MAX];
+      if (!fgets(roslib_dir, PATH_MAX, roslib_dir_fp))
+        throw std::runtime_error("Couldn't read roslib dir from rospack");
+      pclose(roslib_dir_fp);
+      string roslib_dir_str(roslib_dir);
+      roslib_dir_str.erase(remove_if(roslib_dir_str.begin(),
+                                     roslib_dir_str.end(), isspace),
+                           roslib_dir_str.end());
+      string cmd = string("python ") + roslib_dir_str +
+                   string("/scripts/gendeps --cat ") + spec_file;
       FILE *catpipe = popen(cmd.c_str(), "r");
       if (!catpipe)
         throw std::runtime_error("couldn't launch gendeps in genmsg_cpp\n");
@@ -146,7 +187,7 @@ public:
     FILE *f = fopen(fname, "w");
     if (!f)
     {
-      printf("woah! couldn't write to %s\n", fname);
+      printf("Couldn't write to %s\n", fname);
       exit(7);
     }
     string pkg_upcase = to_upper(g_pkg), srv_upcase = to_upper(g_name);

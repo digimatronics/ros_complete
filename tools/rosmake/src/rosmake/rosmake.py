@@ -2,10 +2,10 @@
 
 # Copyright (c) 2009, Willow Garage, Inc.
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 #     * Redistributions of source code must retain the above copyright
 #       notice, this list of conditions and the following disclaimer.
 #     * Redistributions in binary form must reproduce the above copyright
@@ -14,7 +14,7 @@
 #     * Neither the name of Willow Garage, Inc. nor the names of its
 #       contributors may be used to endorse or promote products derived from
 #       this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -43,6 +43,7 @@ import roslib
 import roslib.rospack
 import roslib.rosenv
 import roslib.stacks
+from roslib import rosshutil
 import threading
 import math
 
@@ -52,13 +53,6 @@ import package_stats
 from optparse import OptionParser
 
 import rosdep
-
-def make_command():
-    """
-    @return: name of 'make' command
-    @rtype: str
-    """
-    return os.environ.get("MAKE", "make")
 
 
 class RosMakeAll:
@@ -95,7 +89,7 @@ class RosMakeAll:
         if not package in self.paths:
             self.paths[package] = roslib.packages.get_pkg_dir(package)
         return self.paths[package]
-        
+
     def check_rosdep(self, packages):
         warning = ''
         try:
@@ -179,19 +173,23 @@ class RosMakeAll:
         @param package: package name
         @type  package: str
         """
-        local_env = os.environ.copy()
-        if self.ros_parallel_jobs > 0:
-            local_env['ROS_PARALLEL_JOBS'] = "-j%d" % self.ros_parallel_jobs
-        elif "ROS_PARALLEL_JOBS" not in os.environ: #if no environment setup and no args fall back to # cpus
-            local_env['ROS_PARALLEL_JOBS'] = "-j%d" % parallel_build.num_cpus()
-        local_env['SVN_CMDLINE'] = "svn --non-interactive"
-        cmd = ["bash", "-c", "cd %s && %s "%(self.get_path(package), make_command()) ] #UNIXONLY
+        env = {}
+        if sys.platform != "win32":
+            if self.ros_parallel_jobs > 0:
+                env['ROS_PARALLEL_JOBS'] = "-j%d" % self.ros_parallel_jobs
+            elif "ROS_PARALLEL_JOBS" not in os.environ: #if no environment setup and no args fall back to # cpus
+                env['ROS_PARALLEL_JOBS'] = "-j%d" % parallel_build.num_cpus()
+        env['SVN_CMDLINE'] = "svn --non-interactive"
+        cmd = "python rosmakeme.py "
         if argument:
-            cmd[-1] += argument
+            cmd += argument
         self.print_full_verbose (cmd)
-        command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT, env=local_env)
-        (pstd_out, pstd_err) = command_line.communicate() # pstd_err should be None due to pipe above
-        return (command_line.returncode, pstd_out)
+        working_dir=self.get_path(package)
+        ret_code, stdout, stderr = rosshutil.run_process('python rosmakeme.py',
+                working_dir=working_dir, exit_on_fail=0, extra_env=env,
+                communicate=False, merge_output=True)
+        self.print_verbose(stdout)
+        return ret_code, stdout
 
     def build(self, p, argument = None, robust_build=False):
         """
@@ -263,7 +261,7 @@ class RosMakeAll:
             self.print_verbose ("[SKIP] Package not found\n")
             self.output[argument][p] = "Package not found %s"%ex
             return (False, return_string)
-            
+
 
     def output_to_file(self, package, log_type, stdout, always_print= False):
         if not self.logging_enabled:
@@ -294,7 +292,7 @@ class RosMakeAll:
         if self.rejected_packages:
             self.print_all("WARNING: Skipped command line arguments: %s because they could not be resolved to a stack name or a package name. "%self.rejected_packages)
 
-                           
+
 
         if None in self.result.keys():
             if len(self.result[None].keys()) > 0:
@@ -337,8 +335,8 @@ class RosMakeAll:
         profile_filename = os.path.join(log_dir, "profile.txt")
         with open(profile_filename, 'w') as pf:
             pf.write(self.get_profile_string())
-                            
-                            
+
+
 
     def get_profile_string(self):
         output = '--------------\nProfile\n--------------\n'
@@ -373,8 +371,8 @@ class RosMakeAll:
             if "test" in self.profile.keys():
                 if key in self.profile["test"].keys():
                     test_time = self.profile["test"][key]
-                
-                    
+
+
             output = output + "%3d: %s in %d:%.2f %s in %.2f --- %s\n"% (count, build_results[build_result], math.floor(build_time/60), build_time%60 , test_results[test_result], test_time, key)
             total = total + build_time
             count = count + 1
@@ -433,23 +431,15 @@ class RosMakeAll:
                 ret_val &= True
             else:
                 self.print_all("Prebuilding %s"%pkg_name)
-                cmd = ["bash", "-c", "cd %s && %s "%(os.path.join(os.environ["ROS_ROOT"], pkg), make_command())]
-                command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT)
-                (pstd_out, pstd_err) = command_line.communicate() # pstd_err should be None due to pipe above
-                
-                self.print_verbose(pstd_out)
-                if command_line.returncode:
+                working_dir=os.path.join(os.environ["ROS_ROOT"], pkg)
+                ret_code, stdout, stderr = rosshutil.run_process('python rosmakeme.py',
+                        working_dir=working_dir, exit_on_fail=0,
+                        communicate=False, merge_output=True)
+                self.print_verbose(stdout)
+                if ret_code:
                     print >> sys.stderr, "Failed to build %s"%pkg_name
                     sys.exit(-1)
         return True
-            
-        # The check for presence doesn't check for updates
-        #if os.path.exists(os.path.join(os.environ["ROS_ROOT"], "bin/rospack")):
-        #    return True
-        #else:
-        #    print "Rosmake detected that rospack was not built.  Building it for you because it is required."
-        #    return subprocess.call(["make", "-C", os.path.join(os.environ["ROS_ROOT"], "tools/rospack")])
-
 
 
     def is_rosout_built(self):
@@ -458,7 +448,7 @@ class RosMakeAll:
         @rtype: bool
         """
         return os.path.exists(os.path.join(roslib.packages.get_pkg_dir("rosout"), "rosout"))
-            
+
 
     def main(self):
         """
@@ -505,11 +495,11 @@ class RosMakeAll:
                           action="store", help="Build up to N packages in parallel")
         parser.add_option("--profile", dest="print_profile", default=False,
                           action="store_true", help="print time profile after build")
-        parser.add_option("--skip-blacklist", dest="skip_blacklist", 
-                          default=False, action="store_true", 
+        parser.add_option("--skip-blacklist", dest="skip_blacklist",
+                          default=False, action="store_true",
                           help="skip packages containing a file called ROS_BUILD_BLACKLIST (Default behavior will ignore the presence of ROS_BUILD_BLACKLIST)")
-        parser.add_option("--skip-blacklist-osx", dest="skip_blacklist_osx", 
-                          default=False, action="store_true", 
+        parser.add_option("--skip-blacklist-osx", dest="skip_blacklist_osx",
+                          default=False, action="store_true",
                           help="deprecated option. it will do nothing, please use platform declarations and --require-platform instead")
 
         parser.add_option("--rosdep-install", dest="rosdep_install",
@@ -523,7 +513,7 @@ class RosMakeAll:
                           action="store_true", help="do not build a package unless it is marked as supported on this platform")
         parser.add_option("--require-platform-recursive", dest="obey_whitelist_recursively",
                           action="store_true", help="do not build a package unless it is marked as supported on this platform, and all dependents are also marked")
-        
+
 
         options, args = parser.parse_args()
 
@@ -559,26 +549,30 @@ class RosMakeAll:
         if options.build_all:
             packages = roslib.packages.list_pkgs()
             self.print_all( "Building all packages")
-        else:      # no need to extend if all already selected   
+        else:      # no need to extend if all already selected
             if options.buildtest:
               for p in options.buildtest:
-                packages.extend(roslib.rospack.rospack_depends_on(p)) 
+                packages.extend(roslib.rospack.rospack_depends_on(p))
                 self.print_all( "buildtest requested for package %s adding it and all dependent packages: "%p)
 
             if options.buildtest1:
               for p in options.buildtest1:
-                packages.extend(roslib.rospack.rospack_depends_on_1(p)) 
+                packages.extend(roslib.rospack.rospack_depends_on_1(p))
                 self.print_all( "buildtest1 requested for package %s adding it and all depends-on1 packages: "%p)
 
         if len(packages) == 0 and len(args) == 0:
             p = os.path.basename(os.path.abspath('.'))
             try:
-              if (os.path.samefile(roslib.packages.get_pkg_dir(p), '.')):
+              if sys.platform == 'win32':
+                samefile = true if roslib.packages.get_pkg_dir(p) == os.getcwd() else false
+              else:
+                samefile = os.path.samefile(roslib.packages.get_pkg_dir(p), '.')
+              if (samefile):
                 packages = [p]
                 self.print_all( "No package specified.  Building %s"%packages)
               else:
                 self.print_all("No package selected and the current directory is not the correct path for package '%s'."%p)
-                
+
             except roslib.packages.InvalidROSPkgException, ex:
                 try:
                     stack_dir = roslib.stacks.get_stack_dir(p)
@@ -597,7 +591,7 @@ class RosMakeAll:
             self.print_all("Detected rosout not built, adding it to the build")
 
         self.print_all( "Packages requested are: %s"%packages)
-        
+
 
         # Setup logging
         if self.logging_enabled:
@@ -642,7 +636,7 @@ class RosMakeAll:
         buildable_packages = []
         for p in required_packages:
             (buildable, error, str) = self.flag_tracker.can_build(p, self.obey_whitelist, self.obey_whitelist_recursively, self.skip_blacklist, [], False)
-            if buildable: 
+            if buildable:
                 buildable_packages.append(p)
 
         if options.rosdep_install:
@@ -680,7 +674,7 @@ class RosMakeAll:
             if pkg in self.specified_packages:
               new_list.append(pkg)
               self.dependency_tracker = parallel_build.DependencyTracker(self.specified_packages) # this will make the tracker only respond to packages in the list
-        
+
           self.print_all("specified-only option was used, only building packages %s"%new_list)
           self.build_list = new_list
 
@@ -713,7 +707,7 @@ class RosMakeAll:
             tests_passed = self.parallel_build_pkgs(build_queue, "test", threads = 1)
 
         if  options.mark_installed:
-            if build_passed and tests_passed: 
+            if build_passed and tests_passed:
                 for p in self.specified_packages:
                     if self.flag_tracker.add_nobuild(p):
                         self.print_all("Marking %s as installed with a ROS_NOBUILD file"%p)
@@ -723,7 +717,7 @@ class RosMakeAll:
 
         self.finish_time = time.time() #note: before profiling
         self.generate_summary_output(self.log_dir)
-        
+
         if options.print_profile:
             self.print_all (self.get_profile_string())
 

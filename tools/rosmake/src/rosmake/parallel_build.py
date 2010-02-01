@@ -50,6 +50,7 @@ def num_cpus():
   """
   Detects the number of CPUs on a system. Cribbed from pp.
   """
+  return 1 ## REMEMBERDELETE
   # Linux, Unix and MacOS:
   if hasattr(os, "sysconf"):
     if os.sysconf_names.has_key("SC_NPROCESSORS_ONLN"):
@@ -168,13 +169,13 @@ class BuildQueue:
     """ Return whether the build queue has completed all packages successfully. """
     return len( self.built)  == self._total_pkgs and self._done
 
-  def stop(self): 
+  def stop(self):
     """ Stop the build queue, including waking all blocking
     threads. It will not stop in flight builds."""
     self._done = True
     with self.condition:
       self.condition.notifyAll() # wake any blocking threads
-      
+
   def return_built(self, package): # mark that a package is built
     """ The thread which completes a package marks it as done with
     this method."""

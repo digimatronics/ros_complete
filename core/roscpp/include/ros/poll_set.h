@@ -37,8 +37,6 @@
 
 #include <vector>
 
-#include <poll.h>
-
 #include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
 #include <boost/thread/mutex.hpp>

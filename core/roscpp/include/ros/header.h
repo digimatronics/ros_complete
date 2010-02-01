@@ -35,7 +35,7 @@
 #ifndef ROSCPP_HEADER_H
 #define ROSCPP_HEADER_H
 
-#include <stdint.h>
+#include "types.h"
 
 #include <boost/shared_array.hpp>
 #include <boost/shared_ptr.hpp>

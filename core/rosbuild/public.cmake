@@ -142,7 +142,7 @@ macro(rosbuild_init)
   _rosbuild_check_manifest()
 
   # Add ROS_PACKAGE_NAME define
-  add_definitions(-DROS_PACKAGE_NAME='\"${PROJECT_NAME}\"')
+  add_definitions(-DROS_PACKAGE_NAME=\\\"${PROJECT_NAME}\\\")
 
   # ROS_BUILD_TYPE is set by rosconfig
   set(CMAKE_BUILD_TYPE ${ROS_BUILD_TYPE})
@@ -253,10 +253,11 @@ macro(rosbuild_init)
   rosbuild_invoke_rospack("" rostest path find rostest)
   
   # Record where we're going to put test results (#2003)
-  execute_process(COMMAND ${rostest_path}/bin/test-results-dir
+  execute_process(COMMAND python ${rostest_path}/bin/test-results-dir
                   OUTPUT_VARIABLE rosbuild_test_results_dir
                   RESULT_VARIABLE _test_results_dir_failed
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
+  file(TO_CMAKE_PATH "${rosbuild_test_results_dir}" rosbuild_test_results_dir)
   if(_test_results_dir_failed)
     message(FATAL_ERROR "Failed to invoke rostest/bin/test-results-dir")
   endif(_test_results_dir_failed)
@@ -727,24 +728,24 @@ macro(rosbuild_genmsg)
 endmacro(rosbuild_genmsg)
 
 macro(rosbuild_add_boost_directories)
-  execute_process(COMMAND "rosboost-cfg" "--include_dirs"
+  execute_process(COMMAND python "$ENV{ROS_ROOT}/bin/rosboost-cfg" "--include_dirs"
                   OUTPUT_VARIABLE BOOST_INCLUDE_DIRS
                   RESULT_VARIABLE _boostcfg_failed
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
-                  
+
   if (_boostcfg_failed)
     message(FATAL_ERROR "rosboost-cfg --include_dirs failed")
   endif(_boostcfg_failed)
-  
-  execute_process(COMMAND "rosboost-cfg" "--lib_dirs"
+
+  execute_process(COMMAND python "$ENV{ROS_ROOT}/bin/rosboost-cfg" "--lib_dirs"
                   OUTPUT_VARIABLE BOOST_LIB_DIRS
                   RESULT_VARIABLE _boostcfg_failed
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
-                  
+
   if (_boostcfg_failed)
     message(FATAL_ERROR "rosboost-cfg --lib_dirs failed")
   endif(_boostcfg_failed)
-  
+
   add_definitions(-DBOOST_CB_DISABLE_DEBUG)
   include_directories(${BOOST_INCLUDE_DIRS})
   link_directories(${BOOST_LIB_DIRS})
@@ -762,12 +763,12 @@ macro(rosbuild_link_boost target)
     endif(_first)
   endforeach(arg)
 
-  execute_process(COMMAND "rosboost-cfg" "--libs" ${_libs}
+  execute_process(COMMAND python "$ENV{ROS_ROOT}/bin/rosboost-cfg" "--libs" ${_libs}
                   OUTPUT_VARIABLE BOOST_LIBS
-		  ERROR_VARIABLE _boostcfg_error
+                  ERROR_VARIABLE _boostcfg_error
                   RESULT_VARIABLE _boostcfg_failed
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
-  
+
   if (_boostcfg_failed)
     message(FATAL_ERROR "[rosboost-cfg --libs ${_libs}] failed with error: ${_boostcfg_error}")
   endif(_boostcfg_failed)

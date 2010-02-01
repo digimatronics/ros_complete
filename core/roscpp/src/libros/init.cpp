@@ -32,6 +32,10 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
+// This stops windows.h including winsock, which, because there are no
+// inclusion guards in the winsock headers, causes it to blow up without this.
+#define _WINSOCKAPI_
+
 #include "ros/init.h"
 #include "ros/names.h"
 #include "ros/xmlrpc_manager.h"
@@ -44,7 +48,7 @@
 #include "ros/file_log.h"
 #include "ros/callback_queue.h"
 #include "ros/param.h"
-#include "ros/rosout_appender.h"
+//#include "ros/rosout_appender.h"
 #include "ros/transport/transport_tcp.h"
 
 #include "roscpp/GetLoggers.h"
@@ -56,10 +60,15 @@
 #include <roslib/Clock.h>
 
 #include <algorithm>
-
+#include <log4cxx/helpers/transcoder.h>
 #include <signal.h>
 
 #include <cstdlib>
+
+#if defined(WIN32)
+  #include <process.h>
+  #define getpid _getpid
+#endif
 
 namespace ros
 {
@@ -90,7 +99,7 @@ void init(const M_string& remappings);
 }
 
 CallbackQueuePtr g_global_queue;
-ROSOutAppenderPtr g_rosout_appender;
+//ROSOutAppenderPtr g_rosout_appender;
 static CallbackQueuePtr g_internal_callback_queue;
 
 static bool g_initialized = false;
@@ -162,11 +171,13 @@ bool getLoggers(roscpp::GetLoggers::Request&, roscpp::GetLoggers::Response& resp
   for (; it != end; ++it)
   {
     roscpp::Logger logger;
-    logger.name = (*it)->getName();
+    LOG4CXX_ENCODE_CHAR(temp_name, (*it)->getName());
+    logger.name = temp_name;
     const log4cxx::LevelPtr& level = (*it)->getEffectiveLevel();
     if (level)
     {
-      logger.level = level->toString();
+      LOG4CXX_ENCODE_CHAR(temp_level, level->toString());
+      logger.level = temp_level;
     }
     resp.loggers.push_back(logger);
   }
@@ -285,9 +296,12 @@ void start()
 
   if (!(g_init_options & init_options::NoRosout))
   {
-    g_rosout_appender = new ROSOutAppender;
-    const log4cxx::LoggerPtr& logger = log4cxx::Logger::getLogger(ROSCONSOLE_ROOT_LOGGER_NAME);
-    logger->addAppender(g_rosout_appender);
+    // TODO: figure out why this doesn't link in windows (probably something to
+    // do with cl's inability to properly link templates across DLL
+    // boundaries).
+    //g_rosout_appender = new ROSOutAppender;
+    //const log4cxx::LoggerPtr& logger = log4cxx::Logger::getLogger(ROSCONSOLE_ROOT_LOGGER_NAME);
+    //logger->addAppender(g_rosout_appender);
   }
 
   if (!g_shutting_down)
@@ -493,9 +507,10 @@ void shutdown()
     g_internal_queue_thread.join();
   }
 
-  const log4cxx::LoggerPtr& logger = log4cxx::Logger::getLogger(ROSCONSOLE_ROOT_LOGGER_NAME);
-  logger->removeAppender(g_rosout_appender);
-  g_rosout_appender = 0;
+  // TODO: figure out why this doesn't link in windows
+  //const log4cxx::LoggerPtr& logger = log4cxx::Logger::getLogger(ROSCONSOLE_ROOT_LOGGER_NAME);
+  //logger->removeAppender(g_rosout_appender);
+  //g_rosout_appender = NULL;
 
   if (g_started)
   {

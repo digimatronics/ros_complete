@@ -10,6 +10,8 @@
 #if defined(_WINDOWS)
 # include <stdio.h>
 # include <winsock2.h>
+# include <errno.h>
+# include <Ws2tcpip.h>
 //# pragma lib(WS2_32.lib)
 
 # define EINPROGRESS	WSAEINPROGRESS

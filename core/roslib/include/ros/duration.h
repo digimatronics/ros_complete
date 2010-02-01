@@ -39,10 +39,30 @@
 #include <math.h>
 #include <stdexcept>
 #include <climits>
-#include <stdint.h>
-
 #ifdef WIN32
-#include <windows.h>
+  #include <windows.h>
+  typedef          __int64  int64_t;
+  typedef unsigned __int64 uint64_t;
+  typedef          __int32  int32_t;
+  typedef unsigned __int32 uint32_t;
+  typedef          __int16  int16_t;
+  typedef unsigned __int16 uint16_t;
+  typedef          __int8    int8_t;
+  typedef unsigned __int8   uint8_t;
+#else
+  #include <stdint.h>
+#endif
+
+#if defined(WIN32)
+  #if defined(ROS_STATIC)
+    #define ROSLIB_EXPORT
+  #elif defined(roslib_EXPORTS)
+    #define ROSLIB_EXPORT __declspec(dllexport)
+  #else
+    #define ROSLIB_EXPORT __declspec(dllimport)
+  #endif
+#else
+  #define ROSLIB_EXPORT
 #endif
 
 namespace ros
@@ -120,7 +140,7 @@ public:
  *
  * ros::DurationBase provides most of its functionality.
  */
-class Duration : public DurationBase<Duration>
+class ROSLIB_EXPORT Duration : public DurationBase<Duration>
 {
 public:
   Duration()
@@ -147,7 +167,7 @@ extern const Duration DURATION_MIN;
  *
  * ros::DurationBase provides most of its functionality.
  */
-class WallDuration : public DurationBase<WallDuration>
+class ROSLIB_EXPORT WallDuration : public DurationBase<WallDuration>
 {
 public:
   WallDuration()

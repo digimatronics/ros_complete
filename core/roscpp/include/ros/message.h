@@ -34,7 +34,8 @@
 #include <string.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/array.hpp>
-#include <stdint.h>
+
+#include "types.h"
 
 #define ROSCPP_MESSAGE_HAS_DEFINITION
 

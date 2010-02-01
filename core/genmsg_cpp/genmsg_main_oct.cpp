@@ -55,13 +55,13 @@ public:
         string tgt_dir = g_path + string("/oct/") + g_pkg;
         if (access(oct_dir.c_str(), F_OK))
             if (mkdir(oct_dir.c_str(), 0755) && (errno != EEXIST)) {
-                printf("woah! error from mkdir: [%s]\n", strerror(errno));
+                printf("Error from mkdir: [%s]\n", strerror(errno));
                 exit(5);
             }
 
         if (access(tgt_dir.c_str(), F_OK) != 0)
             if (mkdir(tgt_dir.c_str(), 0755) && (errno != EEXIST)) {
-                printf("woah! error from mkdir: [%s]\n", strerror(errno));
+                printf("Error from mkdir: [%s]\n", strerror(errno));
                 exit(5);
             }
 
@@ -70,7 +70,7 @@ public:
         snprintf(fname, PATH_MAX, "%s/%s_%s.m", tgt_dir.c_str(), g_pkg.c_str(), g_name.c_str());
         FILE *f = fopen(fname, "w");
         if (!f) {
-            printf("woah! couldn't write to %s\n", fname);
+            printf("Couldn't write to %s\n", fname);
             exit(7);
         }
 

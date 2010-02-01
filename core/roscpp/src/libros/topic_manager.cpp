@@ -25,6 +25,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// This stops windows.h including winsock, which, because there are no
+// inclusion guards in the winsock headers, causes it to blow up without this.
+#define _WINSOCKAPI_
+
 #include "ros/topic_manager.h"
 #include "ros/xmlrpc_manager.h"
 #include "ros/connection_manager.h"
@@ -36,7 +40,7 @@
 #include "ros/master.h"
 #include "ros/transport/transport_tcp.h"
 #include "ros/transport/transport_udp.h"
-#include "ros/rosout_appender.h"
+//#include "ros/rosout_appender.h"
 #include "ros/init.h"
 #include "ros/file_log.h"
 
@@ -848,7 +852,7 @@ void TopicManager::getBusInfo(XmlRpcValue &info)
   }
 }
 
-extern ROSOutAppenderPtr g_rosout_appender;
+//extern ROSOutAppenderPtr g_rosout_appender;
 
 void TopicManager::pubUpdateCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
 {
@@ -864,10 +868,10 @@ void TopicManager::pubUpdateCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpc
   else
   {
     std::string last_error = "Unknown Error";
-    if ( g_rosout_appender != 0 )
-    {
-      last_error = g_rosout_appender->getLastError();
-    }
+    //if ( g_rosout_appender != 0 )
+    //{
+      //last_error = g_rosout_appender->getLastError();
+    //}
 
     result = xmlrpc::responseInt(0, last_error, 0);
   }
@@ -878,10 +882,10 @@ void TopicManager::requestTopicCallback(XmlRpc::XmlRpcValue& params, XmlRpc::Xml
   if (!requestTopic(params[1], params[2], result))
   {
     std::string last_error = "Unknown Error";
-    if ( g_rosout_appender != 0 )
-    {
-      last_error = g_rosout_appender->getLastError();
-    }
+    //if ( g_rosout_appender != 0 )
+    //{
+      //last_error = g_rosout_appender->getLastError();
+    //}
 
     result = xmlrpc::responseInt(0, last_error, 0);
   }

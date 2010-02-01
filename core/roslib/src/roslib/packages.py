@@ -194,7 +194,7 @@ def get_pkg_dir(package, required=True, ros_root=None, ros_package_path=None):
         # update cache if we haven't. NOTE: we only get one cache
         if not _pkg_dir_cache:
             _read_rospack_cache(_pkg_dir_cache, ros_root, ros_package_path)
-            
+
         # now that we've resolved the args, check the cache
         if package in _pkg_dir_cache:
             dir_, rr, rpp = _pkg_dir_cache[package]
@@ -204,7 +204,7 @@ def get_pkg_dir(package, required=True, ros_root=None, ros_package_path=None):
                 else:
                     # invalidate cache
                     _invalidate_cache(_pkg_dir_cache)
-            
+
         rpout, rperr = Popen([rospack, 'find', package], \
                                  stdout=PIPE, stderr=PIPE, env=penv).communicate()
 
@@ -376,10 +376,10 @@ def list_pkgs(pkg_dirs=None, cache=None):
     NOTE: use of pkg_dirs argument is DEPRECATED. Use
     list_pkgs_by_path() instead, which has clearer meaning with the
     cache.
-    
+
     @param pkg_dirs: (optional) list of paths to search for packages
     @type  pkg_dirs: [str]
-    
+
     @param cache: Empty dictionary to store package list in.     
         The format of the cache is {package_name: dir_path, ros_root, ros_package_path}.
     @type  cache: {str: str, str, str}
@@ -394,7 +394,7 @@ def list_pkgs(pkg_dirs=None, cache=None):
             # TODO: this cache can be out-of-date if rospack has not
             # been run recently. Figure out correct approach for
             # out-of-date cache.
-            
+
             # TODO: we don't have any logic go populate user-specified
             # cache in most optimal way
             cache = _pkg_dir_cache
@@ -417,7 +417,7 @@ def list_pkgs_by_path(path, packages=None, cache=None):
     Optionally, a cache dictionary can be provided, which will be
     updated with the package->path mappings. list_pkgs_by_path() does
     NOT returned cached results -- it only updates the cache.
-    
+
     @param path: path to list packages in
     @type  path: str
     @param packages: list of packages to append to. If package is

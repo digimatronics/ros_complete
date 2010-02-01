@@ -34,8 +34,24 @@
 
 #include <cstdio>
 #include "utils.h"
-#include <sys/param.h>
+#if !defined(WIN32)
+  #include <sys/param.h>
+#endif
 #include <cstdlib>
+
+#if defined(WIN32)
+  #include <direct.h>
+  #include <windows.h>
+  #include <io.h>
+  #define popen _popen
+  #define pclose _pclose
+  #define PATH_MAX MAX_PATH
+  #define PATH_SEP "\\"
+  #define PATH_SEP_CHAR '\\'
+#else
+  #define PATH_SEP "/"
+  #define PATH_SEP_CHAR '/'
+#endif
 
 using namespace std;
 
@@ -78,32 +94,40 @@ void split_path(const string &full_path, string &msg_path,
                 string &msg_pkg, string &msg_name)
 {
   vector<string> tokens;
-  string_split(full_path, tokens, string("/"));
+  string_split(full_path, tokens, string(PATH_SEP));
   if (tokens.size() < 3)
   {
-    printf("woah! error in split_path. not enough tokens. very bad.\n");
+    printf("Error in split_path. not enough tokens. very bad.\n");
     exit(3);
   }
-  msg_path = string_join(tokens, string("/"));
+  msg_path = string_join(tokens, string(PATH_SEP));
   msg_name = tokens[tokens.size()-1];
   msg_name = msg_name.substr(0, msg_name.length() - 4);
   msg_pkg = tokens[tokens.size()-3];
   tokens.erase(tokens.end()-1);
-  msg_path = string_join(tokens, string("/"));
+  msg_path = string_join(tokens, string(PATH_SEP));
 }
 
 string expand_path(const string &path)
 {
-  if (path[0] == '/')
+  if (path[0] == PATH_SEP_CHAR)
     return path;
   else
   {
     char resolved[PATH_MAX];
+#if defined(WIN32)
+    if(!_fullpath(resolved, path.c_str(), PATH_MAX))
+    {
+      perror("_fullpath() failed");
+      exit(4);
+    }
+#else
     if(!realpath(path.c_str(), resolved))
     {
       perror("realpath() failed");
       exit(4);
     }
+#endif
     return string(resolved);
   }
 }

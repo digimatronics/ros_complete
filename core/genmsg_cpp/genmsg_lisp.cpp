@@ -662,7 +662,7 @@ public:
     else if (type == "duration")
       return "ros::Duration";
     else
-      return string("\n#error woah! unhandled primitive type ") + type +
+      return string("\n#error Unhandled primitive type ") + type +
              string("\n");
   }
   virtual string length_expr()
@@ -685,7 +685,7 @@ public:
       return string("4 ") + string("(length ") + name +
               string(")");
     else
-      return "\n#error woah! bogus length_expr in var_primitive\n";
+      return "\n#error Bad length_expr in var_primitive\n";
   }
   virtual bool is_fixed_length()
   {
@@ -737,7 +737,7 @@ public:
              indent_str + "  " + prefix + string(".") + name +
              string(" = \"blahblahblah\";\n");
     else
-      return string("\n#error woah! bogus primitive type\n");
+      return string("\n#error Bad primitive type\n");
   }
   virtual string equals(const string &prefix, int indent = 0)
   {
@@ -1167,7 +1167,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   token = strtok(NULL, " \n");
   if (!token)
   {
-    printf("woah! on line %d of %s, there was only one token.\n",
+    printf("On line %d of %s, there was only one token.\n",
            linenum, spec_file.c_str());
     printf("each line needs to have two tokens: the first is the type\n" \
            "and the second is the variable name.\n");
@@ -1221,7 +1221,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   token = strtok(NULL, " \n\t=");
   if (!token)
   {
-    printf("woah! on line %d of %s, there was only one token.\n",
+    printf("On line %d of %s, there was only one token.\n",
            linenum, spec_file.c_str());
     printf("each line needs to have two tokens: the first is the type\n" \
            "and the second is the variable name.\n");
@@ -1238,7 +1238,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   }
   if (!constant_allowed)
   {
-    printf("woah! constants are only allowed on primitive numeric types and "
+    printf("Constants are only allowed on primitive numeric types and "
            "strings.\n");
     exit(7);
   }
@@ -1635,7 +1635,7 @@ void write_depfile( const char *filename, const set<string> &deps )
   dependencies_file = fopen(filename, "w");
   if (!dependencies_file)
   {
-      printf("woah! couldn't write to %s\n", filename);
+      printf("Couldn't write to %s\n", filename);
       exit(7);
   }
   for( set<string>::iterator it=deps.begin();

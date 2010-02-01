@@ -39,13 +39,25 @@
 
 #include "ros/time.h"
 
+#if defined(WIN32)
+  #if defined(ROS_STATIC)
+    #define ROSLIB_EXPORT
+  #elif defined(roslib_EXPORTS)
+    #define ROSLIB_EXPORT __declspec(dllexport)
+  #else
+    #define ROSLIB_EXPORT __declspec(dllimport)
+  #endif
+#else
+  #define ROSLIB_EXPORT
+#endif
+
 namespace ros
 {
 /**
  * @class Rate
  * @brief Class to help run loops at a desired frequency
  */
-class Rate
+class ROSLIB_EXPORT Rate
 {
 public:
   /**
@@ -85,7 +97,7 @@ private:
  * @class WallRate
  * @brief Class to help run loops at a desired frequency.  This version always uses wall-clock time.
  */
-class WallRate
+class ROSLIB_EXPORT WallRate
 {
 public:
   /**

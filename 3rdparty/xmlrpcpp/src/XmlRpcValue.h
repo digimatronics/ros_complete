@@ -15,11 +15,13 @@
 # include <time.h>
 #endif
 
+#include "XmlRpcDllExport.h"
+
 namespace XmlRpc {
 
   //! RPC method arguments and results are represented by Values
   //   should probably refcount them...
-  class XmlRpcValue {
+  class XMLRPC_EXPORT XmlRpcValue {
   public:
 
 
@@ -187,7 +189,7 @@ namespace XmlRpc {
 } // namespace XmlRpc
 
 
-std::ostream& operator<<(std::ostream& os, XmlRpc::XmlRpcValue& v);
+XMLRPC_EXPORT std::ostream& operator<<(std::ostream& os, XmlRpc::XmlRpcValue& v);
 
 
 #endif // _XMLRPCVALUE_H_

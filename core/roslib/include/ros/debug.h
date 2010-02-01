@@ -30,12 +30,24 @@
 
 #include <string>
 
+#if defined(WIN32)
+  #if defined(ROS_STATIC)
+    #define ROSLIB_EXPORT
+  #elif defined(roslib_EXPORTS)
+    #define ROSLIB_EXPORT __declspec(dllexport)
+  #else
+    #define ROSLIB_EXPORT __declspec(dllimport)
+  #endif
+#else
+  #define ROSLIB_EXPORT
+#endif
+
 namespace ros
 {
 
 namespace debug
 {
-std::string getBacktrace();
+ROSLIB_EXPORT std::string getBacktrace();
 }
 
 }

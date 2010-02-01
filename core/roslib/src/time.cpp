@@ -48,8 +48,8 @@
   #include <sys/time.h>
   #endif
 #else
+  #include <rosconsole/macros_generated.h>
   #include <sys/timeb.h>
-  ros::Time ros::Time::start_time;
 #endif
 
 using namespace ros;
@@ -59,6 +59,8 @@ using namespace std;
 ros::Time ros::Time::sim_time_(0, 0);
 bool ros::Time::use_system_time_(true);
 
+#undef min
+#undef max
 const Duration ros::DURATION_MAX(std::numeric_limits<int32_t>::max(), 999999999);
 const Duration ros::DURATION_MIN(std::numeric_limits<int32_t>::min(), 0);
 
@@ -104,8 +106,9 @@ void getWallTime(uint32_t& sec, uint32_t& nsec)
     QueryPerformanceFrequency(&cpu_freq);
     if (cpu_freq.QuadPart == 0)
     {
-      ROS_INFO("woah! this system (for whatever reason) does not support the "
-             "high-performance timing API. ur done.\n");
+      // TODO: This breaks badly. Figure out why.
+      //ROS_INFO("This system (for whatever reason) does not support the "
+               //"high-performance timing API.\n");
       abort();
     }
     QueryPerformanceCounter(&init_cpu_time);
@@ -130,7 +133,7 @@ void getWallTime(uint32_t& sec, uint32_t& nsec)
   LARGE_INTEGER delta_cpu_time;
   delta_cpu_time.QuadPart = cur_time.QuadPart - init_cpu_time.QuadPart;
   // todo: how to handle cpu clock drift. not sure it's a big deal for us.
-  // also, think about clock wraparound. seems extremely unlikey, but possible
+  // also, think about clock wraparound. seems extremely unlikely, but possible
   double d_delta_cpu_time = delta_cpu_time.QuadPart / (double)cpu_freq.QuadPart;
   Time t(start_time + Duration(d_delta_cpu_time));
 
@@ -200,13 +203,56 @@ bool Time::sleepUntil(const Time& end)
   else
   {
     Time start = Time::now();
-    struct timespec ts = {0, 1000000};
     while (!g_stopped && (Time::now() < end))
     {
+#if defined(WIN32)
+      // Taken from Player's libreplace, which I wrote - Geoff.
+      // TODO: Figure out what the proper error message display method is here.
+      HANDLE timer = NULL;
+      LARGE_INTEGER sleepTime;
+
+      sleepTime.QuadPart = 1000000 / 100;
+
+      timer = CreateWaitableTimer(NULL, TRUE, NULL);
+      if (timer == NULL)
+      {
+        LPVOID buffer = NULL;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+                GetLastError(), 0, (LPTSTR) &buffer, 0, NULL);
+        fprintf(stderr, "nanosleep: CreateWaitableTimer failed: (%d) %s\n",
+                GetLastError(), (LPTSTR) buffer);
+        LocalFree(buffer);
+        abort();
+      }
+
+      if (!SetWaitableTimer (timer, &sleepTime, 0, NULL, NULL, 0))
+      {
+        LPVOID buffer = NULL;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+                GetLastError(), 0, (LPTSTR) &buffer, 0, NULL);
+        fprintf(stderr, "nanosleep: SetWaitableTimer failed: (%d) %s\n",
+                GetLastError(), (LPTSTR) buffer);
+        LocalFree(buffer);
+        abort();
+      }
+
+      if (WaitForSingleObject (timer, INFINITE) != WAIT_OBJECT_0)
+      {
+        LPVOID buffer = NULL;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+                GetLastError(), 0, (LPTSTR) &buffer, 0, NULL);
+        fprintf(stderr, "nanosleep: WaitForSingleObject failed: (%d) %s\n",
+                GetLastError(), (LPTSTR) buffer);
+        LocalFree(buffer);
+        abort();
+      }
+#else
+      struct timespec ts = {0, 1000000};
       if (nanosleep(&ts, NULL))
       {
        return false;
       }
+#endif // defined(WIN32)
 
       if (Time::now() < start)
       {
@@ -231,6 +277,51 @@ bool WallTime::sleepUntil(const WallTime& end)
 
 bool wallSleep(uint32_t sec, uint32_t nsec)
 {
+#if defined(WIN32)
+      // Taken from Player's libreplace, which I wrote - Geoff.
+      // There is no way to tell if the sleep was interrupted.
+      // The resolution of this is 100 nanoseconds, despite the argument being
+      // seconds and nanoseconds.
+      // TODO: Figure out what the proper error message display method is here.
+      HANDLE timer = NULL;
+      LARGE_INTEGER sleepTime;
+
+      sleepTime.QuadPart = sec * 1000000000 + nsec / 100;
+
+      timer = CreateWaitableTimer(NULL, TRUE, NULL);
+      if (timer == NULL)
+      {
+        LPVOID buffer = NULL;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+                GetLastError(), 0, (LPTSTR) &buffer, 0, NULL);
+        fprintf(stderr, "nanosleep: CreateWaitableTimer failed: (%d) %s\n",
+                GetLastError(), (LPTSTR) buffer);
+        LocalFree(buffer);
+        abort();
+      }
+
+      if (!SetWaitableTimer (timer, &sleepTime, 0, NULL, NULL, 0))
+      {
+        LPVOID buffer = NULL;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+                GetLastError(), 0, (LPTSTR) &buffer, 0, NULL);
+        fprintf(stderr, "nanosleep: SetWaitableTimer failed: (%d) %s\n",
+                GetLastError(), (LPTSTR) buffer);
+        LocalFree(buffer);
+        abort();
+      }
+
+      if (WaitForSingleObject (timer, INFINITE) != WAIT_OBJECT_0)
+      {
+        LPVOID buffer = NULL;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL,
+                GetLastError(), 0, (LPTSTR) &buffer, 0, NULL);
+        fprintf(stderr, "nanosleep: WaitForSingleObject failed: (%d) %s\n",
+                GetLastError(), (LPTSTR) buffer);
+        LocalFree(buffer);
+        abort();
+      }
+#else
   struct timespec ts = {sec, nsec};
   struct timespec rem;
 
@@ -238,6 +329,7 @@ bool wallSleep(uint32_t sec, uint32_t nsec)
   {
     ts = rem;
   }
+#endif // defined(WIN32)
 
   return !g_stopped;
 }

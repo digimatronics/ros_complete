@@ -32,6 +32,11 @@
 #include "ros/common.h"
 #include "ros/file_log.h"
 
+#if defined(WIN32)
+  #include <process.h>
+  #define getpid _getpid
+#endif
+
 using namespace XmlRpc;
 
 namespace ros

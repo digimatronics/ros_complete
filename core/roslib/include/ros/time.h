@@ -45,6 +45,19 @@
 
 #ifdef WIN32
 #include <windows.h>
+#define round(a) (floor(a + 0.5))
+#endif
+
+#if defined(WIN32)
+  #if defined(ROS_STATIC)
+    #define ROSLIB_EXPORT
+  #elif defined(roslib_EXPORTS)
+    #define ROSLIB_EXPORT __declspec(dllexport)
+  #else
+    #define ROSLIB_EXPORT __declspec(dllimport)
+  #endif
+#else
+  #define ROSLIB_EXPORT
 #endif
 
 namespace ros
@@ -140,7 +153,7 @@ public:
  *
  * ros::TimeBase provides most of its functionality.
  */
-class Time : public TimeBase<Time, Duration>
+class ROSLIB_EXPORT Time : public TimeBase<Time, Duration>
 {
 public:
   Time()
@@ -180,7 +193,7 @@ extern const Time TIME_MIN;
  *
  * ros::TimeBase provides most of its functionality.
  */
-class WallTime : public TimeBase<WallTime, WallDuration>
+class ROSLIB_EXPORT WallTime : public TimeBase<WallTime, WallDuration>
 {
 public:
   WallTime()
@@ -204,8 +217,8 @@ public:
   static bool sleepUntil(const WallTime& end);
 };
 
-std::ostream &operator <<(std::ostream &os, const Time &rhs);
-std::ostream &operator <<(std::ostream &os, const WallTime &rhs);
+ROSLIB_EXPORT std::ostream &operator <<(std::ostream &os, const Time &rhs);
+ROSLIB_EXPORT std::ostream &operator <<(std::ostream &os, const WallTime &rhs);
 
 template<class T, class D>
 T& TimeBase<T, D>::fromNSec(uint64_t t)

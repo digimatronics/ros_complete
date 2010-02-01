@@ -51,6 +51,7 @@ import redhat
 import gentoo
 import macports
 import arch
+import windows
 import core
 import cygwin
 
@@ -158,8 +159,8 @@ class RosdepLookupPackage:
 
         if package:
             self.load_for_package(package, yaml_cache.rp)
-        
-        
+
+
 
     def load_for_package(self, package, ros_package_proxy):
         try:
@@ -191,7 +192,7 @@ class RosdepLookupPackage:
                         paths.add( os.path.join(roslib.stacks.get_stack_dir(s), "rosdep.yaml"))
                     except AttributeError, ex:
                         print "Stack [%s] dependency of [%s] could not be found"%(s, stack)
-                        
+
             else:
                 paths.add( os.path.join(roslib.packages.get_pkg_dir(p), "rosdep.yaml"))
         for path in paths:
@@ -210,8 +211,6 @@ class RosdepLookupPackage:
             if not rosdep_entry: # if no match don't do anything
                 continue # matches for loop
             if key in self.rosdep_source:
-
-
                 if override:
                     print >>sys.stderr, "ROSDEP_OVERRIDE: %s being overridden with %s from %s"%(key, yaml_dict[key], source_path)
                     self.rosdep_source[key].append("Overriding with "+source_path)
@@ -223,7 +222,6 @@ class RosdepLookupPackage:
                         pass
                     else:
                         raise RosdepException("QUITTING: due to conflicting rosdep definitions, please resolve this conflict. Rules for %s do not match.  These two rules do not match: \n{{{"%key, self.rosdep_map[key],"}}}, from %s, \n{{{"%self.rosdep_source[key], self.yaml_cache.get_os_from_yaml(yaml_dict[key], source_path), "}}} from %s"%source_path)
-                        
             else:
                 self.rosdep_source[key] = [source_path]
                 self.rosdep_map[key] = rosdep_entry
@@ -244,10 +242,10 @@ class RosdepLookupPackage:
         else:
             print >> sys.stderr, "Failed to find rosdep %s for package %s"%(rosdep, self.package)
             return False
-        
+
     def get_map(self):
         return self.rosdep_map
-        
+
 
     def get_sources(self, rosdep):
         if rosdep in self.rosdep_source:
@@ -258,24 +256,27 @@ class RosdepLookupPackage:
 
 
 
- 
+
 
 class Rosdep:
     def __init__(self, packages, command = "rosdep", robust = False):
-        os_list = [debian.RosdepTestOS(), debian.Debian(), debian.Ubuntu(), debian.Mint(), redhat.Fedora(), redhat.Rhel(), arch.Arch(), macports.Macports(), gentoo.Gentoo(), cygwin.Cygwin()]
+        os_list = [debian.RosdepTestOS(), debian.Debian(), debian.Ubuntu(),
+                   debian.Mint(), redhat.Fedora(), redhat.Rhel(),
+                   arch.Arch(), macports.Macports(), gentoo.Gentoo(),
+                   cygwin.Cygwin(), windows.Windows()]
         self.osi = roslib.os_detect.OSDetect(os_list)
         self.packages = packages
         self.rosdeps = roslib.packages.rosdeps_of(packages)
         rp = roslib.packages.ROSPackages()
         self.rosdeps = rp.rosdeps(packages)
         self.robust = robust
-        
+
 
 
     def get_rosdep0(self, package):
         m = roslib.manifest.load_manifest(package)
         return [d.name for d in m.rosdeps]
-            
+
 
     def get_packages_and_scripts(self):
         if len(self.packages) == 0:
@@ -312,8 +313,34 @@ class Rosdep:
 
         return (list(set(native_packages)), list(set(scripts)))
 
+    def get_dep_names(self):
+        result = []
+        failed_rosdeps = []
+        yc = YamlCache(self.osi.get_name(), self.osi.get_version())
+        for p in self.packages:
+            rdlp = RosdepLookupPackage(self.osi.get_name(),
+                    self.osi.get_version(), p, yc)
+            for r in self.rosdeps[p]:
+                specific = rdlp.lookup_rosdep(r)
+                if specific:
+                    if len(specific.split('\n')) == 1:
+                        for pk in specific.split():
+                            result.append(pk)
+                    else:
+                        result.append(r)
+                else:
+                    failed_rosdeps.append(r)
+
+        if len(failed_rosdeps) > 0:
+            if not self.robust:
+                raise RosdepException("Aborting: Rosdeps %s could not be resolved" % failed_rosdeps)
+            else:
+                print >>sys.stderr, "Warning: Rosdeps %s could not be resolved" % failed_rosdeps
+
+        return tuple(set(result))
+
     def get_native_packages(self):
-        return get_packages_and_scripts()[0]
+        return self.get_packages_and_scripts()[0]
 
     def generate_script(self, include_duplicates=False, default_yes = False):
         native_packages, scripts = self.get_packages_and_scripts()
@@ -321,7 +348,7 @@ class Rosdep:
             self.osi.get_os().strip_detected_packages(native_packages)
         return "set -o errexit\n" + self.osi.get_os().generate_package_install_command(undetected, default_yes) + \
             "\n".join(["\n%s"%sc for sc in scripts])
-        
+
     def check(self):
         native_packages = []
         scripts = []
@@ -348,19 +375,32 @@ class Rosdep:
             matches = [r for r in rosdep_args if r in rosdeps_needed]
             for r in matches:
                 packages.append(p)
-                
+
         return packages
 
     def install(self, include_duplicates, default_yes):
+        if sys.platform == 'win32':
+            # Temporary solution: ask the user to install the dependencies.
+            print 'Please install the following dependencies and enter \
+"y" to continue, or "n" to abort.'
+            for n in self.get_dep_names():
+                print n
+            while True:
+                ans = raw_input('Continue? (y/n) ')
+                if ans.lower() == 'y':
+                    return 0
+                elif ans.lower() == 'n':
+                    return 1
         with tempfile.NamedTemporaryFile() as fh:
             script = self.generate_script(include_duplicates, default_yes)
             fh.write(script)
             fh.flush()
-            
+
             print "executing this script:\n %s"%script
             p= subprocess.Popen(['bash', fh.name])
             p.communicate()
-                    
+            return 0
+
     def depdb(self, packages):
         output = "Rosdep dependencies for operating system %s version %s "%(self.osi.get_name(), self.osi.get_version())
         yc = YamlCache(self.osi.get_name(), self.osi.get_version())
@@ -376,7 +416,7 @@ class Rosdep:
         output = ""
         locations = {}
         rdlp = RosdepLookupPackage(self.osi.get_name(), self.osi.get_version(), None, YamlCache(self.osi.get_name(), self.osi.get_version()))
-        
+
         for r in rosdeps:
             locations[r] = set()
 
@@ -385,7 +425,7 @@ class Rosdep:
         for r in rosdeps:
             if r in rosdep_dict:
                 locations[r].add("Override:"+path)
-            
+
 
         for p in roslib.packages.list_pkgs():
             path = os.path.join(roslib.packages.get_pkg_dir(p), "rosdep.yaml")

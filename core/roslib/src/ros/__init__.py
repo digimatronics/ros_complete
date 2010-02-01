@@ -45,7 +45,7 @@ import roslib
 if 'ROS_ROOT' not in os.environ or os.environ['ROS_ROOT'] == '/usr/lib/ros':
     import roslib.env
     roslib.env.setup_default_environment()
-    
+
 ## @internal
 class Module(object):
     def __init__(self, wrapped):

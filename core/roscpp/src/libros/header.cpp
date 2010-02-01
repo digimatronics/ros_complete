@@ -40,7 +40,6 @@
 
 #include <sstream>
 
-#include <sys/socket.h>
 #include <cerrno>
 
 using namespace std;
@@ -164,3 +163,4 @@ void Header::write(const M_string& key_vals, boost::shared_array<uint8_t>& buffe
 }
 
 }
+

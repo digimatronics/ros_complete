@@ -25,6 +25,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// This stops windows.h including winsock, which, because there are no
+// inclusion guards in the winsock headers, causes it to blow up without this.
+#define _WINSOCKAPI_
+
 #include <cstdio>
 #include "ros/service_manager.h"
 #include "ros/xmlrpc_manager.h"

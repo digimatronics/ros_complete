@@ -344,12 +344,31 @@ class Gentoo(OSBase):
 ###### END Gentoo Sepcialization ###############################
 
 
+###### Arch SPECIALIZATION #########################
+class Windows(OSBase):
+    '''Class for detecting and interacting with Windows.'''
+    def check_presence(self):
+        if sys.platform == 'win32':
+            return True
+        return False
+
+    def get_version(self):
+        return '%d.%d.%d.%d.%s' % sys.getwindowsversion()
+
+    def get_name(self):
+        # getwindowsversion()[3] can be used to determine the specific type of
+        # Windows installed, but for our purposes it is sufficient to know that
+        # it is "Windows."
+        return 'windows'
+###### END Arch SPECIALIZATION ########################
+
+
 #### Override class for debugging and unsupported OSs ###########
 class Override(OSBase):
     def __init__(self):
         self._os_name = "uninitialized from ROS_OS_OVERRIDE=name:version"
         self._os_version = "uninitialized from ROS_OS_OVERRIDE=name:version"
-        
+
     def check_presence(self):
         try:
             (self._os_name, self._os_version) = os.environ["ROS_OS_OVERRIDE"].split(':')
@@ -357,13 +376,13 @@ class Override(OSBase):
             return True
         except:
             return False
-    
+
     def get_version(self):
         return self._os_version
 
     def get_name(self):
         return self._os_name
-    
+
 
 
 
@@ -371,7 +390,7 @@ class Override(OSBase):
 class OSDetect:
     """ This class will iterate over registered classes to lookup the
     active OS and version"""
-    def __init__(self, os_list = [Debian(), Ubuntu(), Mint(), Macports(), Arch(), Fedora(), Rhel(), Gentoo(), Cygwin()]):
+    def __init__(self, os_list = [Debian(), Ubuntu(), Mint(), Macports(), Arch(), Fedora(), Rhel(), Gentoo(), Cygwin(), Windows()]):
         self._os_list = [ Override()]
         self._os_list.extend(os_list)
 

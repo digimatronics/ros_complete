@@ -10,6 +10,12 @@ CHECK_FUNCTION_EXISTS(trunc HAVE_TRUNC)
 CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+# Need to figure out how to get this info from rosconsole
+find_library(log4cxx_lib log4cxx)
+if(log4cxx_lib STREQUAL "log4cxx_lib-NOTFOUND")
+  message(FATAL_ERROR "Could not find log4cxx.lib. Set CMAKE_LIBRARY_PATH.")
+endif(log4cxx_lib STREQUAL "log4cxx_lib-NOTFOUND")
+
 rosbuild_add_boost_directories()
 
 rosbuild_add_library(ros 
@@ -59,4 +65,8 @@ rosbuild_add_library(ros
                     wall_timer.cpp
                     )
 target_link_libraries(ros)
+if(WIN32)
+  target_link_libraries(ros ${log4cxx_lib})
+  target_link_libraries(ros ws2_32)
+endif(WIN32)
 rosbuild_link_boost(ros thread signals filesystem system)

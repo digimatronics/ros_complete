@@ -75,7 +75,14 @@ endif(NOT DEFINED ROS_BUILD_STATIC_LIBS)
 # Default compile flags for all source files
 include(CheckCXXCompilerFlag)
 if(NOT DEFINED ROS_COMPILE_FLAGS)
-  set(ROS_COMPILE_FLAGS "-W -Wall -Wno-unused-parameter -fno-strict-aliasing")
+  if(WIN32)
+    # cl has different warning switches (need to figure out which to use)
+    # Also, -Wall is a really bad idea because the Windows libraries are full
+    # of warnings.
+    set(ROS_COMPILE_FLAGS "")
+  else(WIN32)
+    set(ROS_COMPILE_FLAGS "-W -Wall -Wno-unused-parameter -fno-strict-aliasing")
+  endif(WIN32)
   # Old versions of gcc need -pthread to enable threading, #2095.  
   # Also, some linkers, e.g., goLD, require -pthread (or another way to
   # generate -lpthread).

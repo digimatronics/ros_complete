@@ -32,7 +32,6 @@
 #include "common.h"
 #include "subscribe_options.h"
 #include "advertise_options.h"
-#include "rosout_appender.h"
 
 #include "XmlRpcValue.h"
 

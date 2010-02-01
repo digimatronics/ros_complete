@@ -33,6 +33,11 @@
  */
 
 #include "ros/transport/transport_tcp.h"
+#if defined(WIN32)
+  // This has to go after winsock2.h because MS didn't put proper inclusion
+  // guards and #define guards in their headers.
+  #include <Ws2tcpip.h>
+#endif
 #include "ros/poll_set.h"
 #include "ros/header.h"
 #include "ros/file_log.h"
@@ -43,14 +48,32 @@
 
 #include <boost/bind.hpp>
 
-#include <sys/socket.h>
-#include <netinet/tcp.h>
+#if !defined(WIN32)
+  #include <sys/socket.h>
+  #include <netinet/tcp.h>
+  #include <sys/poll.h>
+  #include <arpa/inet.h>
+  #include <netdb.h>
+#endif
 
-#include <sys/poll.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
+
+// Joy of joys, even strerror isn't the same for Windows sockets
+#if defined(WIN32)
+  const int ERRNO_EAGAIN = WSAEWOULDBLOCK;
+  const int ERRNO_EWOULDBLOCK = WSAEWOULDBLOCK;
+  // This is hideous, but for some unknown reason calling ROS_ERROR from within
+  // a macro isn't working right now.
+  #define STRERROR_START() do {LPVOID strerror_result = NULL;\
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,\
+    NULL, WSAGetLastError(), 0, (LPTSTR) &strerror_result, 0, NULL);
+  #define STRERROR_END() LocalFree(strerror_result); }while(0);
+#else
+  #define STRERROR_START() do {char strerror_result[256];\
+    strerror_r(errno, strerror_result, 256);\
+  #define STRERROR_END() }while(0);
+#endif
 
 namespace ros
 {
@@ -88,9 +111,16 @@ bool TransportTCP::initializeSocket()
   if (!(flags_ & SYNCHRONOUS))
   {
     // make the socket non-blocking
+#if defined(WIN32)
+    unsigned long setting = 1;
+    if (ioctlsocket (sock_, FIONBIO, &setting) == SOCKET_ERROR)
+#else
     if(fcntl(sock_, F_SETFL, O_NONBLOCK) == -1)
+#endif
     {
-      ROS_ERROR("fcntl (non-blocking) to socket [%d] failed with error [%s]", sock_, strerror(errno));
+      STRERROR_START()
+      ROS_ERROR("fcntl (non-blocking) to socket [%d] failed with error [%s]", sock_, strerror_result);
+      STRERROR_END()
 
       close();
       return false;
@@ -155,7 +185,7 @@ void TransportTCP::setKeepAlive(bool use, uint32_t idle, uint32_t interval, uint
     ROSCPP_LOG_DEBUG("Enabling TCP Keepalive on socket [%d]", sock_);
 
     int val = 1;
-    if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) != 0)
+    if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<const char*>(&val), sizeof(val)) != 0)
     {
       ROS_ERROR("setsockopt failed to set SO_KEEPALIVE on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
     }
@@ -186,7 +216,7 @@ void TransportTCP::setKeepAlive(bool use, uint32_t idle, uint32_t interval, uint
     ROSCPP_LOG_DEBUG("Disabling TCP Keepalive on socket [%d]", sock_);
 
     int val = 0;
-    if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) != 0)
+    if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<const char*>(&val), sizeof(val)) != 0)
     {
       ROS_ERROR("setsockopt failed to set SO_KEEPALIVE on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
     }
@@ -199,7 +229,9 @@ bool TransportTCP::connect(const std::string& host, int port)
 
   if (sock_ == -1)
   {
-    ROS_ERROR("socket() failed with error [%s]", strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("socket() failed with error [%s]", strerror_result);
+    STRERROR_END()
     return false;
   }
 
@@ -249,7 +281,9 @@ bool TransportTCP::connect(const std::string& host, int port)
 
   if (::connect(sock_, (sockaddr *)&sin, sizeof(sin)))
   {
-    ROSCPP_LOG_DEBUG("Connect to tcpros publisher [%s:%d] failed with error [%s]", host.c_str(), port, strerror(errno));
+    STRERROR_START()
+    ROSCPP_LOG_DEBUG("Connect to tcpros publisher [%s:%d] failed with error [%s]", host.c_str(), port, strerror_result);
+    STRERROR_END()
     close();
 
     return false;
@@ -274,7 +308,9 @@ bool TransportTCP::listen(int port, int backlog, const AcceptCallback& accept_cb
 
   if (sock_ <= 0)
   {
-    ROS_ERROR("socket() failed with error [%s]", strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("socket() failed with error [%s]", strerror_result);
+    STRERROR_END()
     return false;
   }
 
@@ -283,7 +319,9 @@ bool TransportTCP::listen(int port, int backlog, const AcceptCallback& accept_cb
   server_address_.sin_addr.s_addr = INADDR_ANY;
   if (bind(sock_, (sockaddr *)&server_address_, sizeof(server_address_)) < 0)
   {
-    ROS_ERROR("bind() failed with error [%s]", strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("bind() failed with error [%s]", strerror_result);
+    STRERROR_END()
     return false;
   }
 
@@ -322,10 +360,20 @@ void TransportTCP::close()
           poll_set_->delSocket(sock_);
         }
 
+#if defined(WIN32)
+        ::shutdown(sock_, SD_BOTH);
+#else
         ::shutdown(sock_, SHUT_RDWR);
+#endif
+#if defined(WIN32)
+        if (closesocket(sock_) == SOCKET_ERROR)
+#else
         if (::close(sock_) < 0)
+#endif
         {
-          ROS_ERROR("Error closing socket [%d]: [%s]", sock_, strerror(errno));
+          STRERROR_START()
+          ROS_ERROR("Error closing socket [%d]: [%s]", sock_, strerror_result);
+          STRERROR_END()
         }
 
         sock_ = -1;
@@ -359,12 +407,14 @@ int32_t TransportTCP::read(uint8_t* buffer, uint32_t size)
 
   ROS_ASSERT((int32_t)size > 0);
 
-  int num_bytes = ::recv(sock_, buffer, size, 0);
+  int num_bytes = ::recv(sock_, reinterpret_cast<char*>(buffer), size, 0);
   if (num_bytes < 0)
   {
     if (errno != EAGAIN)
     {
-      ROSCPP_LOG_DEBUG("recv() failed with error [%s]", strerror(errno));
+      STRERROR_START()
+      ROSCPP_LOG_DEBUG("recv() failed with error [%s]", strerror_result);
+      STRERROR_END()
     }
     else
     {
@@ -395,12 +445,14 @@ int32_t TransportTCP::write(uint8_t* buffer, uint32_t size)
 
   ROS_ASSERT((int32_t)size > 0);
 
-  int num_bytes = ::send(sock_, buffer, size, 0);
+  int num_bytes = ::send(sock_, reinterpret_cast<const char*>(buffer), size, 0);
   if (num_bytes < 0)
   {
     if(errno != EAGAIN)
     {
-      ROSCPP_LOG_DEBUG("send() failed with error [%s]", strerror(errno));
+      STRERROR_START()
+      ROSCPP_LOG_DEBUG("send() failed with error [%s]", strerror_result);
+      STRERROR_END()
 
       close();
     }
@@ -494,7 +546,9 @@ TransportTCPPtr TransportTCP::accept()
   }
   else
   {
-    ROS_ERROR("accept() on socket [%d] failed with error [%s]", sock_, strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("accept() on socket [%d] failed with error [%s]", sock_, strerror_result);
+    STRERROR_END()
   }
 
   return TransportTCPPtr();

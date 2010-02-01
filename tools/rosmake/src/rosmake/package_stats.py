@@ -59,7 +59,7 @@ class PackageFlagTracker:
     self.blacklisted = {}
     self.blacklisted_osx = {}
     self.nobuild = set()
-    self.nomakefile = set()
+    self.norosmakeme = set()
     self.packages_tested = set()
     self.dependency_tracker = dependency_tracker
     self.paths = {}
@@ -98,8 +98,8 @@ class PackageFlagTracker:
     if os.path.exists(os.path.join(self.get_path(package), "ROS_NOBUILD")):
       self.nobuild.add(package)
 
-    if not os.path.exists(os.path.join(self.get_path(package), "Makefile")):
-      self.nomakefile.add(package)                      
+    if not os.path.exists(os.path.join(self.get_path(package), "rosmakeme.py")):
+      self.norosmakeme.add(package)                      
 
     self.packages_tested.add(package)
 
@@ -142,12 +142,12 @@ class PackageFlagTracker:
       return True
     return False
 
-  def has_makefile(self, package):
+  def has_rosmakeme(self, package):
     # this will noop if already run
     self._check_package_flags(package)
 
     # Short circuit if known result
-    if package in self.nomakefile:
+    if package in self.norosmakeme:
       return False
     return True
 
@@ -179,7 +179,7 @@ class PackageFlagTracker:
   def is_whitelisted(self, package):
       return roslib.packages.platform_supported(package, self.os_name, self.os_version)
         
-  def can_build(self, pkg, use_whitelist = False, use_whitelist_recursive = False, use_blacklist = False, failed_packages = [], use_makefile = True):
+  def can_build(self, pkg, use_whitelist = False, use_whitelist_recursive = False, use_blacklist = False, failed_packages = [], use_rosmakeme = True):
     """
     Return (buildable, error, "reason why not")
     """
@@ -222,10 +222,10 @@ class PackageFlagTracker:
         output_str += "ROS_NOBUILD in package %s\n"%pkg
 
 
-    if use_makefile and not self.has_makefile(pkg):
+    if use_rosmakeme and not self.has_rosmakeme(pkg):
         output_state = True # dependents are ok no need to build
         buildable = False
-        output_str += " No Makefile in package %s\n"%pkg
+        output_str += " No rosmakeme.py in package %s\n"%pkg
 
     
 

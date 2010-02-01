@@ -32,11 +32,17 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
+// This stops windows.h including winsock, which, because there are no
+// inclusion guards in the winsock headers, causes it to blow up without this.
+#define _WINSOCKAPI_
+
 #include <sstream>
-#include <arpa/inet.h>
-#include <netdb.h>
+#if !defined(WIN32)
+  #include <arpa/inet.h>
+  #include <netdb.h>
+  #include <sys/poll.h> // for POLLOUT
+#endif
 #include <fcntl.h>
-#include <sys/poll.h> // for POLLOUT
 #include <cerrno>
 #include <cstring>
 
@@ -597,10 +603,10 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
   MessagePtr msg;
   MessageDeserializerPtr deserializer;
 
-  for (V_CallbackInfo::iterator cb = callbacks_.begin();
-       cb != callbacks_.end(); ++cb)
+  for (V_CallbackInfo::iterator cb_itr = callbacks_.begin();
+       cb_itr != callbacks_.end(); ++cb_itr)
   {
-    const CallbackInfoPtr& info = *cb;
+    const CallbackInfoPtr& info = *cb_itr;
 
     ROS_ASSERT(info->callback_queue_);
 

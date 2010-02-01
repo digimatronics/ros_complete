@@ -173,7 +173,10 @@ def resolve_path(p):
     behaviors.
     """
     if p and p[0] == '~':
-        return os.path.expanduser(p)
+        if sys.platform == 'win32':
+            return os.environ.get('ROS_HOME', 'C:\\')
+        else:
+            return os.path.expanduser(p)
     return p
     
 def resolve_paths(paths):

@@ -11,8 +11,18 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
 rosbuild_add_boost_directories()
 
+find_path(log4cxx_include_dir log4cxx/logger.h)
+if(log4cxx_include_dir STREQUAL "log4cxx_include_dir-NOTFOUND")
+  message(FATAL_ERROR "Could not find log4cxx/logger.h. Set CMAKE_INCLUDE_PATH.")
+endif(log4cxx_include_dir STREQUAL "log4cxx_include_dir-NOTFOUND")
+include_directories(${log4cxx_include_dir})
+find_library(log4cxx_lib log4cxx)
+if(log4cxx_lib STREQUAL "log4cxx_lib-NOTFOUND")
+  message(FATAL_ERROR "Could not find log4cxx.lib. Set CMAKE_LIBRARY_PATH.")
+endif(log4cxx_lib STREQUAL "log4cxx_lib-NOTFOUND")
+
 rosbuild_add_library(${PROJECT_NAME} src/rosconsole/rosconsole.cpp)
-target_link_libraries(${PROJECT_NAME} log4cxx)
+target_link_libraries(${PROJECT_NAME} ${log4cxx_lib})
 rosbuild_link_boost(${PROJECT_NAME} thread)
 
 rosbuild_add_executable(example examples/example.cpp)

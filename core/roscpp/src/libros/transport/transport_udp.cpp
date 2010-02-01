@@ -40,12 +40,37 @@
 
 #include <boost/bind.hpp>
 
-#include <sys/uio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#if defined(WIN32)
+  #include <Winsock2.h>
+  #include <Ws2tcpip.h>
+  #include <process.h>
+#else
+  #include <sys/uio.h>
+  #include <sys/socket.h>
+  #include <netinet/in.h>
+  #include <arpa/inet.h>
+  #include <netdb.h>
+#endif
+
 #include <fcntl.h>
+
+#if defined(WIN32)
+  #define getpid _getpid
+  #define ssize_t int
+  const int EAGAIN = WSAEWOULDBLOCK;
+  const int EWOULDBLOCK = WSAEWOULDBLOCK;
+  // Joy of joys, even strerror isn't the same for Windows sockets.
+  // This is hideous, but for some unknown reason calling ROS_ERROR from within
+  // a macro isn't working right now.
+  #define STRERROR_START() do {LPVOID strerror_result = NULL;\
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,\
+    NULL, WSAGetLastError(), 0, (LPTSTR) &strerror_result, 0, NULL);
+  #define STRERROR_END() LocalFree(strerror_result); }while(0);
+#else
+  #define STRERROR_START() do {char strerror_result[256];\
+    strerror_r(errno, strerror_result, 256);\
+  #define STRERROR_END() }while(0);
+#endif
 
 namespace ros
 {
@@ -136,7 +161,9 @@ bool TransportUDP::connect(const std::string& host, int port, int connection_id)
 
   if (sock_ == -1)
   {
-    ROS_ERROR("socket() failed with error [%s]", strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("socket() failed with error [%s]", strerror_result);
+    STRERROR_END()
     return false;
   }
 
@@ -186,7 +213,9 @@ bool TransportUDP::connect(const std::string& host, int port, int connection_id)
 
   if (::connect(sock_, (sockaddr *)&sin, sizeof(sin)))
   {
-    ROSCPP_LOG_DEBUG("Connect to udpros host [%s:%d] failed with error [%s]", host.c_str(), port, strerror(errno));
+    STRERROR_START()
+    ROSCPP_LOG_DEBUG("Connect to udpros host [%s:%d] failed with error [%s]", host.c_str(), port, strerror_result);
+    STRERROR_END()
     close();
 
     return false;
@@ -211,7 +240,9 @@ bool TransportUDP::createIncoming(int port, bool is_server)
 
   if (sock_ <= 0)
   {
-    ROS_ERROR("socket() failed with error [%s]", strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("socket() failed with error [%s]", strerror_result);
+    STRERROR_END()
     return false;
   }
 
@@ -220,7 +251,9 @@ bool TransportUDP::createIncoming(int port, bool is_server)
   server_address_.sin_addr.s_addr = INADDR_ANY;
   if (bind(sock_, (sockaddr *)&server_address_, sizeof(server_address_)) < 0)
   {
-    ROS_ERROR("bind() failed with error [%s]", strerror(errno));
+    STRERROR_START()
+    ROS_ERROR("bind() failed with error [%s]", strerror_result);
+    STRERROR_END()
     return false;
   }
 
@@ -246,9 +279,16 @@ bool TransportUDP::initializeSocket()
   if (!(flags_ & SYNCHRONOUS))
   {
     // make the socket non-blocking
+#if defined(WIN32)
+    unsigned long setting = 1;
+    if (ioctlsocket (sock_, FIONBIO, &setting) == SOCKET_ERROR)
+#else
     if(fcntl(sock_, F_SETFL, O_NONBLOCK) == -1)
+#endif
     {
-      ROS_ERROR("fcntl (non-blocking) to socket [%d] failed with error [%s]", sock_, strerror(errno));
+      STRERROR_START()
+      ROS_ERROR("fcntl (non-blocking) to socket [%d] failed with error [%s]", sock_, strerror_result);
+      STRERROR_END()
 
       close();
       return false;
@@ -286,9 +326,15 @@ void TransportUDP::close()
           poll_set_->delSocket(sock_);
         }
 
+#if defined(WIN32)
+        if (closesocket(sock_) == SOCKET_ERROR)
+#else
         if (::close(sock_) < 0)
+#endif
         {
-          ROS_ERROR("Error closing socket [%d]: [%s]", sock_, strerror(errno));
+          STRERROR_START()
+          ROS_ERROR("Error closing socket [%d]: [%s]", sock_, strerror_result);
+          STRERROR_END()
         }
 
         sock_ = -1;
@@ -326,14 +372,26 @@ int32_t TransportUDP::read(uint8_t* buffer, uint32_t size)
   while (bytes_read < size)
   {
     TransportUDPHeader header;
+#if defined(WIN32)
+    WSABUF iov[2];
+    iov[0].buf = reinterpret_cast<char*>(&header);
+    iov[0].len = sizeof(header);
+    iov[1].buf = reinterpret_cast<char*>(buffer + bytes_read);
+    iov[1].len = (size - bytes_read) > max_datagram_size_ ? max_datagram_size_ : (size - bytes_read);
+#else
     struct iovec iov[2];
     iov[0].iov_base = &header;
     iov[0].iov_len = sizeof(header);
     iov[1].iov_base = buffer + bytes_read;
     iov[1].iov_len = (size - bytes_read) > max_datagram_size_ ? max_datagram_size_ : (size - bytes_read);
+#endif
 
     // Don't read a partial datagram when buffer gets full
+#if defined(WIN32)
+    if (iov[1].len < max_datagram_size_ && bytes_read != 0)
+#else
     if (iov[1].iov_len < max_datagram_size_ && bytes_read != 0)
+#endif
       break;
 
     // Read a datagram with header
@@ -342,18 +400,30 @@ int32_t TransportUDP::read(uint8_t* buffer, uint32_t size)
     {
       num_bytes = reorder_bytes_ + sizeof(header);
       header = reorder_header_;
+#if defined(WIN32)
+      memcpy(iov[1].buf, reorder_buffer_, reorder_bytes_);
+#else
       memcpy(iov[1].iov_base, reorder_buffer_, reorder_bytes_);
+#endif
       reorder_bytes_ = 0;
     }
     else
     {
+#if defined(WIN32)
+      if (WSARecv(sock_, iov, 2, reinterpret_cast<LPDWORD>(&num_bytes), 0,
+                  NULL, NULL) == SOCKET_ERROR)
+          num_bytes = -1;
+#else
       num_bytes = readv(sock_, iov, 2);
+#endif
     }
     if (num_bytes < 0)
     {
       if (errno != EAGAIN)
       {
-        ROSCPP_LOG_DEBUG("readv() failed with error [%s]", strerror(errno));
+        STRERROR_START()
+        ROSCPP_LOG_DEBUG("readv() failed with error [%s]", strerror_result);
+        STRERROR_END()
         close();
         break;
       }
@@ -459,18 +529,35 @@ int32_t TransportUDP::write(uint8_t* buffer, uint32_t size)
       header.block_ = this_block;
     }
     ++this_block;
+#if defined(WIN32)
+    WSABUF iov[2];
+    iov[0].buf = reinterpret_cast<char*>(&header);
+    iov[0].len = sizeof(header);
+    iov[1].buf = reinterpret_cast<char*>(buffer + bytes_sent);
+    iov[1].len = (size - bytes_sent) > max_datagram_size_ ? max_datagram_size_ : (size - bytes_sent);
+#else
     struct iovec iov[2];
     iov[0].iov_base = &header;
     iov[0].iov_len = sizeof(header);
     iov[1].iov_base = buffer + bytes_sent;
     iov[1].iov_len = (size - bytes_sent) > max_datagram_size_ ? max_datagram_size_ : (size - bytes_sent);
+#endif
+#if defined(WIN32)
+    ssize_t num_bytes;
+    if (WSASend(sock_, iov, 2, reinterpret_cast<LPDWORD>(&num_bytes), 0, NULL,
+                NULL) == SOCKET_ERROR)
+        num_bytes = -1;
+#else
     ssize_t num_bytes = writev(sock_, iov, 2);
+#endif
     //usleep(100);
     if (num_bytes < 0)
     {
       if(errno != EAGAIN)
       {
-        ROSCPP_LOG_DEBUG("writev() failed with error [%s]", strerror(errno));
+        STRERROR_START()
+        ROSCPP_LOG_DEBUG("writev() failed with error [%s]", strerror_result);
+        STRERROR_END()
         close();
         break;
       }

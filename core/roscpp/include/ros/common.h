@@ -28,7 +28,6 @@
 #ifndef ROSCPP_COMMON_H
 #define ROSCPP_COMMON_H
 
-#include <stdint.h>
 #include <assert.h>
 #include <stddef.h>
 #include <string>

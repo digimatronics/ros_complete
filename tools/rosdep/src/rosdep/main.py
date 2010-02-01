@@ -90,7 +90,6 @@ def main():
 
     options, args = parser.parse_args()
 
-
     if len(args) == 0:
         parser.error("Please enter a command")
     command = args[0]
@@ -106,14 +105,14 @@ def main():
     if not (command == "what_needs" or command == "where_defined" ): # package mode
         if options.rosdep_all:
             rdargs = roslib.packages.list_pkgs()
-        
+
         (verified_packages, rejected_packages) = roslib.stacks.expand_to_packages(rdargs)
-    
+
         if len(rejected_packages) > 0:
-            print "Warning: could not identify %s as a package"%rejected_packages
+            print "Warning: could not identify %s as packages"%rejected_packages
         if len(verified_packages) == 0:
             parser.error("No Valid Packages listed")
-                
+
     else: # rosdep as argumets 
         if options.rosdep_all:
             parser.error("-a, --all is not a valid option for this command")
@@ -138,12 +137,11 @@ def main():
             print r.generate_script(include_duplicates=options.include_duplicates, default_yes=options.default_yes)
             return 0
         elif command == "install":
-            r.install(options.include_duplicates, options.default_yes);
-            return 0
+            return r.install(options.include_duplicates, options.default_yes);
     except core.RosdepException, e:
         print "ERROR: %s"%e
         return 1
-        
+
     if command == "depdb":
         print r.depdb(verified_packages)
         return 0

@@ -45,6 +45,18 @@
 #define ROSCONSOLE_PRINTF_ATTRIBUTE(a, b)
 #endif
 
+#if defined(WIN32)
+  #if defined(ROS_STATIC)
+    #define ROSCONSOLE_EXPORT
+  #elif defined(rosconsole_EXPORTS)
+    #define ROSCONSOLE_EXPORT __declspec(dllexport)
+  #else
+    #define ROSCONSOLE_EXPORT __declspec(dllimport)
+  #endif
+#else
+  #define ROSCONSOLE_EXPORT
+#endif
+
 namespace ros
 {
 namespace console
@@ -65,12 +77,12 @@ enum Level
 }
 typedef levels::Level Level;
 
-extern log4cxx::LevelPtr g_level_lookup[];
+ROSCONSOLE_EXPORT extern log4cxx::LevelPtr g_level_lookup[];
 
 /**
  * \brief Only exported because the macros need it.  Do not use directly.
  */
-extern bool g_initialized;
+ROSCONSOLE_EXPORT extern bool g_initialized;
 
 /**
  * \brief Don't call this directly.  Performs any required initialization/configuration.  Happens automatically when using the macro API.
@@ -78,7 +90,7 @@ extern bool g_initialized;
  * If you're going to be using log4cxx or any of the ros::console functions, and need the system to be initialized, use the
  * ROSCONSOLE_AUTOINIT macro.
  */
-void initialize();
+ROSCONSOLE_EXPORT void initialize();
 
 /**
  * \brief Don't call this directly.  Use the ROS_LOG() macro instead.
@@ -87,7 +99,7 @@ void initialize();
  * @param line Line of code this logging statement is from (usually generated with __LINE__)
  * @param fmt Format string
  */
-void print(log4cxx::LoggerPtr& logger, const log4cxx::LevelPtr& level, const log4cxx::spi::LocationInfo& location, const char* fmt, ...) ROSCONSOLE_PRINTF_ATTRIBUTE(4, 5);
+ROSCONSOLE_EXPORT void print(log4cxx::LoggerPtr& logger, const log4cxx::LevelPtr& level, const log4cxx::spi::LocationInfo& location, const char* fmt, ...) ROSCONSOLE_PRINTF_ATTRIBUTE(4, 5);
 
 struct LogLocation;
 
@@ -98,7 +110,7 @@ struct LogLocation;
  * all the logging statements.
  * @param loc The location to add
  */
-void registerLogLocation(LogLocation* loc);
+ROSCONSOLE_EXPORT void registerLogLocation(LogLocation* loc);
 
 /**
  * \brief Tells the system that a logger's level has changed
@@ -108,9 +120,9 @@ void registerLogLocation(LogLocation* loc);
  * function is not called, only logging statements which are first hit *after* the change will be correct wrt
  * that logger.
  */
-void notifyLoggerLevelsChanged();
+ROSCONSOLE_EXPORT void notifyLoggerLevelsChanged();
 
-struct LogLocation
+struct ROSCONSOLE_EXPORT LogLocation
 {
   inline void initialize(const std::string& name)
   {

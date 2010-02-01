@@ -6,7 +6,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
+#if !defined(WIN32)
+  #include <strings.h>
+#endif
 #include <string.h>
 
 

@@ -31,6 +31,10 @@
 #include "ros/topic_manager.h"
 #include "ros/init.h"
 
+#if defined(WIN32)
+  #define snprintf _snprintf
+#endif
+
 namespace ros
 {
 

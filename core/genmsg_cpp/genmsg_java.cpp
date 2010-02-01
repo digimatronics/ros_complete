@@ -68,7 +68,7 @@ string primitive_type(const string &type) {
 	map<string,string>::iterator it = m.find(type);
 
 	if (it == m.end()) {
-		printf("woah! unknown primitive type: [%s]\n", type.c_str());
+		printf("Unknown primitive type: [%s]\n", type.c_str());
 		exit(5);
 	}
 
@@ -103,7 +103,7 @@ string primitive_type_cap(const string &type) {
 	map<string,string>::iterator it = m.find(type);
 
 	if (it == m.end()) {
-		printf("woah!  unknown primitive type: [%s]\n", type.c_str());
+		printf("Unknown primitive type: [%s]\n", type.c_str());
 		exit(5);
 	}
 
@@ -133,7 +133,7 @@ string primitive_type_box(const string &type) {
 	map<string,string>::iterator it = m.find(type);
 
 	if (it == m.end()) {
-		printf("woah!   unknown primitive type: [%s]\n", type.c_str());
+		printf("Unknown primitive type: [%s]\n", type.c_str());
 		exit(5);
 	}
 
@@ -172,7 +172,7 @@ int number_bytes (const std::string &type) {
 	if (typec == "Float") return 4;
 	if (typec == "Double") return 8;
 
-	printf("woah!   unknown primitive type: [%s]\n", type.c_str());
+	printf("Unknown primitive type: [%s]\n", type.c_str());
 	exit(5);
 	return 0;
 }
@@ -650,7 +650,7 @@ public:
     else if (type == "string")
       return string("4 + ") + name + string(".length()");
     else
-      return "\n#error woah! bogus length_expr in var_primitive\n";
+      return "\n#error Bad length_expr in var_primitive\n";
   }
   virtual bool is_fixed_length()
   {
@@ -713,7 +713,7 @@ public:
              indent_str + "  " + prefix + string(".") + name +
              string(" = \"blahblahblah\";\n");
     else
-      return string("\n#error woah! bogus primitive type\n");
+      return string("\n#error Bad primitive type\n");
   }
   virtual string equals(const string &prefix, int indent = 0)
   {
@@ -836,7 +836,7 @@ public:
     // this version of the function purposefully does not
     // include bool or Time or Duration, instead emits a preprocessor error directive
     if (type == "time" || type == "duration" || type == "bool" )
-      return string("\n#error woah! unhandled primitive type ") + type +
+      return string("\n#error Unhandled primitive type ") + type +
              string("\n");
     return primitive_type(type);
   }
@@ -986,7 +986,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   token = strtok(NULL, " \n\t=");
   if (!token)
   {
-    printf("woah! on line %d of %s, there was only one token.\n",
+    printf("On line %d of %s, there was only one token.\n",
            linenum, spec_file.c_str());
     printf("each line needs to have two tokens: the first is the type\n" \
            "and the second is the variable name.\n");
@@ -1003,7 +1003,7 @@ bool msg_spec::process_line(char *linebuf, int linenum)
   }
   if (!constant_allowed)
   {
-    printf("woah! constants are only allowed on primitive numeric types and "
+    printf("Constants are only allowed on primitive numeric types and "
            "strings.\n");
     exit(7);
   }

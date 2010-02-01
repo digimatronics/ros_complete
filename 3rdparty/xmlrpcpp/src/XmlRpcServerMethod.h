@@ -12,6 +12,8 @@
 # include <string>
 #endif
 
+#include "XmlRpcDllExport.h"
+
 namespace XmlRpc {
 
   // Representation of a parameter or result value
@@ -21,7 +23,7 @@ namespace XmlRpc {
   class XmlRpcServer;
 
   //! Abstract class representing a single RPC method
-  class XmlRpcServerMethod {
+  class XMLRPC_EXPORT XmlRpcServerMethod {
   public:
     //! Constructor
     XmlRpcServerMethod(std::string const& name, XmlRpcServer* server = 0);
