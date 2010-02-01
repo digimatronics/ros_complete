@@ -1,0 +1,393 @@
+#!/usr/bin/env python
+
+"""
+usage: rosconfig COMMAND PARAMS
+
+currently supported commands:
+
+  rosconfig install [-f] URI PATH
+  rosconfig install [-f] CONFIGFILE PATH
+  rosconfig setup PATH
+  rosconfig update PATH
+  rosconfig bootstrap [-f] [-s] URI PATH [PACKAGES]
+
+  Options:
+    -s : Before building the indicated package(s), ping every SVN server
+         that might be contacted during the build to cache their 
+         certificates.  This prevents the user from having to manually
+         accept certificates during the build, but should not be used all
+         the time, because it can be slow.
+
+    -f : If an error occurs during an SVN checkout / update, existing
+         working copies will be deleted, and new ones checked out.  Only
+         recommended for use by automated build systems.
+"""
+
+import os
+import subprocess
+import sys
+import xml.dom.minidom
+import yaml
+from urlparse import urlparse
+import urllib, urllib2
+from optparse import OptionParser
+
+def get_version(path):
+  path = os.path.abspath(path)
+  try:
+    this_rosconfig = os.path.join(path,'this.rosconfig')
+    y = yaml.load(open(this_rosconfig, 'r'))
+  except yaml.YAMLError, e:
+    print >> sys.stderr, "Yaml parse error: %s" % e
+    sys.exit(1)
+  paths = []
+  ros_root = []
+  for t in y:
+    for k, v in t.iteritems():
+      if k == '__rosconfig_internal':
+        continue
+      try:
+        paths.append(os.path.join(path, v['local-name']))
+      except KeyError:
+        print >> sys.stderr, "local-name must be defined on all code trees"
+        sys.exit(1)
+
+  ros_paths = [p for p in paths if is_path_ros(p)]
+  if not ros_paths:
+    print >> sys.stderr, "Couldn't find a ROS stack below %s" % path
+    sys.exit(1)
+  elif len(ros_paths) > 1:
+    print >> sys.stderr, "Multiple ROS stacks: %s" % os.pathsep.join(ros_paths)
+    sys.exit(1)
+  rr = ros_paths[0]
+  if sys.platform == "win32":
+    cmd = "python %s ros" % os.path.join(rr, "bin", "rosversion")
+  else:
+    cmd = "%s ros" % os.path.join(rr, "bin", "rosversion")
+  pr = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  stdo, stde = pr.communicate()
+  out = {}
+  split_out = stdo.split(".")
+
+  if len(split_out) == 3:
+    try:
+      out["major"] = int(split_out[0])
+      out["minor"] = int(split_out[1])
+      out["patch"] = int(split_out[2])
+    except ValueError, e:
+      print "Failed to parse rosversion due to exception: %s"%e
+    return out
+  return None
+
+
+def run_process(cmd, err_msg, working_dir=None, extra_env=None,
+                exit_on_fail=True):
+  new_env = os.environ
+  if extra_env:
+    for var in extra_env:
+      new_env[var] = extra_env[var]
+
+  retcode = subprocess.call(cmd, shell=True,
+                            cwd=working_dir, env=new_env)
+  if retcode != 0:
+    print >>sys.stderr, err_msg + " [Exit code %s]"%retcode
+    if exit_on_fail:
+      sys.exit(1)
+
+
+def install_svX(svn_uri, version, local_name, base_path, force, cmd_str):
+  if len(version) > 0 and version[0] == 'r' and version[1:].isdigit():
+    cmd = "%s co -r %s %s %s/%s"%(cmd_str, version[1:], svn_uri, base_path,
+                                  local_name)
+  else:
+    cmd = "%s co %s %s/%s" % (cmd_str, svn_uri, base_path, local_name)
+  if not force:
+    run_process(cmd, "%s checkout of [%s] failed"%(cmd_str, svn_uri))
+  else:
+    retcode = run_process(cmd, "Subversion checkout of [%s] failed"%svn_uri,
+                          working_dir=None, extra_env=None, exit_on_fail=False)
+    retcode = subprocess.call(cmd, shell=True)
+    if retcode != 0:
+      print >> sys.stderr, "Subversion checkout of [%s] failed, getting a fresh working copy [exit code %s]"%(svn_uri,retcode)
+      if sys.platform == "win32":
+        rmcmd = "del -recurse -force %s" % (local_name)
+      else:
+        rmcmd = "rm -rf %s" % (local_name)
+      run_process(rmcmd, "Deletion of local working copy [%s] failed"%local_name)
+      run_process(cmd, "Subversion checkout of [%s] failed (2nd try)"%svn_uri)
+
+
+def install_svn(svn_uri, version, local_name, base_path, force):
+  return install_svX(svn_uri, version, local_name, base_path, force, "svn")
+
+
+def install_svk(svn_uri, version, local_name, base_path, force):
+  return install_svX(svn_uri, version, local_name, base_path, force, "svk")
+
+
+def install_yaml(y, path, force):
+  if not os.path.exists(path):
+    os.mkdir(path)
+  for t in y:
+    for k, v in t.iteritems():
+      if k == '__rosconfig_internal':
+        continue
+      try:
+        local_name = v['local-name']
+      except KeyError:
+        if k != 'rosconfig':
+          print >> sys.stderr, "local-name is required on all code trees"
+          sys.exit(1)
+      version = v.get('version', '')
+      if k == 'svn':
+        if not 'uri' in v:
+          print >> sys.stderr, "No uri for a svn code tree"
+          sys.exit(1)
+        install_svn(v['uri'], version, local_name, path, force)
+      elif k == 'svk':
+        if not 'uri' in v:
+          print >> sys.stderr, "No uri for a svk code tree"
+          sys.exit(1)
+        install_svk(v['uri'], version, local_name, path, force)
+      elif k == 'symlink':
+        if not 'target' in v:
+          print >> sys.stderr, "No target for a symlink code tree"
+          sys.exit(1)
+        symlink_path = os.path.join(path, local_name)
+        if not os.path.exists(symlink_path):
+          cmd = "ln -s %s %s" % (v['target'], symlink_path)
+          require_cmd(cmd, "unable to create symlink [%s->%s] in config"%(v['target'], symlink_path))
+        else:
+          print "%s/%s already exists; not creating the symlink..." % (path, local_name)
+      elif k == 'rosconfig':
+        if not 'file' in v:
+          print >> sys.stderr, "No file for a nested rosconfig file"
+          sys.exit(1)
+        # in the future, we could also look for a uri here
+        # recursively try to install it...
+        try:
+          f_linked = open(v['file'], 'r')
+          y_linked = yaml.load(f_linked);
+          install_yaml(y_linked, path, force)
+        except yaml.YAMLError, e:
+          print >> sys.stderr, "Yaml parse error: %s" % e
+      else:
+        raise Exception("Unknown code installation method %s" % k)
+  f = file(os.path.join(path,'this.rosconfig'),'w')
+  yaml.dump(y, f, default_flow_style=False)
+
+
+def install(uri, path, force):
+  u = urlparse(uri)
+  f = 0
+  if u.scheme == '':
+    try:
+      f = open(uri, 'r')
+    except IOError, e:
+      print >> sys.stderr, "error opening file: %s" % e
+      return False
+  else:
+    try:
+      f = urllib2.urlopen(uri)
+    except IOError, e:
+      print >> sys.stderr, "got an http error: %s" % e
+      return False
+  if f:
+    try:
+      y = yaml.load(f);
+      y += [{'__rosconfig_internal': {'uri': uri}}] # save it for later...
+      install_yaml(y, path, force)
+    except yaml.YAMLError, e:
+      print >> sys.stderr, "Yaml parse error: %s" % e
+      return False
+  return True
+
+
+## @param path str: path of directory to check
+## @return bool True if \a path points to the ROS stack
+def is_path_ros(path):
+  stack_path = os.path.join(path,'stack.xml')
+  if os.path.isfile(stack_path):
+    return 'ros' == os.path.basename(path)
+  return False
+
+def setup_env(path):
+  path = os.path.abspath(path)
+  try:
+    this_rosconfig = os.path.join(path, 'this.rosconfig')
+    y = yaml.load(open(this_rosconfig, 'r'))
+  except yaml.YAMLError, e:
+    print >> sys.stderr, "Yaml parse error: %s" % e
+    sys.exit(1)
+  paths = []
+  ros_root = []
+  for t in y:
+    for k, v in t.iteritems():
+      if k == '__rosconfig_internal':
+        continue
+      try:
+        paths.append(os.path.join(path, v['local-name']))
+      except KeyError:
+        print >> sys.stderr, "local-name must be defined on all code trees"
+        sys.exit(1)
+
+  ros_paths = [p for p in paths if is_path_ros(p)]
+  if not ros_paths:
+    print >> sys.stderr, "Couldn't find a ROS stack below %s" % path
+    sys.exit(1)
+  elif len(ros_paths) > 1:
+    print >> sys.stderr, "Multiple ROS stacks: %s" % os.pathsep.join(ros_paths)
+    sys.exit(1)
+  rr = ros_paths[0]
+  rpp = os.pathsep.join([p for p in paths if not is_path_ros(p)])
+  ros_master_uri = os.getenv("ROS_MASTER_URI")
+  if not ros_master_uri:
+      ros_master_uri = "http://localhost:11311"
+  if sys.platform == "win32":
+    exe_path = os.path.join(rr, "bin") + os.pathsep + \
+        os.path.join(rr, "tools", "rospack", "lib")
+    ros_home = os.getcwd()
+    ros_boost_root = 'C:\\boost'
+  else:
+    exe_path = os.path.join(rr, "bin")
+    ros_home = ""
+    ros_boost_root = ''
+  return rr, {"ROS_ROOT": rr,
+          "ROS_HOME": ros_home,
+          "PATH": "%s%s%s" % (exe_path, os.pathsep, os.getenv("PATH")),
+          "PYTHONPATH": "%s%s%s%s%s" % \
+                  (os.path.join(rr, "core", "rosbuild", "lib"), os.pathsep,
+                   os.path.join(rr, "core", "roslib", "src"),
+                   os.pathsep, os.getenv("PYTHONPATH")),
+          "OCTAVE_PATH": "%s%s%s" % (os.path.join(rr, "core", "experimental",
+                                            "rosoct", "octave"),
+                                    os.pathsep, os.getenv("OCTAVE_PATH")),
+          "ROS_MASTER_URI": ros_master_uri,
+          "ROS_PACKAGE_PATH": rpp,
+          "ROS_BOOST_ROOT": ros_boost_root}
+
+
+def setup(path):
+  print setup_string(path)
+
+
+def update(path):
+  print "rosconfig update is not yet implemented.  Use install instead."
+
+
+def bootstrap(target_path, target_pkg, options):
+  version = get_version(target_path)
+  if not version:
+    print >>sys.stderr, "Failed to detect ros version"
+    sys.exit(1)
+  wd, env = setup_env(target_path)
+
+  if version["major"] < 1:
+    cmd = "python rosmakeme.py minimal"
+  else:  # Makefile target for minor version >= 10
+    cmd = "python rosmakeme.py core_tools"
+  print "Building rospack and rosdep..."
+  run_process(cmd, "Failed to build rospack and rosdep.",
+              working_dir=wd, extra_env=env)
+
+  if version["major"] < 1:
+    run_process("rosdep update",
+                 "Failed to install roslaunch via rosdep.", extra_env=env)
+    run_process("rosdep satisfy roslaunch %s > %s" % (target_pkg,
+           os.join(target_path, ".rosdep_satisfy_script")),
+           "Failed to install roslaunch via rosdep.", extra_env=env)
+    print "Running rosdep-generated scrip..."
+    run_process("bash .rosdep_satisfy_script",
+                 "Failed to run rosdep-generated script.",
+                 working_dir=target_path, extra_env=env)
+  else:  # rosdep install call for minor version >= 10
+    print "Running rosdep..."
+    rosdep = os.path.join(env['ROS_ROOT'], 'bin', 'rosdep')
+    run_process("python %s -v install roslaunch %s" % (rosdep, target_pkg),
+                 "Failed to install rosdeps using rosdep.",
+                 extra_env=env)
+    # Now we need to make minimal, which builds things that nobody
+    # depends on.
+    print "Building more core components..."
+    minimal_core = 'gtest pycrypto paramiko roslaunch rosout rostest'
+    run_process("python %s %s" % (os.path.join(env['ROS_ROOT'],
+                                               'bin', 'rosmake'),
+                                  minimal_core),
+                "Failed to build core components.",
+                working_dir=wd, extra_env=env)
+    print 'You have built the minimal set of ROS tools.'
+    print "If you want to make all ROS tools, type 'rosmake ros'."
+    print 'Or you can rosmake any other package in your ROS_PACKAGE_PATH.'
+
+  # Should we cache the SVN certificates?
+  if options.cachesvncert:
+    print "Running roscachesvncert (this may take a while)..."
+    run_process("rosrun rospack roscachesvncert",
+                 "Failed to cache SVN server certificates.",
+                 extra_env=env)
+
+  run_process("python %s roslaunch %s" % (os.path.join(env['ROS_ROOT'],
+                                                       'bin', 'rosmake'),
+                                          target_pkg),
+              "Failed to build roslaunch or %s with rosmake." % target_pkg,
+              working_dir=wd, extra_env=env)
+
+  print "\nDone.\n"
+
+
+def rosconfig_main():
+  usage = """%prog [options] COMMAND PARAMETERS
+
+Currently supported commands:
+
+  %prog install [-f] URI PATH
+  %prog install [-f] CONFIGFILE PATH
+  %prog setup PATH
+  %prog update PATH
+  %prog bootstrap [-f] [-s] URI PATH [PACKAGES]"""
+
+  parser = OptionParser(usage=usage, version="0.10.0")
+  parser.add_option("-f", "--force", dest="force", default=False,
+                    action="store_true",
+                    help="""If an error occurs during an SVN checkout / \
+update, existing
+working copies will be deleted, and new ones checked out.  Only
+recommended for use by automated build systems. [Default: %default]""")
+  parser.add_option("-s", "--cache-certs", dest="cachesvncert", default=False,
+                    action="store_true",
+                    help="""Before building the indicated package(s), ping \
+every SVN server
+that might be contacted during the build to cache their 
+certificates.  This prevents the user from having to manually
+accept certificates during the build, but should not be used all
+the time, because it can be slow. [Default: %default]""")
+
+  options, args = parser.parse_args(sys.argv)
+  if len(args) < 1:
+    parser.print_help()
+    sys.exit(1)
+
+  if args[1] == "install" and len(args) == 4:
+    install(args[2], os.path.abspath(args[3]), options.force)
+  elif args[1] == "setup" and len(args) == 3:
+    setup(args[2])
+  elif args[1] == "update" and len(args) == 3:
+    update(args[2])
+  elif args[1] == "bootstrap" and len(args) >= 4:
+    target = os.path.abspath(args[3])
+    #if not install(args[2], target, options.force):
+        #sys.exit(1)
+    if len(args) == 4:
+      target_pkg = "roscpp_tutorials" # just to build some stuff
+    else:
+      target_pkg = args[4]
+
+    bootstrap(target, target_pkg, options)
+
+  else:
+    parser.print_help()
+
+
+if __name__ == '__main__':
+  rosconfig_main()
+
