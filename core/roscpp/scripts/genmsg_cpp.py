@@ -373,9 +373,14 @@ def generate(msg_path):
     write_serialization(s, spec, package, name, cpp_prefix)
     write_end(s, package, name)
     
-    output_dir = '%s/msg/cpp/%s'%(package_dir, package)
+    output_dir = '%s/msg_gen/cpp/include/%s'%(package_dir, package)
     if (not os.path.exists(output_dir)):
-        os.makedirs(output_dir)
+        # if we're being run concurrently, the above test can report false but os.makedirs can still fail if
+        # another copy just created the directory
+        try:
+            os.makedirs(output_dir)
+        except OSError, e:
+            pass
         
     f = open('%s/%s.h'%(output_dir, name), 'w')
     print >> f, s.getvalue()

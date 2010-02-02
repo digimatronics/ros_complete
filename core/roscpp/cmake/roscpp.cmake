@@ -13,7 +13,7 @@ macro(genmsg_cpp)
   
     set(genmsg_cpp_exe ${roscpp_PACKAGE_PATH}/scripts/genmsg_cpp.py)
 
-    set(_output_cpp ${PROJECT_SOURCE_DIR}/msg/cpp/${PROJECT_NAME}/${_msg})
+    set(_output_cpp ${PROJECT_SOURCE_DIR}/msg_gen/cpp/include/${PROJECT_NAME}/${_msg})
     string(REPLACE ".msg" ".h" _output_cpp ${_output_cpp})
   
     # Add the rule to build the .h the .msg
@@ -46,7 +46,7 @@ macro(gensrv_cpp)
     set(gensrv_cpp_exe ${roscpp_PACKAGE_PATH}/scripts/gensrv_cpp.py)
     set(genmsg_cpp_exe ${roscpp_PACKAGE_PATH}/scripts/genmsg_cpp.py)
 
-    set(_output_cpp ${PROJECT_SOURCE_DIR}/srv/cpp/${PROJECT_NAME}/${_srv})
+    set(_output_cpp ${PROJECT_SOURCE_DIR}/srv_gen/cpp/include/${PROJECT_NAME}/${_srv})
     string(REPLACE ".srv" ".h" _output_cpp ${_output_cpp})
   
     # Add the rule to build the .h from the .srv

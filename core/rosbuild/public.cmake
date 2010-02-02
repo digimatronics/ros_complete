@@ -697,7 +697,7 @@ macro(rosbuild_gensrv)
   # depend on the message generation.
   add_dependencies(rosbuild_precompile rospack_gensrv)
   # add in the directory that will contain the auto-generated .h files
-  include_directories(${PROJECT_SOURCE_DIR}/srv/cpp)
+  include_directories(${PROJECT_SOURCE_DIR}/srv_gen/cpp/include)
 endmacro(rosbuild_gensrv)
 
 # genmsg processes msg/*.msg files into language-specific source files
@@ -715,7 +715,7 @@ macro(rosbuild_genmsg)
   # depend on the message generation.
   add_dependencies(rosbuild_precompile rospack_genmsg)
   # add in the directory that will contain the auto-generated .h files
-  include_directories(${PROJECT_SOURCE_DIR}/msg/cpp)
+  include_directories(${PROJECT_SOURCE_DIR}/msg_gen/cpp/include)
 endmacro(rosbuild_genmsg)
 
 macro(rosbuild_add_boost_directories)

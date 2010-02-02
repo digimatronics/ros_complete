@@ -127,7 +127,7 @@ def generate(srv_path):
     
     write_end(s, package, name)
     
-    output_dir = '%s/srv/cpp/%s'%(package_dir, package)
+    output_dir = '%s/srv_gen/cpp/include/%s'%(package_dir, package)
     if (not os.path.exists(output_dir)):
         os.makedirs(output_dir)
         

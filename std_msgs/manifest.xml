@@ -11,7 +11,7 @@ std_msgs contains common message types representing primitive data types and oth
   <depend package="roslib"/>
   <depend package="rosconsole"/>
   <export>
-    <cpp cflags="-I${prefix}/msg/cpp -I${prefix}/include"/>
+    <cpp cflags="-I${prefix}/include"/>
   </export>
 </package>
 
