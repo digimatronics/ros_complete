@@ -44,6 +44,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <memory>
+#include <cstring>
 #include <stdexcept>
 
 namespace ros
@@ -176,10 +177,9 @@ void initialize()
 #define INITIAL_BUFFER_SIZE 4096
 static boost::mutex g_print_mutex;
 static boost::shared_array<char> g_print_buffer(new char[INITIAL_BUFFER_SIZE]);
-static int g_print_buffer_size = INITIAL_BUFFER_SIZE;
+static size_t g_print_buffer_size = INITIAL_BUFFER_SIZE;
 static boost::thread::id g_printing_thread_id;
-void print(log4cxx::LoggerPtr& logger, const log4cxx::LevelPtr& level, const log4cxx::spi::LocationInfo& location,
-    const char* fmt, ...)
+void print(FilterBase* filter, log4cxx::Logger* logger, Level level, const char* file, int line, const char* function, const char* fmt, ...)
 {
   if (g_printing_thread_id == boost::this_thread::get_id())
   {
@@ -194,7 +194,7 @@ void print(log4cxx::LoggerPtr& logger, const log4cxx::LevelPtr& level, const log
   va_list args;
   va_start(args, fmt);
 
-  int total = vsnprintf(g_print_buffer.get(), g_print_buffer_size, fmt, args);
+  size_t total = vsnprintf(g_print_buffer.get(), g_print_buffer_size, fmt, args);
   if (total >= g_print_buffer_size)
   {
     va_end(args);
@@ -208,13 +208,103 @@ void print(log4cxx::LoggerPtr& logger, const log4cxx::LevelPtr& level, const log
 
   va_end(args);
 
-  try
+  log4cxx::LoggerPtr logger_ptr(logger);
+  bool enabled = true;
+
+  if (filter)
   {
-  	logger->forcedLog(level, g_print_buffer.get(), location);
+    FilterParams params;
+    params.file = file;
+    params.function = function;
+    params.line = line;
+    params.level = level;
+    params.logger = logger_ptr;
+    params.message = g_print_buffer.get();
+    params.out_level = level;
+    enabled = filter->isEnabled(params);
+    level = params.out_level;
+    if (params.out_logger != 0)
+    {
+      logger_ptr = params.out_logger;
+    }
+
+    if (!params.out_message.empty())
+    {
+      size_t msg_size = params.out_message.size();
+      if (g_print_buffer_size <= msg_size)
+      {
+        g_print_buffer_size = msg_size + 1;
+        g_print_buffer.reset(new char[g_print_buffer_size]);
+      }
+
+      memcpy(g_print_buffer.get(), params.out_message.c_str(), msg_size + 1);
+    }
   }
-  catch (std::exception& e)
+
+  if (enabled)
   {
-  	fprintf(stderr, "Caught exception while logging: [%s]\n", e.what());
+    try
+    {
+      logger_ptr->forcedLog(g_level_lookup[level], g_print_buffer.get(), log4cxx::spi::LocationInfo(file, function, line));
+    }
+    catch (std::exception& e)
+    {
+      fprintf(stderr, "Caught exception while logging: [%s]\n", e.what());
+    }
+  }
+
+  g_printing_thread_id = boost::thread::id();
+}
+
+void print(FilterBase* filter, log4cxx::Logger* logger, Level level, const std::stringstream& ss, const char* file, int line, const char* function)
+{
+  if (g_printing_thread_id == boost::this_thread::get_id())
+  {
+    fprintf(stderr, "Warning: recursive print statement has occurred.  Throwing out recursive print.\n");
+    return;
+  }
+
+  boost::mutex::scoped_lock lock(g_print_mutex);
+
+  g_printing_thread_id = boost::this_thread::get_id();
+
+  log4cxx::LoggerPtr logger_ptr(logger);
+  bool enabled = true;
+  std::string str = ss.str();
+
+  if (filter)
+  {
+    FilterParams params;
+    params.file = file;
+    params.function = function;
+    params.line = line;
+    params.level = level;
+    params.logger = logger_ptr;
+    params.message = g_print_buffer.get();
+    params.out_level = level;
+    enabled = filter->isEnabled(params);
+    level = params.out_level;
+    if (params.out_logger != 0)
+    {
+      logger_ptr = params.out_logger;
+    }
+
+    if (!params.out_message.empty())
+    {
+      str = params.out_message;
+    }
+  }
+
+  if (enabled)
+  {
+    try
+    {
+      logger->forcedLog(g_level_lookup[level], str, log4cxx::spi::LocationInfo(file, function, line));
+    }
+    catch (std::exception& e)
+    {
+      fprintf(stderr, "Caught exception while logging: [%s]\n", e.what());
+    }
   }
 
   g_printing_thread_id = boost::thread::id();
@@ -230,6 +320,42 @@ void registerLogLocation(LogLocation* loc)
   g_log_locations.push_back(loc);
 }
 
+void checkLogLocationEnabledNoLock(LogLocation* loc)
+{
+  loc->logger_enabled_ = loc->logger_->isEnabledFor(g_level_lookup[loc->level_]);
+}
+
+void initializeLogLocation(LogLocation* loc, const std::string& name, Level level)
+{
+  boost::mutex::scoped_lock lock(g_locations_mutex);
+
+  if (loc->initialized_)
+  {
+    return;
+  }
+
+  loc->logger_ = &(*log4cxx::Logger::getLogger(name));
+  loc->level_ = level;
+
+  g_log_locations.push_back(loc);
+
+  checkLogLocationEnabledNoLock(loc);
+
+  loc->initialized_ = true;
+}
+
+void setLogLocationLevel(LogLocation* loc, Level level)
+{
+  boost::mutex::scoped_lock lock(g_locations_mutex);
+  loc->level_ = level;
+}
+
+void checkLogLocationEnabled(LogLocation* loc)
+{
+  boost::mutex::scoped_lock lock(g_locations_mutex);
+  checkLogLocationEnabledNoLock(loc);
+}
+
 void notifyLoggerLevelsChanged()
 {
   boost::mutex::scoped_lock lock(g_locations_mutex);
@@ -239,7 +365,7 @@ void notifyLoggerLevelsChanged()
   for ( ; it != end; ++it )
   {
     LogLocation* loc = *it;
-    loc->checkEnabled();
+    checkLogLocationEnabledNoLock(loc);
   }
 }
 

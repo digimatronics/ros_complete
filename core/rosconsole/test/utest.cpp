@@ -88,6 +88,19 @@ protected:
   }
 };
 
+struct BasicFilter : public ros::console::FilterBase
+{
+  BasicFilter(bool enabled)
+  : enabled_(enabled)
+  {}
+
+  inline virtual bool isEnabled() { return enabled_; };
+
+  bool enabled_;
+};
+
+BasicFilter g_filter(true);
+
 #define DEFINE_COND_TESTS(name, macro_base, level) \
   TEST(RosConsole, name##Cond) \
   { \
@@ -129,6 +142,138 @@ protected:
     log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
     macro_base##_STREAM_COND_NAMED(true, "test", "Testing " << 1 << " " << 2 << " " << 3); \
     macro_base##_STREAM_COND_NAMED(false, "test", "Testing " << 1 << " " << 2 << " " << 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  }
+
+#define DEFINE_ONCE_TESTS(name, macro_base, level) \
+  TEST(RosConsole, name##Once) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_ONCE("Testing %d %d %d", 1, 2, 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##NamedOnce) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_ONCE_NAMED("test", "Testing %d %d %d", 1, 2, 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##StreamOnce) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_STREAM_ONCE("Testing " << 1 << " " << 2 << " " << 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##StreamOnceNamed) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_STREAM_ONCE_NAMED("test", "Testing " << 1 << " " << 2 << " " << 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  }
+
+#define DEFINE_LIMIT_TESTS(name, macro_base, level) \
+  TEST(RosConsole, name##Limit) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_LIMIT(0.5, "Testing %d %d %d", 1, 2, 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##NamedLimit) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_LIMIT_NAMED(0.5, "test", "Testing %d %d %d", 1, 2, 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##StreamLimit) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_STREAM_LIMIT(0.5, "Testing " << 1 << " " << 2 << " " << 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##StreamLimitNamed) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_STREAM_LIMIT_NAMED(0.5, "test", "Testing " << 1 << " " << 2 << " " << 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  }
+
+#define DEFINE_FILTER_TESTS(name, macro_base, level) \
+  TEST(RosConsole, name##Filter) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_FILTER(&g_filter, "Testing %d %d %d", 1, 2, 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##NamedFilter) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_FILTER_NAMED(&g_filter, "test", "Testing %d %d %d", 1, 2, 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##StreamFilter) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_STREAM_FILTER(&g_filter, "Testing " << 1 << " " << 2 << " " << 3); \
+    ASSERT_EQ((int)appender->info_.size(), 1); \
+    EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
+    EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
+  } \
+  TEST(RosConsole, name##StreamFilterNamed) \
+  { \
+    TestAppender* appender = new TestAppender; \
+    log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->addAppender( appender ); \
+    macro_base##_STREAM_FILTER_NAMED(&g_filter, "test", "Testing " << 1 << " " << 2 << " " << 3); \
     ASSERT_EQ((int)appender->info_.size(), 1); \
     EXPECT_STREQ(appender->info_[0].message_.c_str(), "Testing 1 2 3"); \
     EXPECT_EQ(appender->info_[0].level_, ros::console::g_level_lookup[level]); \
@@ -179,7 +324,10 @@ protected:
     EXPECT_STREQ(appender->info_[0].logger_name_.c_str(), ROSCONSOLE_ROOT_LOGGER_NAME".rosconsole.test"); \
     log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->removeAppender( appender ); \
   } \
-  DEFINE_COND_TESTS(name, macro_base, level)
+  DEFINE_COND_TESTS(name, macro_base, level) \
+  DEFINE_ONCE_TESTS(name, macro_base, level) \
+  DEFINE_LIMIT_TESTS(name, macro_base, level) \
+  DEFINE_FILTER_TESTS(name, macro_base, level)
 
 DEFINE_LEVEL_TESTS(debug, ROS_DEBUG, ros::console::levels::Debug)
 DEFINE_LEVEL_TESTS(info, ROS_INFO, ros::console::levels::Info)
@@ -474,22 +622,250 @@ TEST(RosConsole, longPrintfStyleOutput)
 
 TEST(RosConsole, throwingAppender)
 {
-	log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
 
-	TestAppenderWithThrow* appender = new TestAppenderWithThrow;
-	logger->addAppender( appender );
+  TestAppenderWithThrow* appender = new TestAppenderWithThrow;
+  logger->addAppender( appender );
 
-	try
-	{
-		ROS_INFO("Hello there");
-	}
-	catch (std::exception& e)
-	{
-		FAIL();
-	}
+  try
+  {
+      ROS_INFO("Hello there");
+  }
+  catch (std::exception& e)
+  {
+      FAIL();
+  }
 
-	logger->removeAppender( appender );
-	logger->setLevel( log4cxx::Level::getDebug() );
+  logger->removeAppender( appender );
+  logger->setLevel( log4cxx::Level::getDebug() );
+}
+
+void onceFunc()
+{
+  ROS_LOG_ONCE(ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+}
+
+TEST(RosConsole, once)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  onceFunc();
+  onceFunc();
+
+  EXPECT_EQ(appender->info_.size(), 1ULL);
+
+  logger->removeAppender(appender);
+}
+
+void limitFunc()
+{
+  ROS_LOG_LIMIT(0.5, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+}
+
+TEST(RosConsole, limit)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  ros::Time start = ros::Time::now();
+  while (ros::Time::now() <= start + ros::Duration(0.5))
+  {
+    limitFunc();
+    ros::Duration(0.01).sleep();
+  }
+
+  limitFunc();
+
+  EXPECT_EQ(appender->info_.size(), 2ULL);
+
+  logger->removeAppender(appender);
+}
+
+void onceStreamFunc()
+{
+  ROS_LOG_STREAM_ONCE(ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+}
+
+TEST(RosConsole, onceStream)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  onceStreamFunc();
+  onceStreamFunc();
+
+  EXPECT_EQ(appender->info_.size(), 1ULL);
+
+  logger->removeAppender(appender);
+}
+
+void limitStreamFunc()
+{
+  ROS_LOG_STREAM_LIMIT(0.5, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+}
+
+TEST(RosConsole, limitStream)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  ros::Time start = ros::Time::now();
+  while (ros::Time::now() <= start + ros::Duration(0.5))
+  {
+    limitStreamFunc();
+    ros::Duration(0.01).sleep();
+  }
+
+  limitStreamFunc();
+
+  EXPECT_EQ(appender->info_.size(), 2ULL);
+
+  logger->removeAppender(appender);
+}
+
+TEST(RosConsole, basicFilter)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  BasicFilter trueFilter(true), falseFilter(false);
+  ROS_LOG_FILTER(&trueFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+  ROS_LOG_FILTER(&falseFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello2");
+
+  ASSERT_EQ(appender->info_.size(), 1ULL);
+  EXPECT_STREQ(appender->info_[0].message_.c_str(), "Hello");
+
+  logger->removeAppender(appender);
+}
+
+TEST(RosConsole, basicFilterStream)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  BasicFilter trueFilter(true), falseFilter(false);
+  ROS_LOG_STREAM_FILTER(&trueFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+  ROS_LOG_STREAM_FILTER(&falseFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello2");
+
+  ASSERT_EQ(appender->info_.size(), 1ULL);
+  EXPECT_STREQ(appender->info_[0].message_.c_str(), "Hello");
+
+  logger->removeAppender(appender);
+}
+
+struct AdvancedFilter : public ros::console::FilterBase
+{
+  AdvancedFilter(bool enabled)
+  : enabled_(enabled)
+  , count_(0)
+  {}
+
+  using ros::console::FilterBase::isEnabled;
+  inline virtual bool isEnabled(ros::console::FilterParams& params)
+  {
+    fprintf(stderr, "%s %s:%d:%s\n", params.message, params.file, params.line, params.function);
+    ++count_;
+    return enabled_;
+  }
+
+  bool enabled_;
+  int count_;
+};
+
+TEST(RosConsole, advancedFilter)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  AdvancedFilter trueFilter(true), falseFilter(false);
+  ROS_LOG_FILTER(&trueFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+  ROS_LOG_FILTER(&falseFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello2");
+
+  ASSERT_EQ(appender->info_.size(), 1ULL);
+  EXPECT_STREQ(appender->info_[0].message_.c_str(), "Hello");
+  EXPECT_EQ(trueFilter.count_, 1);
+  EXPECT_EQ(falseFilter.count_, 1);
+
+  logger->removeAppender(appender);
+}
+
+TEST(RosConsole, advancedFilterStream)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  AdvancedFilter trueFilter(true), falseFilter(false);
+  ROS_LOG_STREAM_FILTER(&trueFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+  ROS_LOG_STREAM_FILTER(&falseFilter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello2");
+
+  ASSERT_EQ(appender->info_.size(), 1ULL);
+  EXPECT_STREQ(appender->info_[0].message_.c_str(), "Hello");
+  EXPECT_EQ(trueFilter.count_, 1);
+  EXPECT_EQ(falseFilter.count_, 1);
+
+  logger->removeAppender(appender);
+}
+
+struct ChangeFilter : public ros::console::FilterBase
+{
+  using ros::console::FilterBase::isEnabled;
+  inline virtual bool isEnabled(ros::console::FilterParams& params)
+  {
+    params.out_message = "haha";
+    params.out_level = ros::console::levels::Error;
+    return true;
+  }
+};
+
+TEST(RosConsole, changeFilter)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  ChangeFilter filter;
+  ROS_LOG_FILTER(&filter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+
+  ASSERT_EQ(appender->info_.size(), 1ULL);
+  EXPECT_STREQ(appender->info_[0].message_.c_str(), "haha");
+  EXPECT_EQ(appender->info_[0].level_, log4cxx::Level::getError());
+
+  logger->removeAppender(appender);
+}
+
+TEST(RosConsole, changeFilterStream)
+{
+  log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME);
+
+  TestAppender* appender = new TestAppender;
+  logger->addAppender(appender);
+
+  ChangeFilter filter;
+  ROS_LOG_STREAM_FILTER(&filter, ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, "Hello");
+
+  ASSERT_EQ(appender->info_.size(), 1ULL);
+  EXPECT_STREQ(appender->info_[0].message_.c_str(), "haha");
+  EXPECT_EQ(appender->info_[0].level_, log4cxx::Level::getError());
+
+  logger->removeAppender(appender);
 }
 
 int main(int argc, char **argv)
