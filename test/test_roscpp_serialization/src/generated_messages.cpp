@@ -45,6 +45,7 @@
 #include "test_roscpp_serialization/EmbeddedExternal.h"
 #include "test_roscpp_serialization/WithTime.h"
 #include "test_roscpp_serialization/WithDuration.h"
+#include "test_roscpp_serialization/WithMemberNamedHeaderThatIsNotAHeader.h"
 
 using namespace test_roscpp_serialization;
 
@@ -58,6 +59,7 @@ ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, WithHeader, MyWith
 ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, EmbeddedExternal, MyEmbeddedExternal, Allocator);
 ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, WithTime, MyWithTime, Allocator);
 ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, WithDuration, MyWithDuration, Allocator);
+ROS_TYPEDEF_MESSAGE_WITH_ALLOCATOR(test_roscpp_serialization, WithMemberNamedHeaderThatIsNotAHeader, MyWithMemberNamedHeaderThatIsNotAHeader, Allocator);
 
 TEST(GeneratedMessages, traitsWithStandardMessages)
 {
@@ -71,6 +73,7 @@ TEST(GeneratedMessages, traitsWithStandardMessages)
   EXPECT_TRUE(mt::isFixedSize<EmbeddedExternal>());
   EXPECT_TRUE(mt::isFixedSize<WithTime>());
   EXPECT_TRUE(mt::isFixedSize<WithDuration>());
+  EXPECT_TRUE(mt::isFixedSize<WithMemberNamedHeaderThatIsNotAHeader>());
 
   EXPECT_FALSE(mt::hasHeader<ArrayOfFixedLength>());
   EXPECT_FALSE(mt::hasHeader<ArrayOfVariableLength>());
@@ -82,6 +85,7 @@ TEST(GeneratedMessages, traitsWithStandardMessages)
   EXPECT_FALSE(mt::hasHeader<EmbeddedExternal>());
   EXPECT_FALSE(mt::hasHeader<WithTime>());
   EXPECT_FALSE(mt::hasHeader<WithDuration>());
+  EXPECT_FALSE(mt::hasHeader<WithMemberNamedHeaderThatIsNotAHeader>());
 
   EXPECT_FALSE(mt::isSimple<ArrayOfFixedLength>());
   EXPECT_FALSE(mt::isSimple<ArrayOfVariableLength>());
@@ -93,6 +97,7 @@ TEST(GeneratedMessages, traitsWithStandardMessages)
   EXPECT_FALSE(mt::isSimple<EmbeddedExternal>());
   EXPECT_FALSE(mt::isSimple<WithTime>());
   EXPECT_FALSE(mt::isSimple<WithDuration>());
+  EXPECT_FALSE(mt::isSimple<WithMemberNamedHeaderThatIsNotAHeader>());
 }
 
 TEST(GeneratedMessages, traitsWithCustomAllocator)
@@ -107,6 +112,7 @@ TEST(GeneratedMessages, traitsWithCustomAllocator)
   EXPECT_TRUE(mt::isFixedSize<MyEmbeddedExternal>());
   EXPECT_TRUE(mt::isFixedSize<MyWithTime>());
   EXPECT_TRUE(mt::isFixedSize<MyWithDuration>());
+  EXPECT_TRUE(mt::isFixedSize<MyWithMemberNamedHeaderThatIsNotAHeader>());
 
   EXPECT_FALSE(mt::hasHeader<MyArrayOfFixedLength>());
   EXPECT_FALSE(mt::hasHeader<MyArrayOfVariableLength>());
@@ -118,6 +124,7 @@ TEST(GeneratedMessages, traitsWithCustomAllocator)
   EXPECT_FALSE(mt::hasHeader<MyEmbeddedExternal>());
   EXPECT_FALSE(mt::hasHeader<MyWithTime>());
   EXPECT_FALSE(mt::hasHeader<MyWithDuration>());
+  EXPECT_FALSE(mt::hasHeader<MyWithMemberNamedHeaderThatIsNotAHeader>());
 
   EXPECT_FALSE(mt::isSimple<MyArrayOfFixedLength>());
   EXPECT_FALSE(mt::isSimple<MyArrayOfVariableLength>());
@@ -129,6 +136,7 @@ TEST(GeneratedMessages, traitsWithCustomAllocator)
   EXPECT_FALSE(mt::isSimple<MyEmbeddedExternal>());
   EXPECT_FALSE(mt::isSimple<MyWithTime>());
   EXPECT_FALSE(mt::isSimple<MyWithDuration>());
+  EXPECT_FALSE(mt::isSimple<MyWithMemberNamedHeaderThatIsNotAHeader>());
 }
 
 #define SERIALIZATION_COMPILATION_TEST(Type) \
@@ -148,6 +156,7 @@ SERIALIZATION_COMPILATION_TEST(WithHeader);
 SERIALIZATION_COMPILATION_TEST(EmbeddedExternal);
 SERIALIZATION_COMPILATION_TEST(WithTime);
 SERIALIZATION_COMPILATION_TEST(WithDuration);
+SERIALIZATION_COMPILATION_TEST(WithMemberNamedHeaderThatIsNotAHeader);
 
 SERIALIZATION_COMPILATION_TEST(MyArrayOfFixedLength);
 SERIALIZATION_COMPILATION_TEST(MyArrayOfVariableLength);
@@ -159,6 +168,7 @@ SERIALIZATION_COMPILATION_TEST(MyWithHeader);
 SERIALIZATION_COMPILATION_TEST(MyEmbeddedExternal);
 SERIALIZATION_COMPILATION_TEST(MyWithTime);
 SERIALIZATION_COMPILATION_TEST(MyWithDuration);
+SERIALIZATION_COMPILATION_TEST(MyWithMemberNamedHeaderThatIsNotAHeader);
 
 int main(int argc, char** argv)
 {
