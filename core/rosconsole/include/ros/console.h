@@ -159,6 +159,19 @@ struct FilterParams
  * Filters get a chance to veto the message from printing at two times: first before the message arguments are
  * evaluated and the message is formatted, and then once the message is formatted before it is printed.  It is also possible
  * to change the message, logger and severity level at this stage (see the FilterParams struct for more details).
+ *
+ * When a ROS_X_FILTER... macro is called, here is the high-level view of how it uses the filter passed in:
+\verbatim
+if (<logging level is enabled> && filter->isEnabled())
+{
+  <format message>
+  <fill out FilterParams>
+  if (filter->isEnabled(params))
+  {
+    <print message>
+  }
+}
+\endverbatim
  */
 class FilterBase
 {
@@ -373,7 +386,7 @@ struct LogLocation
  * \param name Name of the logger.  Note that this is the fully qualified name, and does NOT include "ros.<package_name>".  Use ROSCONSOLE_DEFAULT_NAME if you would like to use the default name.
  * \param rate The rate it should actually trigger at
  */
-#define ROS_LOG_LIMIT(rate, level, name, ...) \
+#define ROS_LOG_THROTTLE(rate, level, name, ...) \
   do \
   { \
     ROSCONSOLE_DEFINE_LOCATION(true, level, name); \
@@ -393,7 +406,7 @@ struct LogLocation
  * \param name Name of the logger.  Note that this is the fully qualified name, and does NOT include "ros.<package_name>".  Use ROSCONSOLE_DEFAULT_NAME if you would like to use the default name.
  * \param rate The rate it should actually trigger at
  */
-#define ROS_LOG_STREAM_LIMIT(rate, level, name, args) \
+#define ROS_LOG_STREAM_THROTTLE(rate, level, name, args) \
   do \
   { \
     ROSCONSOLE_DEFINE_LOCATION(true, level, name); \
