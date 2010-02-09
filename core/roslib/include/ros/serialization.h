@@ -828,6 +828,7 @@ inline SerializedMessage serializeMessage(const M& message)
 
   OStream s(m.buf.get(), (uint32_t)m.num_bytes);
   serialize(s, (uint32_t)m.num_bytes - 4);
+  m.message_start = s.getData();
   serialize(s, message);
 
   return m;

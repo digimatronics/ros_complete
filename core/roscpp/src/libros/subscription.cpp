@@ -590,7 +590,15 @@ private:
 };
 typedef boost::shared_ptr<SubscriptionCallback> SubscriptionCallbackPtr;
 
-uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link)
+struct TypeInfoComparator
+{
+  bool operator()(const std::type_info* lhs, const std::type_info* rhs)
+  {
+    return lhs->before(*rhs);
+  }
+};
+
+uint32_t Subscription::handleMessage(const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link)
 {
   boost::mutex::scoped_lock lock(callbacks_mutex_);
 
@@ -599,7 +607,7 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
   // Cache the deserializers by type info.  If all the subscriptions are the same type this has the same performance as before.  If
   // there are subscriptions with different C++ type (but same ROS message type), this now works correctly rather than passing
   // garbage to the messages with different C++ types than the first one.
-  typedef std::map<const std::type_info*, MessageDeserializerPtr> M_TypeToDeserializer;
+  typedef std::map<const std::type_info*, MessageDeserializerPtr, TypeInfoComparator> M_TypeToDeserializer;
   M_TypeToDeserializer deserializers;
 
   for (V_CallbackInfo::iterator cb = callbacks_.begin();
@@ -613,7 +621,7 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
     MessageDeserializerPtr& deserializer = deserializers[ti];
     if (!deserializer)
     {
-      deserializer.reset(new MessageDeserializer(info->helper_, buffer, num_bytes, buffer_includes_size_header, connection_header));
+      deserializer.reset(new MessageDeserializer(info->helper_, m, connection_header));
     }
 
     if (info->subscription_queue_->full())
@@ -630,17 +638,16 @@ uint32_t Subscription::handleMessage(const boost::shared_array<uint8_t>& buffer,
   if (link->isLatched())
   {
     LatchInfo li;
-    li.buffer_includes_size_header = buffer_includes_size_header;
     li.connection_header = connection_header;
     li.link = link;
-    li.message = SerializedMessage(buffer, num_bytes);
+    li.message = m;
     latched_messages_[link] = li;
   }
 
   return drops;
 }
 
-bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidPtr& tracked_object)
+bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidConstPtr& tracked_object)
 {
   ROS_ASSERT(helper);
   ROS_ASSERT(queue);
@@ -682,7 +689,7 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
           {
             const LatchInfo& latch_info = des_it->second;
 
-            MessageDeserializerPtr des(new MessageDeserializer(helper, latch_info.message.buf, latch_info.message.num_bytes, latch_info.buffer_includes_size_header, latch_info.connection_header));
+            MessageDeserializerPtr des(new MessageDeserializer(helper, latch_info.message, latch_info.connection_header));
             uint64_t id = info->subscription_queue_->push(info->helper_, des, info->has_tracked_object_, info->tracked_object_);
             SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
             info->callback_queue_->addCallback(cb, (uint64_t)info.get());
@@ -725,6 +732,29 @@ void Subscription::removePublisherLink(const PublisherLinkPtr& pub_link)
   if (pub_link->isLatched())
   {
     latched_messages_.erase(pub_link);
+  }
+}
+
+void Subscription::getPublishTypes(bool& ser, bool& nocopy, const std::type_info& ti)
+{
+  boost::mutex::scoped_lock lock(callbacks_mutex_);
+  for (V_CallbackInfo::iterator cb = callbacks_.begin();
+       cb != callbacks_.end(); ++cb)
+  {
+    const CallbackInfoPtr& info = *cb;
+    if (info->helper_->getTypeInfo() == ti)
+    {
+      nocopy = true;
+    }
+    else
+    {
+      ser = true;
+    }
+
+    if (nocopy && ser)
+    {
+      return;
+    }
   }
 }
 

@@ -73,7 +73,7 @@ struct SubscriptionMessageHelperDeserializeParams
 
 struct SubscriptionMessageHelperCallParams
 {
-  VoidPtr message;
+  VoidConstPtr message;
   boost::shared_ptr<M_string> connection_header;
 };
 
@@ -134,7 +134,7 @@ struct SubscriptionCallbackAdapter
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    cb(*boost::static_pointer_cast<MessageType>(params.message));
+    cb(*boost::static_pointer_cast<MessageType const>(params.message));
   }
 };
 
@@ -149,7 +149,7 @@ struct SubscriptionCallbackAdapter<const M&>
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    cb(*boost::static_pointer_cast<MessageType>(params.message));
+    cb(*boost::static_pointer_cast<MessageType const>(params.message));
   }
 };
 
@@ -183,7 +183,7 @@ struct SubscriptionCallbackAdapter<const boost::shared_ptr<M const>& >
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    cb(boost::static_pointer_cast<MessageType>(params.message));
+    cb(boost::static_pointer_cast<MessageType const>(params.message));
   }
 };
 
@@ -199,7 +199,7 @@ struct SubscriptionCallbackAdapter<boost::shared_ptr<M const> >
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    cb(boost::static_pointer_cast<MessageType>(params.message));
+    cb(boost::static_pointer_cast<MessageType const>(params.message));
   }
 };
 
@@ -237,7 +237,7 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M>& >
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType>(params.message), params.connection_header);
+    MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType const>(params.message), params.connection_header);
     cb(event);
   }
 };
@@ -253,7 +253,7 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M const>& >
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    MessageEvent<MessageType const> event(boost::static_pointer_cast<MessageType>(params.message), params.connection_header);
+    MessageEvent<MessageType const> event(boost::static_pointer_cast<MessageType const>(params.message), params.connection_header);
     cb(event);
   }
 };
@@ -267,7 +267,7 @@ class SubscriptionMessageHelper
 {
 public:
   virtual ~SubscriptionMessageHelper() {}
-  virtual VoidPtr deserialize(const SubscriptionMessageHelperDeserializeParams&) = 0;
+  virtual VoidConstPtr deserialize(const SubscriptionMessageHelperDeserializeParams&) = 0;
   virtual void call(const SubscriptionMessageHelperCallParams& params) = 0;
   virtual const std::type_info& getTypeInfo() = 0;
 };
@@ -298,7 +298,7 @@ public:
     create_ = create;
   }
 
-  virtual VoidPtr deserialize(const SubscriptionMessageHelperDeserializeParams& params)
+  virtual VoidConstPtr deserialize(const SubscriptionMessageHelperDeserializeParams& params)
   {
     namespace ser = serialization;
 
@@ -308,7 +308,7 @@ public:
     ser::IStream stream(params.buffer, params.length);
     ser::deserialize(stream, *msg);
 
-    return VoidPtr(msg);
+    return VoidConstPtr(msg);
   }
 
   virtual void call(const SubscriptionMessageHelperCallParams& params)

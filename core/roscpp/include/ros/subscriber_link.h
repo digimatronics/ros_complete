@@ -75,6 +75,9 @@ public:
 
   virtual std::string getTransportType() = 0;
 
+  virtual bool isIntraprocess() { return false; }
+  virtual void getPublishTypes(bool& ser, bool& nocopy, const std::type_info& ti) { ser = true; nocopy = false; }
+
 protected:
   bool verifyDatatype(const std::string &datatype);
 

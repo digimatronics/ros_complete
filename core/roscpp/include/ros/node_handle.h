@@ -262,7 +262,7 @@ if (handle)
   Publisher advertise(const std::string& topic, uint32_t queue_size,
                             const SubscriberStatusCallback& connect_cb,
                             const SubscriberStatusCallback& disconnect_cb = SubscriberStatusCallback(),
-                            const VoidPtr& tracked_object = VoidPtr(),
+                            const VoidConstPtr& tracked_object = VoidConstPtr(),
                             bool latch = false)
   {
     AdvertiseOptions ops;
@@ -610,7 +610,7 @@ if (handle)
    */
   template<class M>
   Subscriber subscribe(const std::string& topic, uint32_t queue_size, const boost::function<void (const boost::shared_ptr<M const>&)>& callback,
-                             const VoidPtr& tracked_object = VoidPtr(), const TransportHints& transport_hints = TransportHints())
+                             const VoidConstPtr& tracked_object = VoidConstPtr(), const TransportHints& transport_hints = TransportHints())
   {
     SubscribeOptions ops;
     ops.template init<M>(topic, queue_size, callback);
@@ -655,7 +655,7 @@ if (handle)
    */
   template<class M, class C>
   Subscriber subscribe(const std::string& topic, uint32_t queue_size, const boost::function<void (C)>& callback,
-                             const VoidPtr& tracked_object = VoidPtr(), const TransportHints& transport_hints = TransportHints())
+                             const VoidConstPtr& tracked_object = VoidConstPtr(), const TransportHints& transport_hints = TransportHints())
   {
     SubscribeOptions ops;
     ops.template initByFullCallbackType<C>(topic, queue_size, callback);
@@ -946,7 +946,7 @@ if (handle)
    * \throws InvalidNameException If the service name begins with a tilde, or is an otherwise invalid graph resource name
    */
   template<class MReq, class MRes>
-  ServiceServer advertiseService(const std::string& service, const boost::function<bool(MReq&, MRes&)>& callback, const VoidPtr& tracked_object = VoidPtr())
+  ServiceServer advertiseService(const std::string& service, const boost::function<bool(MReq&, MRes&)>& callback, const VoidConstPtr& tracked_object = VoidConstPtr())
   {
     AdvertiseServiceOptions ops;
     ops.template init<MReq, MRes>(service, callback);
@@ -983,7 +983,7 @@ if (handle)
    * \throws InvalidNameException If the service name begins with a tilde, or is an otherwise invalid graph resource name
    */
   template<class S>
-  ServiceServer advertiseService(const std::string& service, const boost::function<bool(S&)>& callback, const VoidPtr& tracked_object = VoidPtr())
+  ServiceServer advertiseService(const std::string& service, const boost::function<bool(S&)>& callback, const VoidConstPtr& tracked_object = VoidConstPtr())
   {
     AdvertiseServiceOptions ops;
     ops.template initBySpecType<S>(service, callback);

@@ -134,7 +134,7 @@ struct AdvertiseServiceOptions
    * callback, and for it to go out of scope (and potentially be deleted) in the code path (and therefore
    * thread) that the callback is invoked from.
    */
-  VoidPtr tracked_object;
+  VoidConstPtr tracked_object;
 
   /**
    * \brief Templated helper function for creating an AdvertiseServiceOptions with all of its options
@@ -146,7 +146,7 @@ struct AdvertiseServiceOptions
   template<class Service>
   static AdvertiseServiceOptions create(const std::string& service,
                                  const boost::function<bool(typename Service::Request&, typename Service::Response&)>& callback,
-                                 const VoidPtr& tracked_object,
+                                 const VoidConstPtr& tracked_object,
                                  CallbackQueueInterface* queue)
   {
     AdvertiseServiceOptions ops;

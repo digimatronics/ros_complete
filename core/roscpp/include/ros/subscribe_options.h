@@ -127,7 +127,7 @@ struct SubscribeOptions
    * callback, and for it to go out of scope (and potentially be deleted) in the code path (and therefore
    * thread) that the callback is invoked from.
    */
-  VoidPtr tracked_object;
+  VoidConstPtr tracked_object;
 
   TransportHints transport_hints;                                   ///< Hints for transport type and options
 
@@ -144,7 +144,7 @@ struct SubscribeOptions
   template<class M>
   static SubscribeOptions create(const std::string& topic, uint32_t queue_size,
                                  const boost::function<void (const boost::shared_ptr<M const>&)>& callback,
-                                 const VoidPtr& tracked_object, CallbackQueueInterface* queue)
+                                 const VoidConstPtr& tracked_object, CallbackQueueInterface* queue)
   {
     SubscribeOptions ops;
     ops.init<M>(topic, queue_size, callback);

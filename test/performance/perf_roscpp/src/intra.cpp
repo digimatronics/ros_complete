@@ -179,6 +179,9 @@ void ThroughputTest::sendThread(boost::barrier* all_connected)
     }
   }
 
+  ThroughputMessagePtr msg(new ThroughputMessage);
+  msg->array.resize(message_size_);
+
   all_connected->wait();
 
   ROS_INFO_STREAM("Publish thread [" << boost::this_thread::get_id() << "] all connections established, beginning to publish");
@@ -190,14 +193,10 @@ void ThroughputTest::sendThread(boost::barrier* all_connected)
   try
   {
     const uint32_t streams = streams_;
-    const uint32_t size = message_size_;
     while (!boost::this_thread::interruption_requested())
     {
       for (uint32_t j = 0; j < streams; ++j)
       {
-        ThroughputMessagePtr msg(new ThroughputMessage);
-        msg->array.resize(size);
-        msg->publish_time = ros::WallTime::now().toSec();
         pubs[j].publish(msg);
 
         ++r.messages_sent;
@@ -378,9 +377,9 @@ LatencyTest::LatencyTest(uint32_t count_per_stream, uint32_t streams, uint32_t m
 
 void LatencyTest::receiveCallback(const LatencyMessageConstPtr& msg, ros::Publisher& pub)
 {
-  LatencyMessagePtr reply(new LatencyMessage);
-  *reply = *msg;
-  reply->receipt_time = ros::WallTime::now().toSec();
+  ros::WallTime receipt_time = ros::WallTime::now();
+  LatencyMessagePtr reply = boost::const_pointer_cast<LatencyMessage>(msg);
+  reply->receipt_time = receipt_time.toSec();
   pub.publish(reply);
   //ROS_INFO("Receiver received message %d", msg->count);
 }
@@ -395,8 +394,7 @@ void LatencyTest::sendCallback(const LatencyMessageConstPtr& msg, ros::Publisher
   thread_result_->latencies.push_back(msg->receipt_time - msg->publish_time);
   ++thread_result_->message_count;
 
-  LatencyMessagePtr reply(new LatencyMessage);
-  *reply = *msg;
+  LatencyMessagePtr reply = boost::const_pointer_cast<LatencyMessage>(msg);
   reply->publish_time = ros::WallTime::now().toSec();
   ++reply->count;
 
@@ -426,7 +424,7 @@ void LatencyTest::sendThread(boost::barrier* all_connected, uint32_t thread_inde
     pubs.push_back(nh.advertise<LatencyMessage>(ss.str(), 0));
 
     ss << "_return";
-    subs.push_back(nh.subscribe<LatencyMessage>(ss.str(), 0, boost::bind(&LatencyTest::sendCallback, this, _1, boost::ref(pubs[i]), thread_index), ros::VoidPtr(), ros::TransportHints().tcpNoDelay()));
+    subs.push_back(nh.subscribe<LatencyMessage>(ss.str(), 0, boost::bind(&LatencyTest::sendCallback, this, _1, boost::ref(pubs[i]), thread_index), ros::VoidConstPtr(), ros::TransportHints().tcpNoDelay()));
   }
 
   bool cont = true;
@@ -442,6 +440,15 @@ void LatencyTest::sendThread(boost::barrier* all_connected, uint32_t thread_inde
     }
   }
 
+  std::vector<LatencyMessagePtr> messages;
+  for (uint32_t i = 0; i < streams_; ++i)
+  {
+    LatencyMessagePtr msg(new LatencyMessage);
+    msg->thread_index = thread_index;
+    msg->array.resize(message_size_);
+    messages.push_back(msg);
+  }
+
   all_connected->wait();
 
   r.message_count = 0;
@@ -449,14 +456,10 @@ void LatencyTest::sendThread(boost::barrier* all_connected, uint32_t thread_inde
   const uint32_t count = count_per_stream_;
   const uint32_t streams = streams_;
   const uint32_t total_messages = count * streams;
-  const uint32_t size = message_size_;
   for (uint32_t j = 0; j < streams; ++j)
   {
-    LatencyMessagePtr msg(new LatencyMessage);
-    msg->thread_index = thread_index;
-    msg->array.resize(size);
-    msg->publish_time = ros::WallTime::now().toSec();
-    pubs[j].publish(msg);
+    messages[j]->publish_time = ros::WallTime::now().toSec();
+    pubs[j].publish(messages[j]);
   }
 
   while (r.latencies.size() < total_messages)
@@ -490,7 +493,7 @@ LatencyResult LatencyTest::run()
     ss << "_return";
     std::string pub_topic = ss.str();
     pubs.push_back(nh.advertise<LatencyMessage>(pub_topic, 0));
-    subs.push_back(nh.subscribe<LatencyMessage>(sub_topic, 0, boost::bind(&LatencyTest::receiveCallback, this, _1, boost::ref(pubs.back())), ros::VoidPtr(), ros::TransportHints().tcpNoDelay()));
+    subs.push_back(nh.subscribe<LatencyMessage>(sub_topic, 0, boost::bind(&LatencyTest::receiveCallback, this, _1, boost::ref(pubs.back())), ros::VoidConstPtr(), ros::TransportHints().tcpNoDelay()));
   }
 
   boost::barrier all_connected(1 + sender_threads_);

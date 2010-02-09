@@ -46,7 +46,7 @@ SubscriptionQueue::~SubscriptionQueue()
 
 }
 
-uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidWPtr& tracked_object)
+uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object)
 {
   boost::mutex::scoped_lock lock(queue_mutex_);
 
@@ -126,7 +126,7 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     return CallbackInterface::TryAgain;
   }
 
-  VoidPtr tracker;
+  VoidConstPtr tracker;
   Item i;
 
   {
@@ -168,7 +168,7 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     --queue_size_;
   }
 
-  VoidPtr msg = i.deserializer->deserialize();
+  VoidConstPtr msg = i.deserializer->deserialize();
 
   // msg can be null here if deserialization failed
   if (msg)

@@ -44,7 +44,7 @@ namespace ros
 
 ServicePublication::ServicePublication(const std::string& name, const std::string &md5sum, const std::string& data_type, const std::string& request_data_type,
                              const std::string& response_data_type, const ServiceMessageHelperPtr& helper, CallbackQueueInterface* callback_queue,
-                             const VoidPtr& tracked_object)
+                             const VoidConstPtr& tracked_object)
 : name_(name)
 , md5sum_(md5sum)
 , data_type_(data_type)
@@ -84,7 +84,7 @@ void ServicePublication::drop()
 class ServiceCallback : public CallbackInterface
 {
 public:
-  ServiceCallback(const ServiceMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buf, size_t num_bytes, const ServiceClientLinkPtr& link, bool has_tracked_object, const VoidWPtr& tracked_object)
+  ServiceCallback(const ServiceMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buf, size_t num_bytes, const ServiceClientLinkPtr& link, bool has_tracked_object, const VoidConstWPtr& tracked_object)
   : helper_(helper)
   , buffer_(buf)
   , num_bytes_(num_bytes)
@@ -101,7 +101,7 @@ public:
       return Invalid;
     }
 
-    VoidPtr tracker;
+    VoidConstPtr tracker;
     if (has_tracked_object_)
     {
       tracker = tracked_object_.lock();
@@ -140,7 +140,7 @@ private:
   uint32_t num_bytes_;
   ServiceClientLinkPtr link_;
   bool has_tracked_object_;
-  VoidWPtr tracked_object_;
+  VoidConstWPtr tracked_object_;
 };
 
 void ServicePublication::processRequest(boost::shared_array<uint8_t> buf, size_t num_bytes, const ServiceClientLinkPtr& link)

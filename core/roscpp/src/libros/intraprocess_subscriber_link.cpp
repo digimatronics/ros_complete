@@ -74,7 +74,7 @@ bool IntraProcessSubscriberLink::isLatching()
 void IntraProcessSubscriberLink::enqueueMessage(const SerializedMessage& m)
 {
   ROS_ASSERT(subscriber_);
-  subscriber_->handleMessage(m.buf, m.num_bytes);
+  subscriber_->handleMessage(m);
 }
 
 std::string IntraProcessSubscriberLink::getTransportType()
@@ -100,6 +100,11 @@ void IntraProcessSubscriberLink::drop()
 
     parent->removeSubscriberLink(shared_from_this());
   }
+}
+
+void IntraProcessSubscriberLink::getPublishTypes(bool& ser, bool& nocopy, const std::type_info& ti)
+{
+  subscriber_->getPublishTypes(ser, nocopy, ti);
 }
 
 } // namespace ros

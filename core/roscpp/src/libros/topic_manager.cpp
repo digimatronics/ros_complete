@@ -630,7 +630,7 @@ bool TopicManager::requestTopic(const string &topic,
   return false;
 }
 
-void TopicManager::publish(const std::string& topic, const SerializedMessage& m)
+void TopicManager::publish(const std::string& topic, const boost::function<SerializedMessage(void)>& serfunc, SerializedMessage& m)
 {
   boost::recursive_mutex::scoped_lock lock(advertised_topics_mutex_);
 
@@ -643,6 +643,32 @@ void TopicManager::publish(const std::string& topic, const SerializedMessage& m)
   if (p->hasSubscribers() || p->isLatching())
   {
     ROS_DEBUG_NAMED("superdebug", "Publishing message on topic [%s] with sequence number [%d]", p->getName().c_str(), p->getSequence());
+
+    bool nocopy = false;
+    bool serialize = false;
+
+    if (m.type_info)
+    {
+      p->getPublishTypes(serialize, nocopy, *m.type_info);
+    }
+    else
+    {
+      serialize = true;
+    }
+
+    if (!nocopy)
+    {
+      m.message.reset();
+      m.type_info = 0;
+    }
+
+    if (serialize)
+    {
+      SerializedMessage m2 = serfunc();
+      m.buf = m2.buf;
+      m.num_bytes = m2.num_bytes;
+      m.message_start = m2.message_start;
+    }
 
     boost::mutex::scoped_lock lock(publish_queue_mutex_);
     publish_queue_.push_back(std::make_pair(p, m));
@@ -751,13 +777,10 @@ size_t TopicManager::getNumSubscribers(const std::string &topic)
     return 0;
   }
 
-  for (V_Publication::const_iterator t = advertised_topics_.begin();
-       t != advertised_topics_.end(); ++t)
+  PublicationPtr p = lookupPublicationWithoutLock(topic);
+  if (p)
   {
-    if ((*t)->getName() == topic)
-    {
-      return (*t)->getNumSubscribers();
-    }
+    return p->getNumSubscribers();
   }
 
   return 0;

@@ -30,6 +30,7 @@
 
 #include "forwards.h"
 #include "message.h"
+#include <ros/serialized_message.h>
 
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_array.hpp>
@@ -43,20 +44,18 @@ typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPt
 class MessageDeserializer
 {
 public:
-  MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header);
+  MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header);
 
-  VoidPtr deserialize();
+  VoidConstPtr deserialize();
   const boost::shared_ptr<M_string>& getConnectionHeader() { return connection_header_; }
 
 private:
   SubscriptionMessageHelperPtr helper_;
-  boost::shared_array<uint8_t> buffer_;
-  uint32_t num_bytes_;
-  bool buffer_includes_size_header_;
+  SerializedMessage serialized_message_;
   boost::shared_ptr<M_string> connection_header_;
 
   boost::mutex mutex_;
-  VoidPtr msg_;
+  VoidConstPtr msg_;
 };
 typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
 

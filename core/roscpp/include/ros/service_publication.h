@@ -63,7 +63,7 @@ class ServicePublication : public boost::enable_shared_from_this<ServicePublicat
 public:
   ServicePublication(const std::string& name, const std::string &md5sum, const std::string& data_type, const std::string& request_data_type,
                 const std::string& response_data_type, const ServiceMessageHelperPtr& helper, CallbackQueueInterface* queue,
-                const VoidPtr& tracked_object);
+                const VoidConstPtr& tracked_object);
   ~ServicePublication();
 
   /**
@@ -112,7 +112,7 @@ private:
 
   CallbackQueueInterface* callback_queue_;
   bool has_tracked_object_;
-  VoidWPtr tracked_object_;
+  VoidConstWPtr tracked_object_;
 };
 typedef boost::shared_ptr<ServicePublication> ServicePublicationPtr;
 

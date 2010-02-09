@@ -51,7 +51,8 @@ Publication::Publication(const std::string &name,
   seq_(0),
   dropped_(false),
   latch_(latch),
-  has_header_(has_header)
+  has_header_(has_header),
+  intraprocess_subscriber_count_(0)
 {
 }
 
@@ -149,6 +150,11 @@ void Publication::addSubscriberLink(const SubscriberLinkPtr& sub_link)
     }
 
     subscriber_links_.push_back(sub_link);
+
+    if (sub_link->isIntraprocess())
+    {
+      ++intraprocess_subscriber_count_;
+    }
   }
 
   if (latch_ && last_message_.buf)
@@ -171,6 +177,11 @@ void Publication::removeSubscriberLink(const SubscriberLinkPtr& sub_link)
     if (dropped_)
     {
       return;
+    }
+
+    if (sub_link->isIntraprocess())
+    {
+      --intraprocess_subscriber_count_;
     }
 
     V_SubscriberLink::iterator it = std::find(subscriber_links_.begin(), subscriber_links_.end(), sub_link);
@@ -261,7 +272,7 @@ void Publication::dropAllConnections()
 class PeerConnDisconnCallback : public CallbackInterface
 {
 public:
-  PeerConnDisconnCallback(const SubscriberStatusCallback& callback, const SubscriberLinkPtr& sub_link, bool use_tracked_object, const VoidWPtr& tracked_object)
+  PeerConnDisconnCallback(const SubscriberStatusCallback& callback, const SubscriberLinkPtr& sub_link, bool use_tracked_object, const VoidConstWPtr& tracked_object)
   : callback_(callback)
   , sub_link_(sub_link)
   , use_tracked_object_(use_tracked_object)
@@ -271,7 +282,7 @@ public:
 
   virtual CallResult call()
   {
-    VoidPtr tracker;
+    VoidConstPtr tracker;
     if (use_tracked_object_)
     {
       tracker = tracked_object_.lock();
@@ -292,7 +303,7 @@ private:
   SubscriberStatusCallback callback_;
   SubscriberLinkPtr sub_link_;
   bool use_tracked_object_;
-  VoidWPtr tracked_object_;
+  VoidConstWPtr tracked_object_;
 };
 
 void Publication::peerConnect(const SubscriberLinkPtr& sub_link)
@@ -338,6 +349,39 @@ uint32_t Publication::incrementSequence()
   ++seq_;
 
   return old_seq;
+}
+
+uint32_t Publication::getNumSubscribers()
+{
+  boost::mutex::scoped_lock lock(subscriber_links_mutex_);
+  return (uint32_t)subscriber_links_.size();
+}
+
+void Publication::getPublishTypes(bool& serialize, bool& nocopy, const std::type_info& ti)
+{
+  boost::mutex::scoped_lock lock(subscriber_links_mutex_);
+  V_SubscriberLink::const_iterator it = subscriber_links_.begin();
+  V_SubscriberLink::const_iterator end = subscriber_links_.end();
+  for (; it != end; ++it)
+  {
+    const SubscriberLinkPtr& sub = *it;
+    bool s = false;
+    bool n = false;
+    sub->getPublishTypes(s, n, ti);
+    serialize = serialize || s;
+    nocopy = nocopy || n;
+
+    if (serialize && nocopy)
+    {
+      break;
+    }
+  }
+}
+
+bool Publication::hasSubscribers()
+{
+  boost::mutex::scoped_lock lock(subscriber_links_mutex_);
+  return !subscriber_links_.empty();
 }
 
 } // namespace ros

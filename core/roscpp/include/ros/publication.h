@@ -86,11 +86,13 @@ public:
   /**
    * \brief Returns whether or not this publication has any subscribers
    */
-  bool hasSubscribers() { return !subscriber_links_.empty(); }
+  bool hasSubscribers();
   /**
    * \brief Returns the number of subscribers this publication has
    */
-  int getNumSubscribers() { return (int)subscriber_links_.size(); }
+  uint32_t getNumSubscribers();
+
+  void getPublishTypes(bool& serialize, bool& nocopy, const std::type_info& ti);
 
   /**
    * \brief Returns the name of the topic this publication broadcasts to
@@ -172,6 +174,8 @@ private:
   bool latch_;
   bool has_header_;
   SerializedMessage last_message_;
+
+  uint32_t intraprocess_subscriber_count_;
 };
 
 }

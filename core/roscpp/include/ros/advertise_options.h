@@ -116,7 +116,7 @@ struct AdvertiseOptions
    * callback, and for it to go out of scope (and potentially be deleted) in the code path (and therefore
    * thread) that the callback is invoked from.
    */
-  VoidPtr tracked_object;
+  VoidConstPtr tracked_object;
 
   /**
    * \brief Whether or not this publication should "latch".  A latching publication will automatically send out the last published message
@@ -147,7 +147,7 @@ struct AdvertiseOptions
   static AdvertiseOptions create(const std::string& topic, uint32_t queue_size,
                           const SubscriberStatusCallback& connect_cb,
                           const SubscriberStatusCallback& disconnect_cb,
-                          const VoidPtr& tracked_object,
+                          const VoidConstPtr& tracked_object,
                           CallbackQueueInterface* queue)
   {
     AdvertiseOptions ops;

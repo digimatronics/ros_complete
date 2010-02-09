@@ -76,11 +76,12 @@ Publisher::~Publisher()
 {
 }
 
-void Publisher::publish(const SerializedMessage& m) const
+void Publisher::publish(const boost::function<SerializedMessage(void)>& serfunc, SerializedMessage& m) const
 {
   if (!impl_)
   {
     ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
+    return;
   }
 
   if (!impl_->isValid())
@@ -89,7 +90,7 @@ void Publisher::publish(const SerializedMessage& m) const
     return;
   }
 
-  TopicManager::instance()->publish(impl_->topic_, m);
+  TopicManager::instance()->publish(impl_->topic_, serfunc, m);
 }
 
 void Publisher::incrementSequence() const
@@ -127,16 +128,6 @@ uint32_t Publisher::getNumSubscribers() const
   }
 
   return 0;
-}
-
-bool Publisher::isLatched() const
-{
-  if (impl_ && impl_->isValid())
-  {
-    return TopicManager::instance()->isLatched(impl_->topic_);
-  }
-
-  return false;
 }
 
 } // namespace ros

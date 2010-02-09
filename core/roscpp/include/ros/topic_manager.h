@@ -123,18 +123,11 @@ public:
   {
     using namespace serialization;
 
-    if (getNumSubscribers(topic) > 0 || isLatched(topic))
-    {
-      SerializedMessage m = serializeMessage(message);
-      publish(topic, m);
-    }
-    else
-    {
-      incrementSequence(topic);
-    }
+    SerializedMessage m;
+    publish(topic, boost::bind(serializeMessage<M>, boost::ref(message)), m);
   }
 
-  void publish(const std::string &_topic, const SerializedMessage& m);
+  void publish(const std::string &_topic, const boost::function<SerializedMessage(void)>& serfunc, SerializedMessage& m);
 
   void incrementSequence(const std::string &_topic);
   bool isLatched(const std::string& topic);

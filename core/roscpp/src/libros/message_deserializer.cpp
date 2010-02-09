@@ -33,17 +33,18 @@
 namespace ros
 {
 
-MessageDeserializer::MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buffer, size_t num_bytes, bool buffer_includes_size_header, const boost::shared_ptr<M_string>& connection_header)
+MessageDeserializer::MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header)
 : helper_(helper)
-, buffer_(buffer)
-, num_bytes_(num_bytes)
-, buffer_includes_size_header_(buffer_includes_size_header)
+, serialized_message_(m)
 , connection_header_(connection_header)
 {
-
+  if (serialized_message_.message && *serialized_message_.type_info != helper->getTypeInfo())
+  {
+    serialized_message_.message.reset();
+  }
 }
 
-VoidPtr MessageDeserializer::deserialize()
+VoidConstPtr MessageDeserializer::deserialize()
 {
   boost::mutex::scoped_lock lock(mutex_);
 
@@ -52,27 +53,32 @@ VoidPtr MessageDeserializer::deserialize()
     return msg_;
   }
 
-  if (!buffer_ && num_bytes_ > 0)
+  if (serialized_message_.message)
+  {
+    msg_ = serialized_message_.message;
+    return msg_;
+  }
+
+  if (!serialized_message_.buf && serialized_message_.num_bytes > 0)
   {
     // If the buffer has been reset it means we tried to deserialize and failed
-    return VoidPtr();
+    return VoidConstPtr();
   }
 
   try
   {
-    uint32_t offset = buffer_includes_size_header_ ? 4 : 0;
     SubscriptionMessageHelperDeserializeParams params;
-    params.buffer = buffer_.get() + offset;
-    params.length = num_bytes_ - offset;
+    params.buffer = serialized_message_.message_start;
+    params.length = serialized_message_.num_bytes - (serialized_message_.message_start - serialized_message_.buf.get());
     params.connection_header = connection_header_;
     msg_ = helper_->deserialize(params);
   }
   catch (std::exception& e)
   {
-    ROS_ERROR("Exception thrown when deserializing message of length [%d] from [%s]: %s", num_bytes_, (*connection_header_)["callerid"].c_str(), e.what());
+    ROS_ERROR("Exception thrown when deserializing message of length [%d] from [%s]: %s", (uint32_t)serialized_message_.num_bytes, (*connection_header_)["callerid"].c_str(), e.what());
   }
 
-  buffer_.reset();
+  serialized_message_.buf.reset();
 
   return msg_;
 }

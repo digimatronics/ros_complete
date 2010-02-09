@@ -32,6 +32,7 @@
 #include "ros/common.h"
 #include "ros/message.h"
 #include "ros/serialization.h"
+#include <boost/bind.hpp>
 
 namespace ros
 {
@@ -62,7 +63,25 @@ public:
   template<typename M>
   void publish(const boost::shared_ptr<M>& message) const
   {
-    publish(*message);
+    using namespace serialization;
+
+    if (!impl_)
+    {
+      ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
+      return;
+    }
+
+    if (!impl_->isValid())
+    {
+      ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
+      return;
+    }
+
+    SerializedMessage m;
+    m.type_info = &typeid(M);
+    m.message = message;
+
+    publish(boost::bind(serializeMessage<M>, boost::ref(*message)), m);
   }
 
   /**
@@ -73,21 +92,20 @@ public:
   {
     using namespace serialization;
 
-    if (!impl_ || !impl_->isValid())
+    if (!impl_)
     {
-      ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher");
+      ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
       return;
     }
 
-    if (getNumSubscribers() > 0 || isLatched())
+    if (!impl_->isValid())
     {
-      SerializedMessage m = serializeMessage(message);
-      publish(m);
+      ROS_ASSERT_MSG(false, "Call to publish() on an invalid Publisher (topic [%s])", impl_->topic_.c_str());
+      return;
     }
-    else
-    {
-      incrementSequence();
-    }
+
+    SerializedMessage m;
+    publish(boost::bind(serializeMessage<M>, boost::ref(message)), m);
   }
 
   /**
@@ -137,7 +155,7 @@ public:
 private:
   Publisher(const std::string& topic, const NodeHandle& node_handle, const SubscriberCallbacksPtr& callbacks);
 
-  void publish(const SerializedMessage& m) const;
+  void publish(const boost::function<SerializedMessage(void)>& serfunc, SerializedMessage& m) const;
   void incrementSequence() const;
 
   class Impl

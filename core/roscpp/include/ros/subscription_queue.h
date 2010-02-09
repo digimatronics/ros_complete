@@ -55,7 +55,7 @@ private:
     MessageDeserializerPtr deserializer;
 
     bool has_tracked_object;
-    VoidWPtr tracked_object;
+    VoidConstWPtr tracked_object;
 
     uint64_t id;
   };
@@ -64,7 +64,7 @@ private:
 public:
   SubscriptionQueue(const std::string& topic, int32_t queue_size);
   ~SubscriptionQueue();
-  uint64_t push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidWPtr& tracked_object);
+  uint64_t push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object);
   void clear();
   CallbackInterface::CallResult call(uint64_t id);
   bool ready(uint64_t id);
