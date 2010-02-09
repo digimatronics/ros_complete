@@ -136,7 +136,7 @@ void TransportPublisherLink::onMessage(const ConnectionPtr& conn, const boost::s
   ROS_ASSERT(conn == connection_);
 
   if (success)
-    handleMessage(SerializedMessage(buffer, size));
+    handleMessage(SerializedMessage(buffer, size), true, false);
 
   if (success || !connection_->getTransport()->requiresHeader())
   {
@@ -156,7 +156,7 @@ void TransportPublisherLink::onConnectionDropped(const ConnectionPtr& conn)
   }
 }
 
-void TransportPublisherLink::handleMessage(const SerializedMessage& m)
+void TransportPublisherLink::handleMessage(const SerializedMessage& m, bool ser, bool nocopy)
 {
   stats_.bytes_received_ += m.num_bytes;
   stats_.messages_received_++;
@@ -165,7 +165,7 @@ void TransportPublisherLink::handleMessage(const SerializedMessage& m)
 
   if (parent)
   {
-    stats_.drops_ += parent->handleMessage(m, getConnection()->getHeader().getValues(), shared_from_this());
+    stats_.drops_ += parent->handleMessage(m, ser, nocopy, getConnection()->getHeader().getValues(), shared_from_this());
   }
 }
 

@@ -79,7 +79,7 @@ public:
   /**
    * \brief Handles handing off a received message to the subscription, where it will be deserialized and called back
    */
-  virtual void handleMessage(const SerializedMessage& m) = 0;
+  virtual void handleMessage(const SerializedMessage& m, bool ser, bool nocopy) = 0;
   virtual std::string getTransportType() = 0;
   virtual void drop() = 0;
 

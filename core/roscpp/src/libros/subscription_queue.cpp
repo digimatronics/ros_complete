@@ -46,10 +46,11 @@ SubscriptionQueue::~SubscriptionQueue()
 
 }
 
-uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object)
+uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object, bool* was_full)
 {
   boost::mutex::scoped_lock lock(queue_mutex_);
 
+  *was_full = false;
   if(fullNoLock())
   {
     queue_.pop_front();
@@ -61,6 +62,11 @@ uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, con
     }
 
     full_ = true;
+
+    if (was_full)
+    {
+      *was_full = true;
+    }
   }
   else
   {
@@ -92,8 +98,8 @@ void SubscriptionQueue::remove(uint64_t id)
     }
   }
 
-  L_Item::iterator it = queue_.begin();
-  L_Item::iterator end = queue_.end();
+  D_Item::iterator it = queue_.begin();
+  D_Item::iterator end = queue_.end();
   for (; it != end; ++it)
   {
     const Item& i = *it;

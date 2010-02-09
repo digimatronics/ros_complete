@@ -93,7 +93,7 @@ void TopicManager::start()
   xmlrpc_manager_->bind("getBusStats", boost::bind(&TopicManager::getBusStatsCallback, this, _1, _2));
   xmlrpc_manager_->bind("getBusInfo", boost::bind(&TopicManager::getBusInfoCallback, this, _1, _2));
 
-  poll_manager_->addPollThreadListener(boost::bind(&TopicManager::processPublishQueue, this));
+  poll_manager_->addPollThreadListener(boost::bind(&TopicManager::processPublishQueues, this));
 }
 
 void TopicManager::shutdown()
@@ -107,7 +107,6 @@ void TopicManager::shutdown()
   {
     boost::recursive_mutex::scoped_lock lock1(advertised_topics_mutex_);
     boost::mutex::scoped_lock lock2(subs_mutex_);
-    boost::mutex::scoped_lock lock3(publish_queue_mutex_);
     shutting_down_ = true;
   }
 
@@ -147,36 +146,18 @@ void TopicManager::shutdown()
     }
     subscriptions_.clear();
   }
-
-  publish_queue_.clear();
 }
 
-void TopicManager::processPublishQueue()
+void TopicManager::processPublishQueues()
 {
-  V_PublicationAndSerializedMessagePair queue;
-  {
-    boost::mutex::scoped_lock lock(publish_queue_mutex_);
+  boost::recursive_mutex::scoped_lock lock(advertised_topics_mutex_);
 
-    if (isShuttingDown())
-    {
-      return;
-    }
-
-    queue.insert(queue.end(), publish_queue_.begin(), publish_queue_.end());
-    publish_queue_.clear();
-  }
-
-  if (queue.empty())
-  {
-    return;
-  }
-
-  V_PublicationAndSerializedMessagePair::iterator it = queue.begin();
-  V_PublicationAndSerializedMessagePair::iterator end = queue.end();
+  V_Publication::iterator it = advertised_topics_.begin();
+  V_Publication::iterator end = advertised_topics_.end();
   for (; it != end; ++it)
   {
-    PublicationPtr pub = it->first;
-    pub->enqueueMessage(it->second);
+    const PublicationPtr& pub = *it;
+    pub->processPublishQueue();
   }
 }
 
@@ -670,8 +651,7 @@ void TopicManager::publish(const std::string& topic, const boost::function<Seria
       m.message_start = m2.message_start;
     }
 
-    boost::mutex::scoped_lock lock(publish_queue_mutex_);
-    publish_queue_.push_back(std::make_pair(p, m));
+    p->publish(m);
     poll_manager_->getPollSet().signal();
   }
   else

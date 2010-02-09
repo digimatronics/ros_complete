@@ -195,8 +195,13 @@ void TransportSubscriberLink::startMessageWrite(bool immediate_write)
   }
 }
 
-void TransportSubscriberLink::enqueueMessage(const SerializedMessage& m)
+void TransportSubscriberLink::enqueueMessage(const SerializedMessage& m, bool ser, bool nocopy)
 {
+  if (!ser)
+  {
+    return;
+  }
+
   {
     boost::mutex::scoped_lock lock(outbox_mutex_);
 

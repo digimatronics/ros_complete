@@ -41,7 +41,7 @@ SingleSubscriberPublisher::~SingleSubscriberPublisher()
 
 void SingleSubscriberPublisher::publish(const SerializedMessage& m) const
 {
-  link_->enqueueMessage(m);
+  link_->enqueueMessage(m, true, true);
 }
 
 std::string SingleSubscriberPublisher::getTopic() const

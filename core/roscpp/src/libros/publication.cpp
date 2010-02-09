@@ -89,7 +89,8 @@ void Publication::drop()
   // grab a lock here, to ensure that no subscription callback will
   // be invoked after we return
   {
-    boost::mutex::scoped_lock lock(subscriber_links_mutex_);
+    boost::mutex::scoped_lock lock(publish_queue_mutex_);
+    boost::mutex::scoped_lock lock2(subscriber_links_mutex_);
 
     if (dropped_)
     {
@@ -128,7 +129,7 @@ bool Publication::enqueueMessage(const SerializedMessage& m)
       i != subscriber_links_.end(); ++i)
   {
     const SubscriberLinkPtr& sub_link = (*i);
-    sub_link->enqueueMessage(m);
+    sub_link->enqueueMessage(m, true, false);
   }
 
   if (latch_)
@@ -159,7 +160,7 @@ void Publication::addSubscriberLink(const SubscriberLinkPtr& sub_link)
 
   if (latch_ && last_message_.buf)
   {
-    sub_link->enqueueMessage(last_message_);
+    sub_link->enqueueMessage(last_message_, true, true);
   }
 
   // This call invokes the subscribe callback if there is one.
@@ -382,6 +383,58 @@ bool Publication::hasSubscribers()
 {
   boost::mutex::scoped_lock lock(subscriber_links_mutex_);
   return !subscriber_links_.empty();
+}
+
+void Publication::publish(const SerializedMessage& m)
+{
+  if (m.message)
+  {
+    boost::mutex::scoped_lock lock(subscriber_links_mutex_);
+    V_SubscriberLink::const_iterator it = subscriber_links_.begin();
+    V_SubscriberLink::const_iterator end = subscriber_links_.end();
+    for (; it != end; ++it)
+    {
+      const SubscriberLinkPtr& sub = *it;
+      if (sub->isIntraprocess())
+      {
+        sub->enqueueMessage(m, false, true);
+      }
+    }
+  }
+
+  if (m.buf)
+  {
+    boost::mutex::scoped_lock lock(publish_queue_mutex_);
+    publish_queue_.push_back(m);
+  }
+}
+
+void Publication::processPublishQueue()
+{
+  V_SerializedMessage queue;
+  {
+    boost::mutex::scoped_lock lock(publish_queue_mutex_);
+
+    if (dropped_)
+    {
+      return;
+    }
+
+    queue.insert(queue.end(), publish_queue_.begin(), publish_queue_.end());
+    publish_queue_.clear();
+  }
+
+  if (queue.empty())
+  {
+    return;
+  }
+
+  V_SerializedMessage::iterator it = queue.begin();
+  V_SerializedMessage::iterator end = queue.end();
+  for (; it != end; ++it)
+  {
+    enqueueMessage(*it);
+  }
 }
 
 } // namespace ros

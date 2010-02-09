@@ -104,7 +104,7 @@ public:
    * \brief Called to notify that a new message has arrived from a publisher.
    * Schedules the callback for invokation with the callback queue
    */
-  uint32_t handleMessage(const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link);
+  uint32_t handleMessage(const SerializedMessage& m, bool ser, bool nocopy, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link);
 
   const std::string datatype();
   const std::string md5sum();

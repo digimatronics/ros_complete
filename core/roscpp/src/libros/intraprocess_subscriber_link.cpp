@@ -71,10 +71,10 @@ bool IntraProcessSubscriberLink::isLatching()
   return false;
 }
 
-void IntraProcessSubscriberLink::enqueueMessage(const SerializedMessage& m)
+void IntraProcessSubscriberLink::enqueueMessage(const SerializedMessage& m, bool ser, bool nocopy)
 {
   ROS_ASSERT(subscriber_);
-  subscriber_->handleMessage(m);
+  subscriber_->handleMessage(m, ser, nocopy);
 }
 
 std::string IntraProcessSubscriberLink::getTransportType()

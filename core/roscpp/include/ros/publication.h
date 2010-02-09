@@ -141,6 +141,9 @@ public:
 
   bool isLatching() { return latch_; }
 
+  void publish(const SerializedMessage& m);
+  void processPublishQueue();
+
 private:
   void dropAllConnections();
 
@@ -176,6 +179,10 @@ private:
   SerializedMessage last_message_;
 
   uint32_t intraprocess_subscriber_count_;
+
+  typedef std::vector<SerializedMessage> V_SerializedMessage;
+  V_SerializedMessage publish_queue_;
+  boost::mutex publish_queue_mutex_;
 };
 
 }

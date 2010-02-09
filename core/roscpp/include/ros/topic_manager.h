@@ -163,7 +163,7 @@ private:
 
   PublicationPtr lookupPublicationWithoutLock(const std::string &topic);
 
-  void processPublishQueue();
+  void processPublishQueues();
 
   /** @brief Compute the statistics for the node's connectivity
    *
@@ -207,10 +207,6 @@ private:
   V_Publication advertised_topics_;
   std::list<std::string> advertised_topic_names_;
   boost::mutex advertised_topic_names_mutex_;
-
-  typedef std::vector<std::pair<PublicationPtr, SerializedMessage> > V_PublicationAndSerializedMessagePair;
-  V_PublicationAndSerializedMessagePair publish_queue_;
-  boost::mutex publish_queue_mutex_;
 
   volatile bool shutting_down_;
   boost::mutex shutting_down_mutex_;

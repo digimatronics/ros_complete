@@ -592,13 +592,13 @@ typedef boost::shared_ptr<SubscriptionCallback> SubscriptionCallbackPtr;
 
 struct TypeInfoComparator
 {
-  bool operator()(const std::type_info* lhs, const std::type_info* rhs)
+  bool operator()(const std::type_info* lhs, const std::type_info* rhs) const
   {
-    return lhs->before(*rhs);
+    return *lhs == *rhs;
   }
 };
 
-uint32_t Subscription::handleMessage(const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link)
+uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool nocopy, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link)
 {
   boost::mutex::scoped_lock lock(callbacks_mutex_);
 
@@ -607,8 +607,9 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, const boost::sh
   // Cache the deserializers by type info.  If all the subscriptions are the same type this has the same performance as before.  If
   // there are subscriptions with different C++ type (but same ROS message type), this now works correctly rather than passing
   // garbage to the messages with different C++ types than the first one.
-  typedef std::map<const std::type_info*, MessageDeserializerPtr, TypeInfoComparator> M_TypeToDeserializer;
-  M_TypeToDeserializer deserializers;
+  typedef std::vector<std::pair<const std::type_info*, MessageDeserializerPtr> > V_TypeAndDeserializer;
+  V_TypeAndDeserializer deserializers;
+  deserializers.reserve(callbacks_.size());
 
   for (V_CallbackInfo::iterator cb = callbacks_.begin();
        cb != callbacks_.end(); ++cb)
@@ -618,20 +619,38 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, const boost::sh
     ROS_ASSERT(info->callback_queue_);
 
     const std::type_info* ti = &info->helper_->getTypeInfo();
-    MessageDeserializerPtr& deserializer = deserializers[ti];
-    if (!deserializer)
-    {
-      deserializer.reset(new MessageDeserializer(info->helper_, m, connection_header));
-    }
 
-    if (info->subscription_queue_->full())
+    if ((nocopy && m.type_info && *ti == *m.type_info) || (ser && (!m.type_info || *ti != *m.type_info)))
     {
-      ++drops;
-    }
+      MessageDeserializerPtr deserializer;
 
-    uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_);
-    SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
-    info->callback_queue_->addCallback(cb, (uint64_t)info.get());
+      V_TypeAndDeserializer::iterator des_it = deserializers.begin();
+      V_TypeAndDeserializer::iterator des_end = deserializers.end();
+      for (; des_it != des_end; ++des_it)
+      {
+        if (*des_it->first == *ti)
+        {
+          deserializer = des_it->second;
+          break;
+        }
+      }
+
+      if (!deserializer)
+      {
+        deserializer.reset(new MessageDeserializer(info->helper_, m, connection_header));
+        deserializers.push_back(std::make_pair(ti, deserializer));
+      }
+
+      bool was_full = false;
+      uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, &was_full);
+      SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
+      info->callback_queue_->addCallback(cb, (uint64_t)info.get());
+
+      if (was_full)
+      {
+        ++drops;
+      }
+    }
   }
 
   // If this link is latched, store off the message so we can immediately pass it to new subscribers later

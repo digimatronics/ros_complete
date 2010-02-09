@@ -98,7 +98,7 @@ void IntraProcessPublisherLink::drop()
   }
 }
 
-void IntraProcessPublisherLink::handleMessage(const SerializedMessage& m)
+void IntraProcessPublisherLink::handleMessage(const SerializedMessage& m, bool ser, bool nocopy)
 {
   stats_.bytes_received_ += m.num_bytes;
   stats_.messages_received_++;
@@ -107,7 +107,7 @@ void IntraProcessPublisherLink::handleMessage(const SerializedMessage& m)
 
   if (parent)
   {
-    stats_.drops_ += parent->handleMessage(m, header_.getValues(), shared_from_this());
+    stats_.drops_ += parent->handleMessage(m, ser, nocopy, header_.getValues(), shared_from_this());
   }
 }
 

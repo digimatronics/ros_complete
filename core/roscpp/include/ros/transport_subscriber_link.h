@@ -47,7 +47,7 @@ public:
 
   const ConnectionPtr& getConnection() { return connection_; }
 
-  virtual void enqueueMessage(const SerializedMessage& m);
+  virtual void enqueueMessage(const SerializedMessage& m, bool ser, bool nocopy);
   virtual void drop();
   virtual std::string getTransportType();
 
