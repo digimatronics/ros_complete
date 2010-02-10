@@ -66,6 +66,43 @@ using XmlRpc::XmlRpcValue;
 namespace ros
 {
 
+class SubscriptionCallback : public CallbackInterface
+{
+public:
+  SubscriptionCallback(const SubscriptionQueuePtr& queue, uint64_t id)
+  : queue_(queue)
+  , id_(id)
+  , called_(false)
+  {}
+
+  ~SubscriptionCallback()
+  {
+    if (!called_)
+    {
+      queue_->remove(id_);
+    }
+  }
+
+  virtual CallResult call()
+  {
+    CallResult result = queue_->call(id_);
+    called_ = true;
+
+    return result;
+  }
+
+  virtual bool ready()
+  {
+    return queue_->ready(id_);
+  }
+
+private:
+  SubscriptionQueuePtr queue_;
+  uint64_t id_;
+  bool called_;
+};
+typedef boost::shared_ptr<SubscriptionCallback> SubscriptionCallbackPtr;
+
 Subscription::Subscription(const std::string &name, const std::string& md5sum, const std::string& datatype, const TransportHints& transport_hints)
 : name_(name)
 , md5sum_(md5sum)
@@ -73,6 +110,8 @@ Subscription::Subscription(const std::string &name, const std::string& md5sum, c
 , dropped_(false)
 , shutting_down_(false)
 , transport_hints_(transport_hints)
+, deserializer_pool_(sizeof(MessageDeserializer))
+, callback_pool_(sizeof(SubscriptionCallback))
 {
 }
 
@@ -553,49 +592,23 @@ void Subscription::pendingConnectionDone(const PendingConnectionPtr& conn, XmlRp
   }
 }
 
-class SubscriptionCallback : public CallbackInterface
+template<typename T>
+struct PoolDeleter
 {
-public:
-  SubscriptionCallback(const SubscriptionQueuePtr& queue, uint64_t id)
-  : queue_(queue)
-  , id_(id)
-  , called_(false)
+  PoolDeleter(boost::pool<>* pool, boost::mutex* mutex)
+  : pool_(pool)
+  , mutex_(mutex)
   {}
 
-  ~SubscriptionCallback()
+  void operator()(T* obj)
   {
-    if (!called_)
-    {
-      queue_->remove(id_);
-    }
+    boost::mutex::scoped_lock lock(*mutex_);
+    obj->~T();
+    pool_->free(obj);
   }
 
-  virtual CallResult call()
-  {
-    CallResult result = queue_->call(id_);
-    called_ = true;
-
-    return result;
-  }
-
-  virtual bool ready()
-  {
-    return queue_->ready(id_);
-  }
-
-private:
-  SubscriptionQueuePtr queue_;
-  uint64_t id_;
-  bool called_;
-};
-typedef boost::shared_ptr<SubscriptionCallback> SubscriptionCallbackPtr;
-
-struct TypeInfoComparator
-{
-  bool operator()(const std::type_info* lhs, const std::type_info* rhs) const
-  {
-    return *lhs == *rhs;
-  }
+  boost::pool<>* pool_;
+  boost::mutex* mutex_;
 };
 
 uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool nocopy, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link)
@@ -607,9 +620,7 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
   // Cache the deserializers by type info.  If all the subscriptions are the same type this has the same performance as before.  If
   // there are subscriptions with different C++ type (but same ROS message type), this now works correctly rather than passing
   // garbage to the messages with different C++ types than the first one.
-  typedef std::vector<std::pair<const std::type_info*, MessageDeserializerPtr> > V_TypeAndDeserializer;
-  V_TypeAndDeserializer deserializers;
-  deserializers.reserve(callbacks_.size());
+  cached_deserializers_.clear();
 
   for (V_CallbackInfo::iterator cb = callbacks_.begin();
        cb != callbacks_.end(); ++cb)
@@ -624,8 +635,8 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
     {
       MessageDeserializerPtr deserializer;
 
-      V_TypeAndDeserializer::iterator des_it = deserializers.begin();
-      V_TypeAndDeserializer::iterator des_end = deserializers.end();
+      V_TypeAndDeserializer::iterator des_it = cached_deserializers_.begin();
+      V_TypeAndDeserializer::iterator des_end = cached_deserializers_.end();
       for (; des_it != des_end; ++des_it)
       {
         if (*des_it->first == *ti)
@@ -637,14 +648,28 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
 
       if (!deserializer)
       {
-        deserializer.reset(new MessageDeserializer(info->helper_, m, connection_header));
-        deserializers.push_back(std::make_pair(ti, deserializer));
+        {
+          boost::mutex::scoped_lock lock(deserializer_pool_mutex_);
+          void* mem = deserializer_pool_.malloc();
+          MessageDeserializer* des = new (mem) MessageDeserializer(info->helper_, m, connection_header);
+          deserializer.reset(des, PoolDeleter<MessageDeserializer>(&deserializer_pool_, &deserializer_pool_mutex_));
+        }
+
+        cached_deserializers_.push_back(std::make_pair(ti, deserializer));
       }
 
       bool was_full = false;
       uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, &was_full);
-      SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
-      info->callback_queue_->addCallback(cb, (uint64_t)info.get());
+
+      SubscriptionCallback* cb = 0;
+      {
+        boost::mutex::scoped_lock lock(callback_pool_mutex_);
+        void* mem = callback_pool_.malloc();
+        cb = new (mem) SubscriptionCallback(info->subscription_queue_, id);
+      }
+
+      info->callback_queue_->addCallback(SubscriptionCallbackPtr(cb,
+          PoolDeleter<SubscriptionCallback>(&callback_pool_, &callback_pool_mutex_)), (uint64_t)info.get());
 
       if (was_full)
       {
@@ -662,6 +687,8 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
     li.message = m;
     latched_messages_[link] = li;
   }
+
+  cached_deserializers_.clear();
 
   return drops;
 }
@@ -690,6 +717,7 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
     }
 
     callbacks_.push_back(info);
+    cached_deserializers_.reserve(callbacks_.size());
 
     // if we have any latched links, we need to immediately schedule callbacks
     if (!latched_messages_.empty())

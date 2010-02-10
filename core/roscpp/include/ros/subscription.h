@@ -39,6 +39,7 @@
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/pool/pool.hpp>
 
 namespace ros
 {
@@ -228,6 +229,14 @@ private:
 
   typedef std::map<PublisherLinkPtr, LatchInfo> M_PublisherLinkToLatchInfo;
   M_PublisherLinkToLatchInfo latched_messages_;
+
+  boost::mutex deserializer_pool_mutex_;
+  boost::pool<> deserializer_pool_;
+  boost::mutex callback_pool_mutex_;
+  boost::pool<> callback_pool_;
+
+  typedef std::vector<std::pair<const std::type_info*, MessageDeserializerPtr> > V_TypeAndDeserializer;
+  V_TypeAndDeserializer cached_deserializers_;
 };
 
 }
