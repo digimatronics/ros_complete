@@ -61,6 +61,8 @@
 #include "ros/transport_hints.h"
 #include "ros/subscription_message_helper.h"
 
+#include <boost/make_shared.hpp>
+
 using XmlRpc::XmlRpcValue;
 
 namespace ros
@@ -110,8 +112,6 @@ Subscription::Subscription(const std::string &name, const std::string& md5sum, c
 , dropped_(false)
 , shutting_down_(false)
 , transport_hints_(transport_hints)
-, deserializer_pool_(sizeof(MessageDeserializer))
-, callback_pool_(sizeof(SubscriptionCallback))
 {
 }
 
@@ -592,25 +592,6 @@ void Subscription::pendingConnectionDone(const PendingConnectionPtr& conn, XmlRp
   }
 }
 
-template<typename T>
-struct PoolDeleter
-{
-  PoolDeleter(boost::pool<>* pool, boost::mutex* mutex)
-  : pool_(pool)
-  , mutex_(mutex)
-  {}
-
-  void operator()(T* obj)
-  {
-    boost::mutex::scoped_lock lock(*mutex_);
-    obj->~T();
-    pool_->free(obj);
-  }
-
-  boost::pool<>* pool_;
-  boost::mutex* mutex_;
-};
-
 uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool nocopy, const boost::shared_ptr<M_string>& connection_header, const PublisherLinkPtr& link)
 {
   boost::mutex::scoped_lock lock(callbacks_mutex_);
@@ -648,28 +629,14 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
 
       if (!deserializer)
       {
-        {
-          boost::mutex::scoped_lock lock(deserializer_pool_mutex_);
-          void* mem = deserializer_pool_.malloc();
-          MessageDeserializer* des = new (mem) MessageDeserializer(info->helper_, m, connection_header);
-          deserializer.reset(des, PoolDeleter<MessageDeserializer>(&deserializer_pool_, &deserializer_pool_mutex_));
-        }
-
+        deserializer = boost::make_shared<MessageDeserializer>(info->helper_, m, connection_header);
         cached_deserializers_.push_back(std::make_pair(ti, deserializer));
       }
 
       bool was_full = false;
       uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, &was_full);
-
-      SubscriptionCallback* cb = 0;
-      {
-        boost::mutex::scoped_lock lock(callback_pool_mutex_);
-        void* mem = callback_pool_.malloc();
-        cb = new (mem) SubscriptionCallback(info->subscription_queue_, id);
-      }
-
-      info->callback_queue_->addCallback(SubscriptionCallbackPtr(cb,
-          PoolDeleter<SubscriptionCallback>(&callback_pool_, &callback_pool_mutex_)), (uint64_t)info.get());
+      SubscriptionCallbackPtr cb = boost::make_shared<SubscriptionCallback>(info->subscription_queue_, id);
+      info->callback_queue_->addCallback(cb, (uint64_t)info.get());
 
       if (was_full)
       {

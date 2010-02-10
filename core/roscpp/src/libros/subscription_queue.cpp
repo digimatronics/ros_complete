@@ -50,7 +50,11 @@ uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, con
 {
   boost::mutex::scoped_lock lock(queue_mutex_);
 
-  *was_full = false;
+  if (was_full)
+  {
+    *was_full = false;
+  }
+
   if(fullNoLock())
   {
     queue_.pop_front();
