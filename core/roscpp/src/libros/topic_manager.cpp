@@ -652,7 +652,11 @@ void TopicManager::publish(const std::string& topic, const boost::function<Seria
     }
 
     p->publish(m);
-    poll_manager_->getPollSet().signal();
+
+    if (serialize)
+    {
+      poll_manager_->getPollSet().signal();
+    }
   }
   else
   {

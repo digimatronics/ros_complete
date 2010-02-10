@@ -141,7 +141,7 @@ public:
 
   bool isLatching() { return latch_; }
 
-  void publish(const SerializedMessage& m);
+  void publish(SerializedMessage& m);
   void processPublishQueue();
 
 private:

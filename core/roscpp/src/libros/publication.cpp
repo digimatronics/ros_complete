@@ -111,6 +111,8 @@ bool Publication::enqueueMessage(const SerializedMessage& m)
     return false;
   }
 
+  ROS_ASSERT(m.buf);
+
   uint32_t seq = incrementSequence();
   if (has_header_)
   {
@@ -385,7 +387,7 @@ bool Publication::hasSubscribers()
   return !subscriber_links_.empty();
 }
 
-void Publication::publish(const SerializedMessage& m)
+void Publication::publish(SerializedMessage& m)
 {
   if (m.message)
   {
@@ -400,6 +402,8 @@ void Publication::publish(const SerializedMessage& m)
         sub->enqueueMessage(m, false, true);
       }
     }
+
+    m.message.reset();
   }
 
   if (m.buf)
