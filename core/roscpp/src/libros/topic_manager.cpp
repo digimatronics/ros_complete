@@ -625,10 +625,13 @@ void TopicManager::publish(const std::string& topic, const boost::function<Seria
   {
     ROS_DEBUG_NAMED("superdebug", "Publishing message on topic [%s] with sequence number [%d]", p->getName().c_str(), p->getSequence());
 
+    // Determine what kinds of subscribers we're publishing to.  If they're intraprocess with the same C++ type we can
+    // do a no-copy publish.
     bool nocopy = false;
     bool serialize = false;
 
-    if (m.type_info)
+    // We can only do a no-copy publish if a shared_ptr to the message is provided, and we have type information for it
+    if (m.type_info && m.message)
     {
       p->getPublishTypes(serialize, nocopy, *m.type_info);
     }
@@ -653,6 +656,8 @@ void TopicManager::publish(const std::string& topic, const boost::function<Seria
 
     p->publish(m);
 
+    // If we're not doing a serialized publish we don't need to signal the pollset.  The write()
+    // call inside signal() is actually relatively expensive when doing a nocopy publish.
     if (serialize)
     {
       poll_manager_->getPollSet().signal();
