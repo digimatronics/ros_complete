@@ -34,7 +34,6 @@
  */
 
 #include <string>
-#include <boost/utility.hpp>
 
 #include <gtest/gtest.h>
 
@@ -45,7 +44,7 @@
 uint32_t g_msg_constructor = 0;
 uint32_t g_msg2_constructor = 0;
 
-struct Msg : public boost::noncopyable
+struct Msg
 {
   Msg()
   : serialized(false)
@@ -109,7 +108,7 @@ struct Serializer<Msg>
 
 MsgConstPtr g_msg;
 
-struct Msg2 : public boost::noncopyable
+struct Msg2
 {
   Msg2()
   : serialized(false)

@@ -72,7 +72,7 @@ public:
   virtual std::string getMD5Sum() { return ""; }
   virtual std::string getDataType() { return ""; }
 
-  virtual void call(const VoidConstPtr& msg)
+  virtual void call(SubscriptionMessageHelperCallParams& params)
   {
     {
       boost::mutex::scoped_lock lock(mutex_);
@@ -84,6 +84,9 @@ public:
       cb_();
     }
   }
+
+  virtual const std::type_info& getTypeInfo() { return typeid(FakeMessage); }
+  virtual bool isConst() { return true; }
 
   boost::mutex mutex_;
   int32_t calls_;
@@ -97,11 +100,11 @@ TEST(SubscriptionQueue, queueSize)
   SubscriptionQueue queue("blah", 1);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
   ASSERT_FALSE(queue.full());
 
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
 
   ASSERT_TRUE(queue.full());
 
@@ -109,13 +112,13 @@ TEST(SubscriptionQueue, queueSize)
 
   ASSERT_FALSE(queue.full());
 
-  id = queue.push(helper, des, false, VoidConstWPtr());
+  id = queue.push(helper, des, false, VoidConstWPtr(), true);
 
   ASSERT_TRUE(queue.full());
 
   ASSERT_TRUE(queue.ready(id));
 
-  uint64_t id2 = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id2 = queue.push(helper, des, false, VoidConstWPtr(), true);
 
   ASSERT_TRUE(queue.full());
 
@@ -136,20 +139,20 @@ TEST(SubscriptionQueue, infiniteQueue)
   SubscriptionQueue queue("blah", 0);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
   ASSERT_FALSE(queue.full());
 
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
   ASSERT_EQ(queue.call(id), CallbackInterface::Success);
 
-  id = queue.push(helper, des, false, VoidConstWPtr());
+  id = queue.push(helper, des, false, VoidConstWPtr(), true);
 
   ASSERT_TRUE(queue.ready(id));
 
   ASSERT_FALSE(queue.full());
 
-  uint64_t id2 = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id2 = queue.push(helper, des, false, VoidConstWPtr(), true);
 
   ASSERT_FALSE(queue.full());
 
@@ -172,9 +175,9 @@ TEST(SubscriptionQueue, clearCall)
   SubscriptionQueue queue("blah", 1);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
   queue.clear();
   ASSERT_EQ(queue.call(id), CallbackInterface::Invalid);
 }
@@ -184,11 +187,11 @@ TEST(SubscriptionQueue, clearThenAddAndCall)
   SubscriptionQueue queue("blah", 1);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
   queue.clear();
-  id = queue.push(helper, des, false, VoidConstWPtr());
+  id = queue.push(helper, des, false, VoidConstWPtr(), true);
   ASSERT_EQ(queue.call(id), CallbackInterface::Success);
 }
 
@@ -197,10 +200,10 @@ TEST(SubscriptionQueue, remove)
   SubscriptionQueue queue("blah", 2);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
-  uint64_t id2 = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
+  uint64_t id2 = queue.push(helper, des, false, VoidConstWPtr(), true);
 
   queue.remove(id);
 
@@ -218,10 +221,10 @@ TEST(SubscriptionQueue, clearInCallback)
   SubscriptionQueue queue("blah", 1);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
   helper->cb_ = boost::bind(clearInCallbackCallback, boost::ref(queue));
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
   queue.call(id);
 }
 
@@ -242,12 +245,12 @@ TEST(SubscriptionQueue, clearWhileThreadIsBlocking)
   SubscriptionQueue queue("blah", 1);
 
   FakeSubHelperPtr helper(new FakeSubHelper);
-  MessageDeserializerPtr des(new MessageDeserializer(helper, boost::shared_array<uint8_t>(), 0, false, boost::shared_ptr<M_string>()));
+  MessageDeserializerPtr des(new MessageDeserializer(helper, SerializedMessage(), boost::shared_ptr<M_string>()));
 
   bool done = false;
   boost::barrier barrier(2);
   helper->cb_ = boost::bind(clearWhileThreadIsBlockingCallback, &done, &barrier);
-  uint64_t id = queue.push(helper, des, false, VoidConstWPtr());
+  uint64_t id = queue.push(helper, des, false, VoidConstWPtr(), true);
   boost::thread t(callThread, boost::ref(queue), id);
   barrier.wait();
 

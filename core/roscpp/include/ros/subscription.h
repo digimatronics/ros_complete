@@ -204,6 +204,7 @@ private:
   std::string datatype_;
   boost::mutex callbacks_mutex_;
   V_CallbackInfo callbacks_;
+  uint32_t nonconst_callbacks_;
 
   bool dropped_;
   bool shutting_down_;

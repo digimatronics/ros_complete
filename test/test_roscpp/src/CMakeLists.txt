@@ -141,3 +141,6 @@ rosbuild_add_gtest_build_flags(service_callback_types)
 
 rosbuild_add_executable(intraprocess_subscriptions intraprocess_subscriptions.cpp)
 rosbuild_add_gtest_build_flags(intraprocess_subscriptions)
+
+rosbuild_add_executable(nonconst_subscriptions nonconst_subscriptions.cpp)
+rosbuild_add_gtest_build_flags(nonconst_subscriptions)

@@ -69,6 +69,21 @@ void chatterCallback5(std_msgs::String msg)
   ROS_INFO("I heard(5): [%s]", msg.data.c_str());
 }
 
+void chatterCallback6(const std_msgs::String::Ptr& msg)
+{
+  ROS_INFO("I heard(6): [%s]", msg->data.c_str());
+}
+
+void chatterCallback7(std_msgs::String::Ptr msg)
+{
+  ROS_INFO("I heard(7): [%s]", msg->data.c_str());
+}
+
+void chatterCallback8(const ros::MessageEvent<std_msgs::String>& event)
+{
+  ROS_INFO("I heard(8): [%s, %s]", event.getMessage()->data.c_str(), event.getConnectionHeader()["callerid"].c_str());
+}
+
 struct A
 {
   void chatterCallback(const std_msgs::String::ConstPtr& msg)
@@ -105,6 +120,21 @@ struct A
   {
     ROS_INFO("A I heard(7): [%s, %s]", msg.data.c_str(), bound.c_str());
   }
+
+  void chatterCallback8(const std_msgs::String::Ptr& msg)
+  {
+    ROS_INFO("A I heard(6): [%s]", msg->data.c_str());
+  }
+
+  void chatterCallback9(std_msgs::String::Ptr msg)
+  {
+    ROS_INFO("A I heard(7): [%s]", msg->data.c_str());
+  }
+
+  void chatterCallback10(const ros::MessageEvent<std_msgs::String>& event)
+  {
+    ROS_INFO("A I heard(8): [%s, %s]", event.getMessage()->data.c_str(), event.getConnectionHeader()["callerid"].c_str());
+  }
 };
 
 TEST(SubscriptionCallbackTypes, compile)
@@ -119,6 +149,9 @@ TEST(SubscriptionCallbackTypes, compile)
   subs.push_back(n.subscribe("chatter", 1000, chatterCallback3));
   subs.push_back(n.subscribe("chatter", 1000, chatterCallback4));
   subs.push_back(n.subscribe("chatter", 1000, chatterCallback5));
+  subs.push_back(n.subscribe("chatter", 1000, chatterCallback6));
+  subs.push_back(n.subscribe("chatter", 1000, chatterCallback7));
+  subs.push_back(n.subscribe("chatter", 1000, chatterCallback8));
 #endif
 
   A a;
@@ -135,6 +168,10 @@ TEST(SubscriptionCallbackTypes, compile)
   subs.push_back(n.subscribe<std_msgs::String>("chatter", 1000, boost::bind(&A::chatterCallback6, &a, _1, std::string("hello"))));
   subs.push_back(n.subscribe<std_msgs::String, const std_msgs::String&>("chatter", 1000, boost::bind(&A::chatterCallback7, &a, _1, std::string("hello2"))));
 #endif
+
+  subs.push_back(n.subscribe("chatter", 1000, &A::chatterCallback8, &a));
+  subs.push_back(n.subscribe("chatter", 1000, &A::chatterCallback9, &a));
+  subs.push_back(n.subscribe("chatter", 1000, &A::chatterCallback10, &a));
 }
 
 int main(int argc, char **argv)

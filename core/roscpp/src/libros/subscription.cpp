@@ -109,6 +109,7 @@ Subscription::Subscription(const std::string &name, const std::string& md5sum, c
 : name_(name)
 , md5sum_(md5sum)
 , datatype_(datatype)
+, nonconst_callbacks_(0)
 , dropped_(false)
 , shutting_down_(false)
 , transport_hints_(transport_hints)
@@ -634,7 +635,13 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
       }
 
       bool was_full = false;
-      uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, &was_full);
+      bool nonconst_need_copy = false;
+      if (callbacks_.size() > 1)
+      {
+        nonconst_need_copy = true;
+      }
+
+      uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, nonconst_need_copy, &was_full);
       SubscriptionCallbackPtr cb = boost::make_shared<SubscriptionCallback>(info->subscription_queue_, id);
       info->callback_queue_->addCallback(cb, (uint64_t)info.get());
 
@@ -683,6 +690,11 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
       info->has_tracked_object_ = true;
     }
 
+    if (!helper->isConst())
+    {
+      ++nonconst_callbacks_;
+    }
+
     callbacks_.push_back(info);
     cached_deserializers_.reserve(callbacks_.size());
 
@@ -704,7 +716,7 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
             const LatchInfo& latch_info = des_it->second;
 
             MessageDeserializerPtr des(new MessageDeserializer(helper, latch_info.message, latch_info.connection_header));
-            uint64_t id = info->subscription_queue_->push(info->helper_, des, info->has_tracked_object_, info->tracked_object_);
+            uint64_t id = info->subscription_queue_->push(info->helper_, des, info->has_tracked_object_, info->tracked_object_, true);
             SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
             info->callback_queue_->addCallback(cb, (uint64_t)info.get());
           }
@@ -728,6 +740,12 @@ void Subscription::removeCallback(const SubscriptionMessageHelperPtr& helper)
       info->subscription_queue_->clear();
       info->callback_queue_->removeByID((uint64_t)info.get());
       callbacks_.erase(it);
+
+      if (!helper->isConst())
+      {
+        --nonconst_callbacks_;
+      }
+
       break;
     }
   }
