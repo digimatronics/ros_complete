@@ -229,6 +229,7 @@ public:
   int cmd_depsindent(Package* pkg, int indent);
 
   int cmd_deps_manifests();
+  int cmd_deps_msgsrv();
 
   int cmd_deps1();
 

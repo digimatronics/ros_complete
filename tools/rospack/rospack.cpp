@@ -381,8 +381,8 @@ const vector<Package *> &Package::direct_deps(bool missing_package_as_warning)
 
 string Package::cpp_message_flags(bool cflags, bool lflags)
 {
-  bool msg_exists = file_exists((path + "/msg").c_str());
-  bool srv_exists = file_exists((path + "/srv").c_str());
+  bool msg_exists = file_exists((path + "/msg_gen/generated").c_str());
+  bool srv_exists = file_exists((path + "/srv_gen/generated").c_str());
 
   string flags;
 
@@ -664,6 +664,7 @@ const char* ROSPack::usage()
           "    langs\n"
           "    depends [package] (alias: deps)\n"
           "    depends-manifests [package] (alias: deps-manifests)\n"
+          "    depends-msgsrv [package] (alias: deps-msgsrv)\n"
           "    depends1 [package] (alias: deps1)\n"
           "    depends-indent [package] (alias: deps-indent)\n"
           "    depends-why --target=<target> [package] (alias: deps-why)\n"
@@ -820,6 +821,29 @@ int ROSPack::cmd_deps_manifests()
     output_acc += (*i)->path + "/manifest.xml ";
   }
   //puts("");
+  output_acc += "\n";
+  return 0;
+}
+
+int ROSPack::cmd_deps_msgsrv()
+{
+  VecPkg d = get_pkg(opt_package)->deps(Package::POSTORDER);
+  for (VecPkg::iterator i = d.begin(); i != d.end(); ++i)
+  {
+    Package* p = *i;
+    bool msg_exists = file_exists((p->path + "/msg_gen/generated").c_str());
+    bool srv_exists = file_exists((p->path + "/srv_gen/generated").c_str());
+
+    if (msg_exists)
+    {
+      output_acc += p->path + "/msg_gen/generated ";
+    }
+
+    if (srv_exists)
+    {
+      output_acc += p->path + "/srv_gen/generated ";
+    }
+  }
   output_acc += "\n";
   return 0;
 }
@@ -1273,6 +1297,8 @@ int ROSPack::run(int argc, char **argv)
     return cmd_deps();
   else if (!strcmp(cmd, "depends-manifests") || !strcmp(cmd, "deps-manifests"))
     return cmd_deps_manifests();
+  else if (!strcmp(cmd, "depends-msgsrv") || !strcmp(cmd, "deps-msgsrv"))
+      return cmd_deps_msgsrv();
   else if (!strcmp(cmd, "depends1") || !strcmp(cmd, "deps1"))
     return cmd_deps1();
   else if (!strcmp(cmd, "depends-indent") || !strcmp(cmd, "deps-indent"))
