@@ -42,9 +42,7 @@ typedef boost::shared_array<uint8_t> Array;
 template<typename T>
 Array serializeAndDeserialize(const T& ser_val, T& deser_val)
 {
-  ser::LStream lstream;
-  ser::serializationLength(lstream, ser_val);
-  uint32_t len = lstream.getLength();
+  uint32_t len = ser::serializationLength(ser_val);
   boost::shared_array<uint8_t> b(new uint8_t[len]);
   ser::OStream ostream(b.get(), len);
   ser::serialize(ostream, ser_val);

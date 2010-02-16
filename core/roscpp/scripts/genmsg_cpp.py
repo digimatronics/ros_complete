@@ -288,10 +288,10 @@ def write_deprecated_member_functions(s, spec, pkg, msg):
     s.write('    return stream.getData();\n  }\n\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint32_t serializationLength() const\n  {\n')
-    s.write('    ros::serialization::LStream stream;\n');
+    s.write('    uint32_t size = 0;\n');
     for (type, name) in fields:
-        s.write('    ros::serialization::serializationLength(stream, %s);\n'%(name))
-    s.write('    return stream.getLength();\n  }\n\n')
+        s.write('    size += ros::serialization::serializationLength(%s);\n'%(name))
+    s.write('    return size;\n  }\n\n')
 
 def compute_full_text_escaped(gen_deps_dict):
     """

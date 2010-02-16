@@ -218,10 +218,9 @@ struct Serializer<FixedSizeSimple>
     deserialize(stream, v.a);
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const FixedSizeSimple& v)
+  inline static uint32_t serializedLength(const FixedSizeSimple& v)
   {
-    stream.advance(4);
+    return 4;
   }
 };
 } // namespace serialization
@@ -285,10 +284,9 @@ namespace serialization
 template<>
 struct Serializer<FixedSizeNonSimple>
 {
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const FixedSizeNonSimple& v)
+  inline static uint32_t serializedLength(const FixedSizeNonSimple& v)
   {
-    stream.advance(v.length_to_report);
+    return v.length_to_report;
   }
 };
 } // namespace serialization
@@ -331,10 +329,9 @@ namespace serialization
 template<>
 struct Serializer<VariableSize>
 {
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const VariableSize& v)
+  inline static uint32_t serializedLength(const VariableSize& v)
   {
-    stream.advance(v.length_to_report);
+    return v.length_to_report;
   }
 };
 } // namespace serialization

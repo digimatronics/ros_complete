@@ -77,10 +77,12 @@ inline static void allInOne(Stream& stream, T t)
     allInOne<Stream, T&>(stream, t); \
   } \
   \
-  template<typename Stream, typename T> \
-  inline static void serializedLength(Stream& stream, const T& t) \
+  template<typename T> \
+  inline static uint32_t serializedLength(const T& t) \
   { \
-    allInOne<Stream, const T&>(stream, t); \
+    LStream stream; \
+    allInOne<LStream, const T&>(stream, t); \
+    return stream.getLength(); \
   }
 
 namespace ros
@@ -130,12 +132,11 @@ struct Serializer
   }
 
   /**
-   * \brief Determine the serialized length of an object.  Normally the stream passed in here will be a ros::serialization::LStream
+   * \brief Determine the serialized length of an object.
    */
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, typename boost::call_traits<T>::param_type t)
+  inline static uint32_t serializedLength(typename boost::call_traits<T>::param_type t)
   {
-    stream.advance(t.serializationLength());
+    return t.serializationLength();
   }
 };
 
@@ -158,12 +159,12 @@ inline void deserialize(Stream& stream, T& t)
 }
 
 /**
- * \brief Determine the serialized length of an object.  Stream here should normally be a ros::serialization::LStream
+ * \brief Determine the serialized length of an object
  */
-template<typename T, typename Stream>
-inline void serializationLength(Stream& stream, const T& t)
+template<typename T>
+inline uint32_t serializationLength(const T& t)
 {
-  Serializer<T>::serializedLength(stream, t);
+  return Serializer<T>::serializedLength(t);
 }
 
 #define ROS_CREATE_SIMPLE_SERIALIZER(Type) \
@@ -179,9 +180,9 @@ inline void serializationLength(Stream& stream, const T& t)
       v = *reinterpret_cast<Type*>(stream.advance(sizeof(v))); \
     } \
     \
-    template<typename Stream> inline static void serializedLength(Stream& stream, const Type t) \
+    inline static uint32_t serializedLength(const Type t) \
     { \
-      stream.advance(sizeof(Type)); \
+      return sizeof(Type); \
     } \
   };
 
@@ -213,9 +214,9 @@ template<> struct Serializer<bool>
     v = (bool)b;
   }
 
-  template<typename Stream> inline static void serializedLength(Stream& stream, const bool t)
+  inline static uint32_t serializedLength(const bool t)
   {
-    stream.advance(1);
+    return 1;
   }
 };
 
@@ -254,10 +255,9 @@ struct Serializer<std::basic_string<char, std::char_traits<char>, ContainerAlloc
     }
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const StringType& str)
+  inline static uint32_t serializedLength(const StringType& str)
   {
-    stream.advance(4 + (uint32_t)str.size());
+    return 4 + (uint32_t)str.size();
   }
 };
 
@@ -281,10 +281,9 @@ struct Serializer<ros::Time>
     stream.next(v.nsec);
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const ros::Time& v)
+  inline static uint32_t serializedLength(const ros::Time& v)
   {
-    stream.advance(8);
+    return 8;
   }
 };
 
@@ -308,10 +307,9 @@ struct Serializer<ros::Duration>
     stream.next(v.nsec);
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const ros::Duration& v)
+  inline static uint32_t serializedLength(const ros::Duration& v)
   {
-    stream.advance(8);
+    return 8;
   }
 };
 
@@ -358,16 +356,17 @@ struct VectorSerializer<T, ContainerAllocator, typename boost::disable_if<mt::Is
     }
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const VecType& v)
+  inline static uint32_t serializedLength(const VecType& v)
   {
-    stream.advance(4);
+    uint32_t size = 4;
     ConstIteratorType it = v.begin();
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
     {
-      stream.next(*it);
+      size += serializationLength(*it);
     }
+
+    return size;
   }
 };
 
@@ -407,10 +406,9 @@ struct VectorSerializer<T, ContainerAllocator, typename boost::enable_if<mt::IsS
     }
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const VecType& v)
+  inline static uint32_t serializedLength(const VecType& v)
   {
-    stream.advance(4 + v.size() * sizeof(T));
+    return 4 + v.size() * sizeof(T);
   }
 };
 
@@ -450,16 +448,16 @@ struct VectorSerializer<T, ContainerAllocator, typename boost::enable_if<mpl::an
     }
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const VecType& v)
+  inline static uint32_t serializedLength(const VecType& v)
   {
-    stream.advance(4);
+    uint32_t size = 4;
     if (!v.empty())
     {
-      Stream s;
-      s.next(v.front());
-      stream.advance(s.getLength() * (uint32_t)v.size());
+      uint32_t len_each = serializationLength(v.front());
+      size += len_each * (uint32_t)v.size();
     }
+
+    return size;
   }
 };
 
@@ -484,10 +482,10 @@ inline void deserialize(Stream& stream, std::vector<T, ContainerAllocator>& t)
 /**
  * \brief serializationLength version for std::vector
  */
-template<typename T, class ContainerAllocator, typename Stream>
-inline void serializationLength(Stream& stream, const std::vector<T, ContainerAllocator>& t)
+template<typename T, class ContainerAllocator>
+inline uint32_t serializationLength(const std::vector<T, ContainerAllocator>& t)
 {
-  VectorSerializer<T, ContainerAllocator>::serializedLength(stream, t);
+  return VectorSerializer<T, ContainerAllocator>::serializedLength(t);
 }
 
 /**
@@ -529,15 +527,17 @@ struct ArraySerializer<T, N, typename boost::disable_if<mt::IsFixedSize<T> >::ty
     }
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const ArrayType& v)
+  inline static uint32_t serializedLength(const ArrayType& v)
   {
+    uint32_t size = 0;
     ConstIteratorType it = v.begin();
     ConstIteratorType end = v.end();
     for (; it != end; ++it)
     {
-      stream.next(*it);
+      size += serializationLength(*it);
     }
+
+    return size;
   }
 };
 
@@ -565,10 +565,9 @@ struct ArraySerializer<T, N, typename boost::enable_if<mt::IsSimple<T> >::type>
     memcpy(&v.front(), stream.advance(data_len), data_len);
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const ArrayType& v)
+  inline static uint32_t serializedLength(const ArrayType& v)
   {
-    stream.advance(N * sizeof(T));
+    return N * sizeof(T);
   }
 };
 
@@ -604,12 +603,9 @@ struct ArraySerializer<T, N, typename boost::enable_if<mpl::and_<mt::IsFixedSize
     }
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const ArrayType& v)
+  inline static uint32_t serializedLength(const ArrayType& v)
   {
-    Stream s;
-    s.next(v.front());
-    stream.advance(s.getLength() * N);
+    return serializationLength(v.front()) * N;
   }
 };
 
@@ -634,10 +630,10 @@ inline void deserialize(Stream& stream, boost::array<T, N>& t)
 /**
  * \brief serializationLength version for boost::array
  */
-template<typename T, size_t N, typename Stream>
-inline void serializationLength(Stream& stream, const boost::array<T, N>& t)
+template<typename T, size_t N>
+inline uint32_t serializationLength(const boost::array<T, N>& t)
 {
-  ArraySerializer<T, N>::serializedLength(stream, t);
+  return ArraySerializer<T, N>::serializedLength(t);
 }
 
 /**
@@ -774,7 +770,7 @@ struct LStream
   template<typename T>
   ROS_FORCE_INLINE void next(const T& t)
   {
-    serializationLength(*this, t);
+    count_ += serializationLength(t);
   }
 
   /**
@@ -797,48 +793,14 @@ private:
 };
 
 /**
- * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.
- */
-template<typename T>
-inline uint32_t serializationLength(const T& t)
-{
-  LStream stream;
-  Serializer<T>::serializedLength(stream, t);
-  return stream.getLength();
-}
-
-/**
- * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.  Specialized for boost::array
- */
-template<typename T, size_t N>
-inline uint32_t serializationLength(const boost::array<T, N>& t)
-{
-  LStream stream;
-  ArraySerializer<T, N>::serializedLength(stream, t);
-  return stream.getLength();
-}
-
-/**
- * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.  Specialized for std::vector
- */
-template<typename T, class ContainerAllocator>
-inline uint32_t serializationLength(const std::vector<T, ContainerAllocator>& t)
-{
-  LStream stream;
-  VectorSerializer<T, ContainerAllocator>::serializedLength(stream, t);
-  return stream.getLength();
-}
-
-/**
  * \brief Serialize a message
  */
 template<typename M>
 inline SerializedMessage serializeMessage(const M& message)
 {
   SerializedMessage m;
-  LStream lstream;
-  serializationLength(lstream, message);
-  m.num_bytes = lstream.getLength() + 4;
+  uint32_t len = serializationLength(message);
+  m.num_bytes = len + 4;
   m.buf.reset(new uint8_t[m.num_bytes]);
 
   OStream s(m.buf.get(), (uint32_t)m.num_bytes);
@@ -859,9 +821,8 @@ inline SerializedMessage serializeServiceResponse(bool ok, const M& message)
 
   if (ok)
   {
-    LStream lstream;
-    serializationLength(lstream, message);
-    m.num_bytes = lstream.getLength() + 5;
+    uint32_t len = serializationLength(message);
+    m.num_bytes = len + 5;
     m.buf.reset(new uint8_t[m.num_bytes]);
 
     OStream s(m.buf.get(), (uint32_t)m.num_bytes);
