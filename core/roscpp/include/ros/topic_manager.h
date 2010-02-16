@@ -57,8 +57,8 @@ typedef boost::shared_ptr<XMLRPCManager> XMLRPCManagerPtr;
 class ConnectionManager;
 typedef boost::shared_ptr<ConnectionManager> ConnectionManagerPtr;
 
-class SubscriptionMessageHelper;
-typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
+class SubscriptionCallbackHelper;
+typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelperPtr;
 
 class TopicManager
 {
@@ -72,7 +72,7 @@ public:
   void shutdown();
 
   bool subscribe(const SubscribeOptions& ops);
-  bool unsubscribe(const std::string &_topic, const SubscriptionMessageHelperPtr& helper);
+  bool unsubscribe(const std::string &_topic, const SubscriptionCallbackHelperPtr& helper);
 
   bool advertise(const AdvertiseOptions& ops, const SubscriberCallbacksPtr& callbacks);
   bool unadvertise(const std::string &topic, const SubscriberCallbacksPtr& callbacks);

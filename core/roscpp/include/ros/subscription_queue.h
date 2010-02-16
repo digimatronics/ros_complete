@@ -43,15 +43,15 @@ namespace ros
 class MessageDeserializer;
 typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
 
-class SubscriptionMessageHelper;
-typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
+class SubscriptionCallbackHelper;
+typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelperPtr;
 
 class SubscriptionQueue : public boost::enable_shared_from_this<SubscriptionQueue>
 {
 private:
   struct Item
   {
-    SubscriptionMessageHelperPtr helper;
+    SubscriptionCallbackHelperPtr helper;
     MessageDeserializerPtr deserializer;
 
     bool has_tracked_object;
@@ -66,7 +66,7 @@ private:
 public:
   SubscriptionQueue(const std::string& topic, int32_t queue_size);
   ~SubscriptionQueue();
-  uint64_t push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object, bool nonconst_need_copy, ros::Time receipt_time = ros::Time(), bool* was_full = 0);
+  uint64_t push(const SubscriptionCallbackHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object, bool nonconst_need_copy, ros::Time receipt_time = ros::Time(), bool* was_full = 0);
   void clear();
   CallbackInterface::CallResult call(uint64_t id);
   bool ready(uint64_t id);

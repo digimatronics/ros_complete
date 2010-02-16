@@ -59,7 +59,7 @@
 #include "ros/subscription_queue.h"
 #include "ros/file_log.h"
 #include "ros/transport_hints.h"
-#include "ros/subscription_message_helper.h"
+#include "ros/subscription_callback_helper.h"
 
 #include <boost/make_shared.hpp>
 
@@ -682,7 +682,7 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
   return drops;
 }
 
-bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidConstPtr& tracked_object)
+bool Subscription::addCallback(const SubscriptionCallbackHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidConstPtr& tracked_object)
 {
   ROS_ASSERT(helper);
   ROS_ASSERT(queue);
@@ -743,7 +743,7 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
   return true;
 }
 
-void Subscription::removeCallback(const SubscriptionMessageHelperPtr& helper)
+void Subscription::removeCallback(const SubscriptionCallbackHelperPtr& helper)
 {
   boost::mutex::scoped_lock cbs_lock(callbacks_mutex_);
   for (V_CallbackInfo::iterator it = callbacks_.begin();

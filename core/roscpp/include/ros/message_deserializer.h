@@ -38,19 +38,19 @@
 namespace ros
 {
 
-class SubscriptionMessageHelper;
-typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
+class SubscriptionCallbackHelper;
+typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelperPtr;
 
 class MessageDeserializer
 {
 public:
-  MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header);
+  MessageDeserializer(const SubscriptionCallbackHelperPtr& helper, const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header);
 
   VoidConstPtr deserialize();
   const boost::shared_ptr<M_string>& getConnectionHeader() { return connection_header_; }
 
 private:
-  SubscriptionMessageHelperPtr helper_;
+  SubscriptionCallbackHelperPtr helper_;
   SerializedMessage serialized_message_;
   boost::shared_ptr<M_string> connection_header_;
 

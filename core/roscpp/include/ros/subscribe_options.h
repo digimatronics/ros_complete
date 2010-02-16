@@ -31,7 +31,7 @@
 #include "ros/forwards.h"
 #include "ros/transport_hints.h"
 #include "ros/message_traits.h"
-#include "subscription_message_helper.h"
+#include "subscription_callback_helper.h"
 
 namespace ros
 {
@@ -84,7 +84,7 @@ struct SubscribeOptions
     queue_size = _queue_size;
     md5sum = message_traits::md5sum<MessageType>();
     datatype = message_traits::datatype<MessageType>();
-    helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<M>(_callback));
+    helper = SubscriptionCallbackHelperPtr(new SubscriptionCallbackHelperT<M>(_callback));
   }
 
   /**
@@ -104,7 +104,7 @@ struct SubscribeOptions
     queue_size = _queue_size;
     md5sum = message_traits::md5sum<MessageType>();
     datatype = message_traits::datatype<MessageType>();
-    helper = SubscriptionMessageHelperPtr(new SubscriptionMessageHelperT<const boost::shared_ptr<MessageType const>&>(_callback));
+    helper = SubscriptionCallbackHelperPtr(new SubscriptionCallbackHelperT<const boost::shared_ptr<MessageType const>&>(_callback));
   }
 
   std::string topic;                                                ///< Topic to subscribe to
@@ -113,7 +113,7 @@ struct SubscribeOptions
   std::string md5sum;                                               ///< MD5 of the message datatype
   std::string datatype;                                             ///< Datatype of the message we'd like to subscribe as
 
-  SubscriptionMessageHelperPtr helper;                              ///< Helper object used to get create messages and call callbacks
+  SubscriptionCallbackHelperPtr helper;                              ///< Helper object used to get create messages and call callbacks
 
   CallbackQueueInterface* callback_queue;                           ///< Queue to add callbacks to.  If NULL, the global callback queue will be used
 

@@ -57,14 +57,14 @@ public:
   virtual uint8_t *deserialize(uint8_t *read_ptr) { return read_ptr; }
 };
 
-class FakeSubHelper : public SubscriptionMessageHelper
+class FakeSubHelper : public SubscriptionCallbackHelper
 {
 public:
   FakeSubHelper()
   : calls_(0)
   {}
 
-  virtual VoidConstPtr deserialize(const SubscriptionMessageHelperDeserializeParams&)
+  virtual VoidConstPtr deserialize(const SubscriptionCallbackHelperDeserializeParams&)
   {
     return VoidConstPtr(new FakeMessage);
   }
@@ -72,7 +72,7 @@ public:
   virtual std::string getMD5Sum() { return ""; }
   virtual std::string getDataType() { return ""; }
 
-  virtual void call(SubscriptionMessageHelperCallParams& params)
+  virtual void call(SubscriptionCallbackHelperCallParams& params)
   {
     {
       boost::mutex::scoped_lock lock(mutex_);

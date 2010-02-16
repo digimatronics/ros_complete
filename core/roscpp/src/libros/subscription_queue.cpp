@@ -28,7 +28,7 @@
 
 #include "ros/subscription_queue.h"
 #include "ros/message_deserializer.h"
-#include "ros/subscription_message_helper.h"
+#include "ros/subscription_callback_helper.h"
 
 namespace ros
 {
@@ -46,7 +46,7 @@ SubscriptionQueue::~SubscriptionQueue()
 
 }
 
-uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer,
+uint64_t SubscriptionQueue::push(const SubscriptionCallbackHelperPtr& helper, const MessageDeserializerPtr& deserializer,
                                  bool has_tracked_object, const VoidConstWPtr& tracked_object, bool nonconst_need_copy,
                                  ros::Time receipt_time, bool* was_full)
 {
@@ -194,7 +194,7 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     catch (boost::bad_weak_ptr&) // For the tests, where we don't create a shared_ptr
     {}
 
-    SubscriptionMessageHelperCallParams params;
+    SubscriptionCallbackHelperCallParams params;
     params.message = msg;
     params.connection_header = i.deserializer->getConnectionHeader();
     params.nonconst_need_copy = i.nonconst_need_copy;

@@ -25,8 +25,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSCPP_SUBSCRIPTION_MESSAGE_HELPER_H
-#define ROSCPP_SUBSCRIPTION_MESSAGE_HELPER_H
+#ifndef ROSCPP_SUBSCRIPTION_CALLBACK_HELPER_H
+#define ROSCPP_SUBSCRIPTION_CALLBACK_HELPER_H
 
 #include <typeinfo>
 
@@ -65,14 +65,14 @@ typename boost::disable_if<boost::is_base_of<ros::Message, T> >::type assignSubs
 {
 }
 
-struct SubscriptionMessageHelperDeserializeParams
+struct SubscriptionCallbackHelperDeserializeParams
 {
   uint8_t* buffer;
   uint32_t length;
   boost::shared_ptr<M_string> connection_header;
 };
 
-struct SubscriptionMessageHelperCallParams
+struct SubscriptionCallbackHelperCallParams
 {
   VoidConstPtr message;
   VoidPtr nonconst_message;
@@ -145,7 +145,7 @@ struct SubscriptionCallbackAdapter
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     cb(*boost::static_pointer_cast<MessageType const>(params.message));
   }
@@ -162,7 +162,7 @@ struct SubscriptionCallbackAdapter<const M&>
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     cb(*boost::static_pointer_cast<MessageType const>(params.message));
   }
@@ -180,7 +180,7 @@ struct SubscriptionCallbackAdapter<const boost::shared_ptr<M>& >
 
   static const bool is_const = false;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     ROS_ASSERT(params.nonconst_message);
     cb(boost::static_pointer_cast<MessageType>(params.nonconst_message));
@@ -198,7 +198,7 @@ struct SubscriptionCallbackAdapter<const boost::shared_ptr<M const>& >
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     cb(boost::static_pointer_cast<MessageType const>(params.message));
   }
@@ -216,7 +216,7 @@ struct SubscriptionCallbackAdapter<boost::shared_ptr<M const> >
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     cb(boost::static_pointer_cast<MessageType const>(params.message));
   }
@@ -234,7 +234,7 @@ struct SubscriptionCallbackAdapter<boost::shared_ptr<M> >
 
   static const bool is_const = false;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     ROS_ASSERT(params.nonconst_message);
     cb(boost::static_pointer_cast<MessageType>(params.nonconst_message));
@@ -253,7 +253,7 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M>& >
 
   static const bool is_const = false;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     ROS_ASSERT(params.nonconst_message);
     MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType>(params.nonconst_message), params.connection_header, params.receipt_time);
@@ -272,7 +272,7 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M const>& >
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
+  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
   {
     MessageEvent<MessageType const> event(boost::static_pointer_cast<MessageType const>(params.message), params.connection_header, params.receipt_time);
     cb(event);
@@ -284,23 +284,23 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M const>& >
  * interface.  This is one part of the roscpp API that is \b not fully stable, so overloading this class
  * is not recommended.
  */
-class SubscriptionMessageHelper
+class SubscriptionCallbackHelper
 {
 public:
-  virtual ~SubscriptionMessageHelper() {}
-  virtual VoidConstPtr deserialize(const SubscriptionMessageHelperDeserializeParams&) = 0;
-  virtual void call(SubscriptionMessageHelperCallParams& params) = 0;
+  virtual ~SubscriptionCallbackHelper() {}
+  virtual VoidConstPtr deserialize(const SubscriptionCallbackHelperDeserializeParams&) = 0;
+  virtual void call(SubscriptionCallbackHelperCallParams& params) = 0;
   virtual const std::type_info& getTypeInfo() = 0;
   virtual bool isConst() = 0;
 };
-typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
+typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelperPtr;
 
 /**
- * \brief Concrete generic implementation of SubscriptionMessageHelper for any normal message type.  Use directly with
+ * \brief Concrete generic implementation of SubscriptionCallbackHelper for any normal message type.  Use directly with
  * care, this is mostly for internal use.
  */
 template<typename M, typename Enabled = void>
-class SubscriptionMessageHelperT : public SubscriptionMessageHelper
+class SubscriptionCallbackHelperT : public SubscriptionCallbackHelper
 {
 public:
   typedef typename SubscriptionCallbackAdapter<M>::MessageType NonConstType;
@@ -310,7 +310,7 @@ public:
 
   typedef typename SubscriptionCallbackAdapter<M>::CallbackType Callback;
   typedef boost::function<NonConstTypePtr()> CreateFunction;
-  SubscriptionMessageHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<NonConstType>)
+  SubscriptionCallbackHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<NonConstType>)
   : callback_(callback)
   , create_(create)
   {}
@@ -320,7 +320,7 @@ public:
     create_ = create;
   }
 
-  virtual VoidConstPtr deserialize(const SubscriptionMessageHelperDeserializeParams& params)
+  virtual VoidConstPtr deserialize(const SubscriptionCallbackHelperDeserializeParams& params)
   {
     namespace ser = serialization;
 
@@ -333,7 +333,7 @@ public:
     return VoidConstPtr(msg);
   }
 
-  virtual void call(SubscriptionMessageHelperCallParams& params)
+  virtual void call(SubscriptionCallbackHelperCallParams& params)
   {
     if (params.nonconst_need_copy)
     {
@@ -368,4 +368,4 @@ private:
 
 }
 
-#endif // ROSCPP_SUBSCRIPTION_MESSAGE_HELPER_H
+#endif // ROSCPP_SUBSCRIPTION_CALLBACK_HELPER_H

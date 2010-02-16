@@ -722,7 +722,7 @@ PublicationPtr TopicManager::lookupPublicationWithoutLock(const string &topic)
   return t;
 }
 
-bool TopicManager::unsubscribe(const std::string &topic, const SubscriptionMessageHelperPtr& helper)
+bool TopicManager::unsubscribe(const std::string &topic, const SubscriptionCallbackHelperPtr& helper)
 {
   SubscriptionPtr sub;
   L_Subscription::iterator it;

@@ -98,9 +98,9 @@ struct Serializer<Msg>
     v.deserialized = true;
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const Msg& v)
+  inline static uint32_t serializedLength(const Msg& v)
   {
+    return 0;
   }
 };
 } // namespace serialization
@@ -162,9 +162,9 @@ struct Serializer<Msg2>
     v.deserialized = true;
   }
 
-  template<typename Stream>
-  inline static void serializedLength(Stream& stream, const Msg2& v)
+  inline static uint32_t serializedLength(const Msg2& v)
   {
+    return 0;
   }
 };
 } // namespace serialization

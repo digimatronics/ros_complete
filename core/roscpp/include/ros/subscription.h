@@ -55,8 +55,8 @@ typedef boost::shared_ptr<SubscriptionQueue> SubscriptionQueuePtr;
 class MessageDeserializer;
 typedef boost::shared_ptr<MessageDeserializer> MessageDeserializerPtr;
 
-class SubscriptionMessageHelper;
-typedef boost::shared_ptr<SubscriptionMessageHelper> SubscriptionMessageHelperPtr;
+class SubscriptionCallbackHelper;
+typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelperPtr;
 
 /**
  * \brief Manages a subscription on a single topic.
@@ -95,8 +95,8 @@ public:
   XmlRpc::XmlRpcValue getStats();
   void getInfo(XmlRpc::XmlRpcValue& info);
 
-  bool addCallback(const SubscriptionMessageHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidConstPtr& tracked_object);
-  void removeCallback(const SubscriptionMessageHelperPtr& helper);
+  bool addCallback(const SubscriptionCallbackHelperPtr& helper, const std::string& md5sum, CallbackQueueInterface* queue, int32_t queue_size, const VoidConstPtr& tracked_object);
+  void removeCallback(const SubscriptionCallbackHelperPtr& helper);
 
   typedef std::map<std::string, std::string> M_string;
 
@@ -191,7 +191,7 @@ private:
     CallbackQueueInterface* callback_queue_;
 
     // Only used if callback_queue_ is non-NULL (NodeHandle API)
-    SubscriptionMessageHelperPtr helper_;
+    SubscriptionCallbackHelperPtr helper_;
     SubscriptionQueuePtr subscription_queue_;
     bool has_tracked_object_;
     VoidConstWPtr tracked_object_;

@@ -27,13 +27,13 @@
 
 
 #include "ros/message_deserializer.h"
-#include "ros/subscription_message_helper.h"
+#include "ros/subscription_callback_helper.h"
 #include <ros/console.h>
 
 namespace ros
 {
 
-MessageDeserializer::MessageDeserializer(const SubscriptionMessageHelperPtr& helper, const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header)
+MessageDeserializer::MessageDeserializer(const SubscriptionCallbackHelperPtr& helper, const SerializedMessage& m, const boost::shared_ptr<M_string>& connection_header)
 : helper_(helper)
 , serialized_message_(m)
 , connection_header_(connection_header)
@@ -67,7 +67,7 @@ VoidConstPtr MessageDeserializer::deserialize()
 
   try
   {
-    SubscriptionMessageHelperDeserializeParams params;
+    SubscriptionCallbackHelperDeserializeParams params;
     params.buffer = serialized_message_.message_start;
     params.length = serialized_message_.num_bytes - (serialized_message_.message_start - serialized_message_.buf.get());
     params.connection_header = connection_header_;
