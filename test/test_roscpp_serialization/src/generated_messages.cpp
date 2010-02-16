@@ -170,6 +170,37 @@ SERIALIZATION_COMPILATION_TEST(MyWithTime);
 SERIALIZATION_COMPILATION_TEST(MyWithDuration);
 SERIALIZATION_COMPILATION_TEST(MyWithMemberNamedHeaderThatIsNotAHeader);
 
+#define ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(Type, Allocator) \
+  TEST(GeneratedMessages, allocationConstructor_##Type) \
+  { \
+    Allocator a; \
+    Type val(a); \
+  }
+
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(ArrayOfFixedLength, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(ArrayOfVariableLength, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(EmbeddedFixedLength, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(EmbeddedVariableLength, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(FixedLength, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(VariableLength, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(WithHeader, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(EmbeddedExternal, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(WithTime, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(WithDuration, std::allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(WithMemberNamedHeaderThatIsNotAHeader, std::allocator<void>);
+
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyArrayOfFixedLength, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyArrayOfVariableLength, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyEmbeddedFixedLength, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyEmbeddedVariableLength, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyFixedLength, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyVariableLength, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyWithHeader, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyEmbeddedExternal, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyWithTime, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyWithDuration, Allocator<void>);
+ALLOCATOR_CONSTRUCTOR_COMPILATION_TEST(MyWithMemberNamedHeaderThatIsNotAHeader, Allocator<void>);
+
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);

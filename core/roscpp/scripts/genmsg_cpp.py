@@ -123,7 +123,7 @@ def write_struct(s, spec, pkg, msg, cpp_name_prefix):
     s.write('struct %s_ : public ros::Message\n{\n'%(msg))
     s.write('  typedef %s_<ContainerAllocator> Type;\n\n'%(msg))
     
-    write_constructor(s, msg, spec)
+    write_constructors(s, msg, spec, cpp_name_prefix)
     write_members(s, spec)
     write_constants(s, spec)
     write_deprecated_member_functions(s, spec, pkg, msg)
@@ -148,33 +148,64 @@ def default_value(type):
         
     return ""
 
-def write_constructor(s, msg, spec):
-    s.write('  %s_()\n'%(msg))
-    
+def takes_allocator(type):
+    return not type in ['byte', 'int8', 'int16', 'int32', 'int64',
+                        'char', 'uint8', 'uint16', 'uint32', 'uint64',
+                        'float32', 'float64', 'bool', 'time', 'duration']
+
+def write_initializer_list(s, spec, container_gets_allocator):
     fields = spec.fields()
     i = 0
     for (type, name) in fields:
         (base_type, is_array, array_len) = roslib.msgs.parse_type(type)
-        if (is_array):
-            continue
         
         if (i == 0):
             s.write('  : ')
         else:
             s.write('  , ')
             
-        s.write('  %s(%s)\n'%(name, default_value(base_type)))
+        val = default_value(base_type)
+        use_alloc = takes_allocator(base_type)
+        if (is_array):
+            if (array_len is None and container_gets_allocator):
+                s.write('%s(_alloc)\n'%(name))
+            else:
+                s.write('%s()\n'%(name))
+        else:
+            if (container_gets_allocator and use_alloc):
+                s.write('%s(_alloc)\n'%(name))
+            else:
+                s.write('%s(%s)\n'%(name, val))
         i = i + 1
         
-    s.write('  {\n')
+def write_fixed_length_assigns(s, spec, container_gets_allocator, cpp_name_prefix):
+    fields = spec.fields()
+    # Assign all fixed-length arrays their default values
     for (type, name) in fields:
         (base_type, is_array, array_len) = roslib.msgs.parse_type(type)
         if (not is_array or array_len is None):
             continue
         
         val = default_value(base_type)
-        if (len(val) > 0):
+        if (container_gets_allocator and takes_allocator(base_type)):
+            (cpp_msg_unqualified, cpp_msg_with_alloc, _) = cpp_message_declarations(cpp_name_prefix, base_type)
+            s.write('    %s.assign(%s(_alloc));\n'%(name, cpp_msg_with_alloc))
+        elif (len(val) > 0):
             s.write('    %s.assign(%s);\n'%(name, val))
+
+def write_constructors(s, msg, spec, cpp_name_prefix):
+    # Default constructor
+    s.write('  %s_()\n'%(msg))
+    write_initializer_list(s, spec, False)
+    s.write('  {\n')
+    write_fixed_length_assigns(s, spec, False, cpp_name_prefix)
+    s.write('  }\n\n')
+    
+    # Constructor that takes an allocator constructor
+    s.write('  %s_(const ContainerAllocator& _alloc)\n'%(msg))
+    write_initializer_list(s, spec, True)
+    s.write('  {\n')
+    write_fixed_length_assigns(s, spec, True, cpp_name_prefix)
     s.write('  }\n\n')
 
 def write_member(s, type, name):
