@@ -225,6 +225,7 @@ private:
     SerializedMessage message;
     PublisherLinkPtr link;
     boost::shared_ptr<std::map<std::string, std::string> > connection_header;
+    ros::Time receipt_time;
   };
 
   typedef std::map<PublisherLinkPtr, LatchInfo> M_PublisherLinkToLatchInfo;

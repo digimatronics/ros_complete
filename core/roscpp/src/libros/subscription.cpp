@@ -616,6 +616,8 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
   // garbage to the messages with different C++ types than the first one.
   cached_deserializers_.clear();
 
+  ros::Time receipt_time = ros::Time::now();
+
   for (V_CallbackInfo::iterator cb = callbacks_.begin();
        cb != callbacks_.end(); ++cb)
   {
@@ -653,7 +655,7 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
         nonconst_need_copy = true;
       }
 
-      uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, nonconst_need_copy, &was_full);
+      uint64_t id = info->subscription_queue_->push(info->helper_, deserializer, info->has_tracked_object_, info->tracked_object_, nonconst_need_copy, receipt_time, &was_full);
       SubscriptionCallbackPtr cb = boost::make_shared<SubscriptionCallback>(info->subscription_queue_, id);
       info->callback_queue_->addCallback(cb, (uint64_t)info.get());
 
@@ -671,6 +673,7 @@ uint32_t Subscription::handleMessage(const SerializedMessage& m, bool ser, bool 
     li.connection_header = connection_header;
     li.link = link;
     li.message = m;
+    li.receipt_time = receipt_time;
     latched_messages_[link] = li;
   }
 
@@ -728,7 +731,7 @@ bool Subscription::addCallback(const SubscriptionMessageHelperPtr& helper, const
             const LatchInfo& latch_info = des_it->second;
 
             MessageDeserializerPtr des(new MessageDeserializer(helper, latch_info.message, latch_info.connection_header));
-            uint64_t id = info->subscription_queue_->push(info->helper_, des, info->has_tracked_object_, info->tracked_object_, true);
+            uint64_t id = info->subscription_queue_->push(info->helper_, des, info->has_tracked_object_, info->tracked_object_, true, latch_info.receipt_time);
             SubscriptionCallbackPtr cb(new SubscriptionCallback(info->subscription_queue_, id));
             info->callback_queue_->addCallback(cb, (uint64_t)info.get());
           }

@@ -78,6 +78,7 @@ struct SubscriptionMessageHelperCallParams
   VoidPtr nonconst_message;
   boost::shared_ptr<M_string> connection_header;
   bool nonconst_need_copy;
+  ros::Time receipt_time;
 };
 
 /**
@@ -89,9 +90,10 @@ template<typename M>
 class MessageEvent
 {
 public:
-  MessageEvent(const boost::shared_ptr<M>& message, const boost::shared_ptr<M_string>& connection_header)
+  MessageEvent(const boost::shared_ptr<M>& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time)
   : message_(message)
   , connection_header_(connection_header)
+  , receipt_time_(receipt_time)
   {}
 
   /**
@@ -107,9 +109,15 @@ public:
    * \brief Returns the name of the node which published this message
    */
   const std::string& getPublisherName() const { return (*connection_header_)["callerid"]; }
+
+  /**
+   * \brief Returns the time at which this message was received
+   */
+  ros::Time getReceiptTime() const { return receipt_time_; }
 private:
   boost::shared_ptr<M> message_;
   boost::shared_ptr<M_string> connection_header_;
+  ros::Time receipt_time_;
 };
 
 /**
@@ -248,7 +256,7 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M>& >
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
     ROS_ASSERT(params.nonconst_message);
-    MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType>(params.nonconst_message), params.connection_header);
+    MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType>(params.nonconst_message), params.connection_header, params.receipt_time);
     cb(event);
   }
 };
@@ -266,7 +274,7 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M const>& >
 
   static void call(const CallbackType& cb, const SubscriptionMessageHelperCallParams& params)
   {
-    MessageEvent<MessageType const> event(boost::static_pointer_cast<MessageType const>(params.message), params.connection_header);
+    MessageEvent<MessageType const> event(boost::static_pointer_cast<MessageType const>(params.message), params.connection_header, params.receipt_time);
     cb(event);
   }
 };

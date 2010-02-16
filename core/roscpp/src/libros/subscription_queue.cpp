@@ -46,7 +46,9 @@ SubscriptionQueue::~SubscriptionQueue()
 
 }
 
-uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer, bool has_tracked_object, const VoidConstWPtr& tracked_object, bool nonconst_need_copy, bool* was_full)
+uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, const MessageDeserializerPtr& deserializer,
+                                 bool has_tracked_object, const VoidConstWPtr& tracked_object, bool nonconst_need_copy,
+                                 ros::Time receipt_time, bool* was_full)
 {
   boost::mutex::scoped_lock lock(queue_mutex_);
 
@@ -86,6 +88,7 @@ uint64_t SubscriptionQueue::push(const SubscriptionMessageHelperPtr& helper, con
   i.tracked_object = tracked_object;
   i.id = count;
   i.nonconst_need_copy = nonconst_need_copy;
+  i.receipt_time = receipt_time;
   queue_.push_back(i);
   ++queue_size_;
 
@@ -195,6 +198,7 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     params.message = msg;
     params.connection_header = i.deserializer->getConnectionHeader();
     params.nonconst_need_copy = i.nonconst_need_copy;
+    params.receipt_time = i.receipt_time;
     i.helper->call(params);
   }
 
