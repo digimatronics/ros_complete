@@ -372,7 +372,7 @@ template<>
 struct Serializer<AllInOneSerializer>
 {
   template<typename Stream, typename T>
-  inline static void allinone(Stream& stream, T t)
+  inline static void allInOne(Stream& stream, T t)
   {
     stream.next(t.a);
   }
@@ -382,7 +382,7 @@ struct Serializer<AllInOneSerializer>
 } // namespace serialization
 } // namespace ros
 
-TEST(Serialization, allinone)
+TEST(Serialization, allInOne)
 {
   AllInOneSerializer in, out;
   in.a = 5;

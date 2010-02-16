@@ -48,13 +48,13 @@
 #define ROS_NEW_SERIALIZATION_API 1
 
 /**
- * \brief Declare your serializer to use an allinone member instead of requiring 3 different serialization
+ * \brief Declare your serializer to use an allInOne member instead of requiring 3 different serialization
  * functions.
  *
  * The allinone method has the form:
 \verbatim
 template<typename Stream, typename T>
-inline static void allinone(Stream& stream, T t)
+inline static void allInOne(Stream& stream, T t)
 {
   stream.next(t.a);
   stream.next(t.b);
@@ -68,19 +68,19 @@ inline static void allinone(Stream& stream, T t)
   template<typename Stream, typename T> \
   inline static void write(Stream& stream, const T& t) \
   { \
-    allinone<Stream, const T&>(stream, t); \
+    allInOne<Stream, const T&>(stream, t); \
   } \
   \
   template<typename Stream, typename T> \
   inline static void read(Stream& stream, T& t) \
   { \
-    allinone<Stream, T&>(stream, t); \
+    allInOne<Stream, T&>(stream, t); \
   } \
   \
   template<typename Stream, typename T> \
   inline static void serializedLength(Stream& stream, const T& t) \
   { \
-    allinone<Stream, const T&>(stream, t); \
+    allInOne<Stream, const T&>(stream, t); \
   }
 
 namespace ros
