@@ -35,6 +35,7 @@
 #include "ros/builtin_message_traits.h"
 #include "ros/serialization.h"
 #include "ros/message.h"
+#include "ros/message_event.h"
 #include <ros/static_assert.h>
 
 #include <boost/type_traits/add_const.hpp>
@@ -42,7 +43,6 @@
 #include <boost/type_traits/remove_reference.hpp>
 #include <boost/type_traits/is_base_of.hpp>
 #include <boost/utility/enable_if.hpp>
-#include <boost/static_assert.hpp>
 #include <boost/make_shared.hpp>
 
 namespace ros
@@ -74,50 +74,12 @@ struct SubscriptionCallbackHelperDeserializeParams
 
 struct SubscriptionCallbackHelperCallParams
 {
-  VoidConstPtr message;
-  VoidPtr nonconst_message;
-  boost::shared_ptr<M_string> connection_header;
-  bool nonconst_need_copy;
-  ros::Time receipt_time;
-};
-
-/**
- * \brief Event type for subscriptions, const ros::MessageEvent<M const>& can be used in your callback instead of const boost::shared_ptr<M const>&
- *
- * Useful if you need to retrieve meta-data about the message, such as the full connection header, or the publisher's node name
- */
-template<typename M>
-class MessageEvent
-{
-public:
-  MessageEvent(const boost::shared_ptr<M>& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time)
-  : message_(message)
-  , connection_header_(connection_header)
-  , receipt_time_(receipt_time)
+  SubscriptionCallbackHelperCallParams()
+  : nonconst_need_copy(false)
   {}
 
-  /**
-   * \brief Retrieve the message
-   */
-  const boost::shared_ptr<M>& getMessage() const { return message_; }
-  /**
-   * \brief Retrieve the connection header
-   */
-  M_string& getConnectionHeader() const { return *connection_header_; }
-
-  /**
-   * \brief Returns the name of the node which published this message
-   */
-  const std::string& getPublisherName() const { return (*connection_header_)["callerid"]; }
-
-  /**
-   * \brief Returns the time at which this message was received
-   */
-  ros::Time getReceiptTime() const { return receipt_time_; }
-private:
-  boost::shared_ptr<M> message_;
-  boost::shared_ptr<M_string> connection_header_;
-  ros::Time receipt_time_;
+  MessageEvent<void const> event;
+  bool nonconst_need_copy;
 };
 
 /**
@@ -142,12 +104,13 @@ struct SubscriptionCallbackAdapter
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(MessageType)> CallbackType;
+  typedef MessageEvent<MessageType const> EventType;
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    cb(*boost::static_pointer_cast<MessageType const>(params.message));
+    cb(*event.getMessage());
   }
 };
 
@@ -159,12 +122,13 @@ struct SubscriptionCallbackAdapter<const M&>
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const MessageType&)> CallbackType;
+  typedef MessageEvent<MessageType const> EventType;
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    cb(*boost::static_pointer_cast<MessageType const>(params.message));
+    cb(*event.getMessage());
   }
 };
 
@@ -177,13 +141,13 @@ struct SubscriptionCallbackAdapter<const boost::shared_ptr<M>& >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const boost::shared_ptr<MessageType>&)> CallbackType;
+  typedef MessageEvent<MessageType> EventType;
 
   static const bool is_const = false;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    ROS_ASSERT(params.nonconst_message);
-    cb(boost::static_pointer_cast<MessageType>(params.nonconst_message));
+    cb(event.getMessage());
   }
 };
 
@@ -195,12 +159,13 @@ struct SubscriptionCallbackAdapter<const boost::shared_ptr<M const>& >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const boost::shared_ptr<MessageType const>&)> CallbackType;
+  typedef MessageEvent<MessageType const> EventType;
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    cb(boost::static_pointer_cast<MessageType const>(params.message));
+    cb(event.getMessage());
   }
 };
 
@@ -213,12 +178,13 @@ struct SubscriptionCallbackAdapter<boost::shared_ptr<M const> >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(boost::shared_ptr<MessageType const>)> CallbackType;
+  typedef MessageEvent<MessageType const> EventType;
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    cb(boost::static_pointer_cast<MessageType const>(params.message));
+    cb(event.getMessage());
   }
 };
 
@@ -231,13 +197,13 @@ struct SubscriptionCallbackAdapter<boost::shared_ptr<M> >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(boost::shared_ptr<MessageType>)> CallbackType;
+  typedef MessageEvent<MessageType> EventType;
 
   static const bool is_const = false;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    ROS_ASSERT(params.nonconst_message);
-    cb(boost::static_pointer_cast<MessageType>(params.nonconst_message));
+    cb(event.getMessage());
   }
 };
 
@@ -250,13 +216,12 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M>& >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const MessageEvent<MessageType>&)> CallbackType;
+  typedef MessageEvent<MessageType> EventType;
 
   static const bool is_const = false;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    ROS_ASSERT(params.nonconst_message);
-    MessageEvent<MessageType> event(boost::static_pointer_cast<MessageType>(params.nonconst_message), params.connection_header, params.receipt_time);
     cb(event);
   }
 };
@@ -269,12 +234,12 @@ struct SubscriptionCallbackAdapter<const MessageEvent<M const>& >
 {
   typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
   typedef boost::function<void(const MessageEvent<MessageType const>&)> CallbackType;
+  typedef MessageEvent<MessageType const> EventType;
 
   static const bool is_const = true;
 
-  static void call(const CallbackType& cb, const SubscriptionCallbackHelperCallParams& params)
+  static void call(const CallbackType& cb, const EventType& event)
   {
-    MessageEvent<MessageType const> event(boost::static_pointer_cast<MessageType const>(params.message), params.connection_header, params.receipt_time);
     cb(event);
   }
 };
@@ -304,6 +269,8 @@ class SubscriptionCallbackHelperT : public SubscriptionCallbackHelper
 {
 public:
   typedef typename SubscriptionCallbackAdapter<M>::MessageType NonConstType;
+  typedef typename SubscriptionCallbackAdapter<M>::EventType EventType;
+  static const bool is_const = SubscriptionCallbackAdapter<M>::is_const;
   typedef typename boost::add_const<NonConstType>::type ConstType;
   typedef typename boost::shared_ptr<NonConstType> NonConstTypePtr;
   typedef typename boost::shared_ptr<ConstType> ConstTypePtr;
@@ -335,20 +302,16 @@ public:
 
   virtual void call(SubscriptionCallbackHelperCallParams& params)
   {
-    if (params.nonconst_need_copy)
+    EventType event(params.event);
+    if (!is_const && params.nonconst_need_copy)
     {
-      ConstTypePtr msg = boost::static_pointer_cast<ConstType>(params.message);
+      ConstTypePtr msg = boost::static_pointer_cast<ConstType>(params.event.getMessage());
       NonConstTypePtr nonconst_msg(create_());
       *nonconst_msg = *msg;
-      params.nonconst_message = nonconst_msg;
-    }
-    else
-    {
-      params.nonconst_message = boost::const_pointer_cast<void>(params.message);
+      event.setMessage(nonconst_msg);
     }
 
-    SubscriptionCallbackAdapter<M>::call(callback_, params);
-    params.nonconst_message.reset();
+    SubscriptionCallbackAdapter<M>::call(callback_, event);
   }
 
   virtual const std::type_info& getTypeInfo()

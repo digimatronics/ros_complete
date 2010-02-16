@@ -30,6 +30,7 @@
 
 #include "forwards.h"
 
+#include "message_event.h"
 #include "callback_queue_interface.h"
 
 #include <boost/thread/recursive_mutex.hpp>

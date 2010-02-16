@@ -38,7 +38,7 @@
 #include "ros/message_deserializer.h"
 #include "ros/message.h"
 #include "ros/callback_queue_interface.h"
-#include "ros/subscription_message_helper.h"
+#include "ros/subscription_callback_helper.h"
 
 #include <boost/shared_array.hpp>
 #include <boost/bind.hpp>

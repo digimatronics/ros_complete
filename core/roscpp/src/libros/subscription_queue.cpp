@@ -195,10 +195,8 @@ CallbackInterface::CallResult SubscriptionQueue::call(uint64_t id)
     {}
 
     SubscriptionCallbackHelperCallParams params;
-    params.message = msg;
-    params.connection_header = i.deserializer->getConnectionHeader();
+    params.event = MessageEvent<void const>(msg, i.deserializer->getConnectionHeader(), i.receipt_time);
     params.nonconst_need_copy = i.nonconst_need_copy;
-    params.receipt_time = i.receipt_time;
     i.helper->call(params);
   }
 
