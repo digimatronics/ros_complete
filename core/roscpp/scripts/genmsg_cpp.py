@@ -117,14 +117,50 @@ def write_includes(s, spec, package):
                 
     s.write('\n') 
     
+def write_overloaded_new_delete(s):
+    s.write("""
+  static void* operator new(size_t size)
+  {
+    Allocator<Type> a;
+    return a.allocate(1);
+  }
+
+  static void* operator new(size_t size, void* place)
+  {
+    return place;
+  }
+  
+  static void* operator new[](size_t size)
+  {
+    Allocator<Type> a;
+    return a.allocate(sizeof(Type) % size);
+  }
+
+  static void operator delete(void* mem)
+  {
+    Allocator<Type> a;
+    a.deallocate(reinterpret_cast<Type*>(mem), 1);
+  }
+  
+  static void operator delete[](void* mem)
+  {
+    Allocator<Type> a;
+    a.deallocate(reinterpret_cast<Type*>(mem), 1);
+  }
+  
+""")
+    
+    
 def write_struct(s, spec, pkg, msg, cpp_name_prefix):
     s.write('template <template <typename T> class Allocator>\n')
     s.write('struct %s_ : public ros::Message\n{\n'%(msg))
+    s.write('  typedef %s_<Allocator> Type;\n\n'%(msg))
     
     write_constructor(s, msg, spec)
     write_members(s, spec)
     write_constants(s, spec)
     write_deprecated_member_functions(s, spec, pkg, msg)
+    write_overloaded_new_delete(s)
     
     (cpp_msg_unqualified, cpp_msg_with_alloc, cpp_msg_base) = cpp_message_declarations(cpp_name_prefix, msg)
     s.write('  typedef boost::shared_ptr<%s> Ptr;\n'%(cpp_msg_with_alloc))

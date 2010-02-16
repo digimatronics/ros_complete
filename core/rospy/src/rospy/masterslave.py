@@ -55,12 +55,10 @@ Individual methods may assign additional meaning/semantics to statusCode.
 
 import os
 import sys
-import string
 import logging
-import random
 import socket
-import thread
 import threading
+import traceback
 import time
 import urlparse
 
@@ -79,6 +77,10 @@ from rospy.validators import non_empty, non_empty_str, not_none, ParameterInvali
 
 NUM_WORKERS = 3 #number of threads we use to send publisher_update notifications
 
+# Return code slots
+STATUS = 0
+MSG = 1
+VAL = 2
 
 # pseudo-validators ###############################
 # these validators actually return tuples instead of a function and it is up to a custom
