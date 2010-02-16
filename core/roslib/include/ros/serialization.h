@@ -716,6 +716,13 @@ struct IStream : public Stream
   {
     deserialize(*this, t);
   }
+
+  template<typename T>
+  ROS_FORCE_INLINE IStream& operator>>(T& t)
+  {
+    deserialize(*this, t);
+    return *this;
+  }
 };
 
 /**
@@ -736,6 +743,13 @@ struct OStream : public Stream
   ROS_FORCE_INLINE void next(const T& t)
   {
     serialize(*this, t);
+  }
+
+  template<typename T>
+  ROS_FORCE_INLINE OStream& operator<<(const T& t)
+  {
+    serialize(*this, t);
+    return *this;
   }
 };
 
@@ -766,10 +780,11 @@ struct LStream
   /**
    * \brief increment the length by len
    */
-  ROS_FORCE_INLINE uint8_t* advance(uint32_t len)
+  ROS_FORCE_INLINE uint32_t advance(uint32_t len)
   {
+    uint32_t old = count_;
     count_ += len;
-    return 0;
+    return old;
   }
 
   /**

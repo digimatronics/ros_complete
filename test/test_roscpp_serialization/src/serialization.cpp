@@ -458,6 +458,18 @@ TEST(Serialization, bufferOverrun)
   }
 }
 
+TEST(Serialization, streamOperators)
+{
+  Array b(new uint8_t[4]);
+  OStream ostream(b.get(), 4);
+  uint32_t a = 5;
+  ostream << a;
+  a = 100;
+  IStream istream(b.get(), 4);
+  istream >> a;
+  ASSERT_EQ(a, 5UL);
+}
+
 int main(int argc, char** argv)
 {
   testing::InitGoogleTest(&argc, argv);
