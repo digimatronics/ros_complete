@@ -36,45 +36,45 @@ namespace ros
 namespace message_traits
 {
 
-template<template<typename T> class Allocator >
-struct MD5Sum<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
+template<class ContainerAllocator>
+struct MD5Sum<std::basic_string<char, std::char_traits<char>, ContainerAllocator> >
 {
   static const char* value()
   {
     ROS_STATIC_ASSERT(MD5Sum<std_msgs::String>::static_value1 == 0x992ce8a1687cec8cULL);
     ROS_STATIC_ASSERT(MD5Sum<std_msgs::String>::static_value2 == 0x8bd883ec73ca41d1ULL);
-    return MD5Sum<std_msgs::String_<Allocator> >::value();
+    return MD5Sum<std_msgs::String_<ContainerAllocator> >::value();
   }
 
-  static const char* value(const std::basic_string<char, std::char_traits<char>, Allocator<char> >&)
+  static const char* value(const std::basic_string<char, std::char_traits<char>, ContainerAllocator>&)
   {
     return value();
   }
 };
 
-template<template<typename T> class Allocator >
-struct DataType<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
+template<class ContainerAllocator >
+struct DataType<std::basic_string<char, std::char_traits<char>, ContainerAllocator > >
 {
   static const char* value()
   {
-    return DataType<std_msgs::String_<Allocator> >::value();
+    return DataType<std_msgs::String_<ContainerAllocator> >::value();
   }
 
-  static const char* value(const std::basic_string<char, std::char_traits<char>, Allocator<char> >&)
+  static const char* value(const std::basic_string<char, std::char_traits<char>, ContainerAllocator >&)
   {
     return value();
   }
 };
 
-template<template<typename T> class Allocator >
-struct Definition<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
+template<class ContainerAllocator >
+struct Definition<std::basic_string<char, std::char_traits<char>, ContainerAllocator > >
 {
   static const char* value()
   {
-    return Definition<std_msgs::String_<Allocator> >::value();
+    return Definition<std_msgs::String_<ContainerAllocator> >::value();
   }
 
-  static const char* value(const std::basic_string<char, std::char_traits<char>, Allocator<char> >&)
+  static const char* value(const std::basic_string<char, std::char_traits<char>, ContainerAllocator >&)
   {
     return value();
   }

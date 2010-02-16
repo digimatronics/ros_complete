@@ -37,24 +37,24 @@
  * \brief Forward-declare a message, including Ptr and ConstPtr types, with an allocator
  *
  * \param ns The namespace the message should be declared inside
- * \param m The "base" message type, i.e. the name of the .m file
+ * \param m The "base" message type, i.e. the name of the .msg file
  * \param new_name The name you'd like the message to have
  * \param alloc The allocator to use, e.g. std::allocator
  */
-#define ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, m, new_name, alloc) \
+#define ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, new_name, alloc) \
   namespace ns \
   { \
-    template<template <typename T> class Allocator > struct m##_; \
-    typedef m##_<alloc> new_name; \
-    typedef boost::shared_ptr<m> new_name##Ptr; \
-    typedef boost::shared_ptr<m const> new_name##ConstPtr; \
+    template<class Allocator> struct msg##_; \
+    typedef msg##_<alloc<void> > new_name; \
+    typedef boost::shared_ptr<new_name> new_name##Ptr; \
+    typedef boost::shared_ptr<new_name const> new_name##ConstPtr; \
   }
 
 /**
  * \brief Forward-declare a message, including Ptr and ConstPtr types, using std::allocator
- * \param m The "base" message type, i.e. the name of the .m file
+ * \param msg The "base" message type, i.e. the name of the .msg file
  */
-#define ROS_FORWARD_DECLARE_MESSAGE(ns, m) ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, m, m, std::allocator)
+#define ROS_FORWARD_DECLARE_MESSAGE(ns, msg) ROS_FORWARD_DECLARE_MESSAGE_WITH_ALLOCATOR(ns, msg, msg, std::allocator)
 
 ROS_FORWARD_DECLARE_MESSAGE(roslib, Header);
 

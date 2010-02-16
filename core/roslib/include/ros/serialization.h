@@ -222,10 +222,10 @@ template<> struct Serializer<bool>
 /**
  * \brief  Serializer specialized for std::string
  */
-template<template<typename T> class Allocator >
-struct Serializer<std::basic_string<char, std::char_traits<char>, Allocator<char> > >
+template<class ContainerAllocator>
+struct Serializer<std::basic_string<char, std::char_traits<char>, ContainerAllocator> >
 {
-  typedef std::basic_string<char, std::char_traits<char>, Allocator<char> > StringType;
+  typedef std::basic_string<char, std::char_traits<char>, ContainerAllocator> StringType;
 
   template<typename Stream>
   inline static void write(Stream& stream, const StringType& str)
@@ -318,17 +318,17 @@ struct Serializer<ros::Duration>
 /**
  * \brief Vector serializer.  Default implementation does nothing
  */
-template<typename T, template<typename T> class Allocator, class Enabled = void>
+template<typename T, class ContainerAllocator, class Enabled = void>
 struct VectorSerializer
 {};
 
 /**
  * \brief Vector serializer, specialized for non-fixed-size, non-simple types
  */
-template<typename T, template<typename T> class Allocator>
-struct VectorSerializer<T, Allocator, typename boost::disable_if<mt::IsFixedSize<T> >::type >
+template<typename T, class ContainerAllocator>
+struct VectorSerializer<T, ContainerAllocator, typename boost::disable_if<mt::IsFixedSize<T> >::type >
 {
-  typedef std::vector<T, Allocator<T> > VecType;
+  typedef std::vector<T, typename ContainerAllocator::template rebind<T>::other> VecType;
   typedef typename VecType::iterator IteratorType;
   typedef typename VecType::const_iterator ConstIteratorType;
 
@@ -374,10 +374,10 @@ struct VectorSerializer<T, Allocator, typename boost::disable_if<mt::IsFixedSize
 /**
  * \brief Vector serializer, specialized for fixed-size simple types
  */
-template<typename T, template<typename T> class Allocator>
-struct VectorSerializer<T, Allocator, typename boost::enable_if<mt::IsSimple<T> >::type >
+template<typename T, class ContainerAllocator>
+struct VectorSerializer<T, ContainerAllocator, typename boost::enable_if<mt::IsSimple<T> >::type >
 {
-  typedef std::vector<T, Allocator<T> > VecType;
+  typedef std::vector<T, typename ContainerAllocator::template rebind<T>::other> VecType;
   typedef typename VecType::iterator IteratorType;
   typedef typename VecType::const_iterator ConstIteratorType;
 
@@ -417,10 +417,10 @@ struct VectorSerializer<T, Allocator, typename boost::enable_if<mt::IsSimple<T> 
 /**
  * \brief Vector serializer, specialized for fixed-size non-simple types
  */
-template<typename T, template<typename T> class Allocator>
-struct VectorSerializer<T, Allocator, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type >
+template<typename T, class ContainerAllocator>
+struct VectorSerializer<T, ContainerAllocator, typename boost::enable_if<mpl::and_<mt::IsFixedSize<T>, mpl::not_<mt::IsSimple<T> > > >::type >
 {
-  typedef std::vector<T, Allocator<T> > VecType;
+  typedef std::vector<T, typename ContainerAllocator::template rebind<T>::other> VecType;
   typedef typename VecType::iterator IteratorType;
   typedef typename VecType::const_iterator ConstIteratorType;
 
@@ -466,28 +466,28 @@ struct VectorSerializer<T, Allocator, typename boost::enable_if<mpl::and_<mt::Is
 /**
  * \brief serialize version for std::vector
  */
-template<typename T, template<typename T> class Allocator, typename Stream>
-inline void serialize(Stream& stream, const std::vector<T, Allocator<T> >& t)
+template<typename T, class ContainerAllocator, typename Stream>
+inline void serialize(Stream& stream, const std::vector<T, ContainerAllocator>& t)
 {
-  VectorSerializer<T, Allocator>::write(stream, t);
+  VectorSerializer<T, ContainerAllocator>::write(stream, t);
 }
 
 /**
  * \brief deserialize version for std::vector
  */
-template<typename T, template<typename T> class Allocator, typename Stream>
-inline void deserialize(Stream& stream, std::vector<T, Allocator<T> >& t)
+template<typename T, class ContainerAllocator, typename Stream>
+inline void deserialize(Stream& stream, std::vector<T, ContainerAllocator>& t)
 {
-  VectorSerializer<T, Allocator>::read(stream, t);
+  VectorSerializer<T, ContainerAllocator>::read(stream, t);
 }
 
 /**
  * \brief serializationLength version for std::vector
  */
-template<typename T, template<typename T> class Allocator, typename Stream>
-inline void serializationLength(Stream& stream, const std::vector<T, Allocator<T> >& t)
+template<typename T, class ContainerAllocator, typename Stream>
+inline void serializationLength(Stream& stream, const std::vector<T, ContainerAllocator>& t)
 {
-  VectorSerializer<T, Allocator>::serializedLength(stream, t);
+  VectorSerializer<T, ContainerAllocator>::serializedLength(stream, t);
 }
 
 /**
@@ -806,11 +806,11 @@ inline uint32_t serializationLength(const boost::array<T, N>& t)
 /**
  * \brief Version of serializationLength that does not require you to manually construct and use an LStream.  Returns the length.  Specialized for std::vector
  */
-template<typename T, template<typename T> class Allocator>
-inline uint32_t serializationLength(const std::vector<T, Allocator<T> >& t)
+template<typename T, class ContainerAllocator>
+inline uint32_t serializationLength(const std::vector<T, ContainerAllocator>& t)
 {
   LStream stream;
-  VectorSerializer<T, Allocator>::serializedLength(stream, t);
+  VectorSerializer<T, ContainerAllocator>::serializedLength(stream, t);
   return stream.getLength();
 }
 

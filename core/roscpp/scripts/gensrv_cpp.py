@@ -79,8 +79,8 @@ def write_traits(s, spec, pkg, msg, cpp_name_prefix):
     
     write_trait_char_class(s, 'MD5Sum', cpp_msg, md5sum);
     write_trait_char_class(s, 'DataType', cpp_msg, datatype);
-    request_with_allocator = '%s::Request_<Allocator> '%(cpp_msg)
-    response_with_allocator = '%s::Response_<Allocator> '%(cpp_msg)
+    request_with_allocator = '%s::Request_<ContainerAllocator> '%(cpp_msg)
+    response_with_allocator = '%s::Response_<ContainerAllocator> '%(cpp_msg)
     genmsg_cpp.write_trait_char_class(s, 'MD5Sum', request_with_allocator, md5sum)
     genmsg_cpp.write_trait_char_class(s, 'DataType', request_with_allocator, datatype)
     genmsg_cpp.write_trait_char_class(s, 'MD5Sum', response_with_allocator, md5sum)
