@@ -32,8 +32,12 @@
 #include "ros/forwards.h"
 #include "ros/time.h"
 
+#include <boost/type_traits/is_void.hpp>
 #include <boost/type_traits/is_const.hpp>
+#include <boost/type_traits/add_const.hpp>
+#include <boost/type_traits/remove_const.hpp>
 #include <boost/utility/enable_if.hpp>
+#include <boost/function.hpp>
 
 namespace ros
 {
@@ -47,46 +51,64 @@ template<typename M>
 class MessageEvent
 {
 public:
+  typedef typename boost::add_const<M>::type ConstMessage;
+  typedef typename boost::remove_const<M>::type Message;
+  typedef boost::shared_ptr<Message> MessagePtr;
+  typedef boost::shared_ptr<ConstMessage> ConstMessagePtr;
+  typedef boost::function<MessagePtr()> CreateFunction;
+
   MessageEvent()
+  : nonconst_need_copy_(true)
   {}
 
-  template<typename M2>
-  typename boost::enable_if<boost::is_const<M2> >::type assignMessage(const boost::shared_ptr<void const>& msg)
+  MessageEvent(const MessageEvent<M>& rhs)
   {
-    message_ = boost::static_pointer_cast<M2>(msg);
+    *this = rhs;
   }
 
-  template<typename M2>
-  typename boost::disable_if<boost::is_const<M2> >::type assignMessage(const boost::shared_ptr<void const>& msg)
+  MessageEvent(const MessageEvent<void const>& rhs, const CreateFunction& create)
   {
-    message_ = boost::static_pointer_cast<M2>(boost::const_pointer_cast<void>(msg));
+    init(boost::const_pointer_cast<Message>(boost::static_pointer_cast<ConstMessage>(rhs.getMessage())), rhs.getConnectionHeaderPtr(), rhs.getReceiptTime(), rhs.nonConstWillCopy(), create);
   }
 
-  MessageEvent(const MessageEvent<void const>& rhs)
+  MessageEvent(const MessageEvent<void>& rhs, const CreateFunction& create)
   {
-    connection_header_ = rhs.getConnectionHeaderPtr();
-    receipt_time_ = rhs.getReceiptTime();
-
-    assignMessage<M>(rhs.getMessage());
+    init(boost::static_pointer_cast<ConstMessage>(rhs.getMessage()), rhs.getConnectionHeaderPtr(), rhs.getReceiptTime(), rhs.nonConstWillCopy(), create);
   }
 
-  MessageEvent(const MessageEvent<void>& rhs)
+  MessageEvent(const boost::shared_ptr<M>& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time, bool nonconst_need_copy, const CreateFunction& create)
   {
-    connection_header_ = rhs.getConnectionHeaderPtr();
-    receipt_time_ = rhs.getReceiptTime();
-    message_ = boost::static_pointer_cast<M>(rhs.getMessage());
+    init(message, connection_header, receipt_time, nonconst_need_copy, create);
   }
 
-  MessageEvent(const boost::shared_ptr<M>& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time)
-  : message_(message)
-  , connection_header_(connection_header)
-  , receipt_time_(receipt_time)
-  {}
+  void init(const boost::shared_ptr<M>& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time, bool nonconst_need_copy, const CreateFunction& create)
+  {
+    message_ = message;
+    connection_header_ = connection_header;
+    receipt_time_ = receipt_time;
+    nonconst_need_copy_ = nonconst_need_copy;
+    create_ = create;
+  }
+
+  void operator=(const MessageEvent<M>& rhs)
+  {
+    init(boost::const_pointer_cast<Message>(boost::static_pointer_cast<ConstMessage>(rhs.getMessage())), rhs.getConnectionHeaderPtr(), rhs.getReceiptTime(), rhs.nonConstWillCopy(), rhs.create_);
+  }
 
   /**
-   * \brief Retrieve the message
+   * \brief Retrieve the message.  If M is const, this returns a reference to it.  If M is non const
+   * and this event requires it, returns a copy.  Note that it caches this copy for later use, so it will
+   * only every make the copy once
    */
-  const boost::shared_ptr<M>& getMessage() const { return message_; }
+  boost::shared_ptr<M> getMessage() const
+  {
+    return copyMessageIfNecessary<M>();
+  }
+
+  /**
+   * \brief Retrieve a const version of the message
+   */
+  const boost::shared_ptr<ConstMessage>& getConstMessage() const { return message_; }
   /**
    * \brief Retrieve the connection header
    */
@@ -103,14 +125,44 @@ public:
    */
   ros::Time getReceiptTime() const { return receipt_time_; }
 
-  void setMessage(const boost::shared_ptr<M>& m) { message_ = m; }
-  void setConnectionHeader(const boost::shared_ptr<M_string>& h) { connection_header_ = h; }
-  void setReceiptTime(ros::Time t) { receipt_time_ = t; }
+  bool nonConstWillCopy() const { return nonconst_need_copy_; }
+  bool getMessageWillCopy() const { return !boost::is_const<M>::value && nonconst_need_copy_; }
 
 private:
-  boost::shared_ptr<M> message_;
+  template<typename M2>
+  typename boost::disable_if<boost::is_void<M2>, boost::shared_ptr<M> >::type copyMessageIfNecessary() const
+  {
+    if (boost::is_const<M>::value || !nonconst_need_copy_)
+    {
+      return boost::const_pointer_cast<Message>(message_);
+    }
+
+    if (message_copy_)
+    {
+      return message_copy_;
+    }
+
+    ROS_ASSERT(create_);
+    message_copy_ = create_();
+    *message_copy_ = *message_;
+
+    return message_copy_;
+  }
+
+  template<typename M2>
+  typename boost::enable_if<boost::is_void<M2>, boost::shared_ptr<M> >::type copyMessageIfNecessary() const
+  {
+    return boost::const_pointer_cast<Message>(message_);
+  }
+
+
+  ConstMessagePtr message_;
+  // Kind of ugly to make this mutable, but it means we can pass a const MessageEvent to a callback and not worry about other things being modified
+  mutable MessagePtr message_copy_;
   boost::shared_ptr<M_string> connection_header_;
   ros::Time receipt_time_;
+  bool nonconst_need_copy_;
+  CreateFunction create_;
 };
 
 }

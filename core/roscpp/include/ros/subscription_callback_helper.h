@@ -74,12 +74,7 @@ struct SubscriptionCallbackHelperDeserializeParams
 
 struct SubscriptionCallbackHelperCallParams
 {
-  SubscriptionCallbackHelperCallParams()
-  : nonconst_need_copy(false)
-  {}
-
   MessageEvent<void const> event;
-  bool nonconst_need_copy;
 };
 
 /**
@@ -270,13 +265,15 @@ class SubscriptionCallbackHelperT : public SubscriptionCallbackHelper
 public:
   typedef typename SubscriptionCallbackAdapter<M>::MessageType NonConstType;
   typedef typename SubscriptionCallbackAdapter<M>::EventType EventType;
-  static const bool is_const = SubscriptionCallbackAdapter<M>::is_const;
   typedef typename boost::add_const<NonConstType>::type ConstType;
-  typedef typename boost::shared_ptr<NonConstType> NonConstTypePtr;
-  typedef typename boost::shared_ptr<ConstType> ConstTypePtr;
+  typedef boost::shared_ptr<NonConstType> NonConstTypePtr;
+  typedef boost::shared_ptr<ConstType> ConstTypePtr;
+
+  static const bool is_const = SubscriptionCallbackAdapter<M>::is_const;
 
   typedef typename SubscriptionCallbackAdapter<M>::CallbackType Callback;
   typedef boost::function<NonConstTypePtr()> CreateFunction;
+
   SubscriptionCallbackHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<NonConstType>)
   : callback_(callback)
   , create_(create)
@@ -302,15 +299,7 @@ public:
 
   virtual void call(SubscriptionCallbackHelperCallParams& params)
   {
-    EventType event(params.event);
-    if (!is_const && params.nonconst_need_copy)
-    {
-      ConstTypePtr msg = boost::static_pointer_cast<ConstType>(params.event.getMessage());
-      NonConstTypePtr nonconst_msg(create_());
-      *nonconst_msg = *msg;
-      event.setMessage(nonconst_msg);
-    }
-
+    EventType event(params.event, create_);
     SubscriptionCallbackAdapter<M>::call(callback_, event);
   }
 
