@@ -93,6 +93,7 @@ public:
   void operator=(const MessageEvent<M>& rhs)
   {
     init(boost::const_pointer_cast<Message>(boost::static_pointer_cast<ConstMessage>(rhs.getMessage())), rhs.getConnectionHeaderPtr(), rhs.getReceiptTime(), rhs.nonConstWillCopy(), rhs.create_);
+    message_copy_.reset();
   }
 
   /**
