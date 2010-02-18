@@ -75,16 +75,16 @@ struct SubscribeOptions
    *        discarded).
    * \param _callback Callback to call when a message arrives on this topic
    */
-  template<class M>
+  template<class P>
   void initByFullCallbackType(const std::string& _topic, uint32_t _queue_size,
-       const boost::function<void (M)>& _callback)
+       const boost::function<void (P)>& _callback)
   {
-    typedef typename SubscriptionCallbackAdapter<M>::MessageType MessageType;
+    typedef typename ParameterAdapter<P>::Message MessageType;
     topic = _topic;
     queue_size = _queue_size;
     md5sum = message_traits::md5sum<MessageType>();
     datatype = message_traits::datatype<MessageType>();
-    helper = SubscriptionCallbackHelperPtr(new SubscriptionCallbackHelperT<M>(_callback));
+    helper = SubscriptionCallbackHelperPtr(new SubscriptionCallbackHelperT<P>(_callback));
   }
 
   /**
@@ -99,7 +99,7 @@ struct SubscribeOptions
   void init(const std::string& _topic, uint32_t _queue_size,
        const boost::function<void (const boost::shared_ptr<M const>&)>& _callback)
   {
-    typedef typename SubscriptionCallbackAdapter<M>::MessageType MessageType;
+    typedef typename ParameterAdapter<M>::Message MessageType;
     topic = _topic;
     queue_size = _queue_size;
     md5sum = message_traits::md5sum<MessageType>();

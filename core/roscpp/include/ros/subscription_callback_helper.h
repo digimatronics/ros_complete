@@ -31,6 +31,7 @@
 #include <typeinfo>
 
 #include "ros/forwards.h"
+#include "ros/parameter_adapter.h"
 #include "ros/message_traits.h"
 #include "ros/builtin_message_traits.h"
 #include "ros/serialization.h"
@@ -47,12 +48,6 @@
 
 namespace ros
 {
-
-template<typename M>
-inline boost::shared_ptr<M> defaultMessageCreateFunction()
-{
-  return boost::make_shared<M>();
-}
 
 template<typename T>
 typename boost::enable_if<boost::is_base_of<ros::Message, T> >::type assignSubscriptionConnectionHeader(T* t, const boost::shared_ptr<M_string>& connection_header)
@@ -78,168 +73,6 @@ struct SubscriptionCallbackHelperCallParams
 };
 
 /**
- * \brief Internal use
- *
- * The SubscriptionCallbackAdapter is templated on the callback parameter type (\b not the bare message type), and provides 3 things:
- *  - MessageType, which provides the bare message type, no const or reference qualifiers
- *  - CallbackType, which provides the full Boost.Function callback type
- *  - the static call() method, which calls the callback in the correct manner given the callback type
- *
- *  SubscriptionCallbackAdapter is then specialized to allow callbacks of any of the forms:
-\verbatim
-void callback(const boost::shared_ptr<M const>&);
-void callback(boost::shared_ptr<M const>);
-void callback(const M&);
-void callback(M);
-void callback(const MessageEvent<M const>&);
-\endverbatim
- */
-template<typename M>
-struct SubscriptionCallbackAdapter
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(MessageType)> CallbackType;
-  typedef MessageEvent<MessageType const> EventType;
-
-  static const bool is_const = true;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(*event.getMessage());
-  }
-};
-
-/**
- * Callback type void callback(const M&);
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<const M&>
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(const MessageType&)> CallbackType;
-  typedef MessageEvent<MessageType const> EventType;
-
-  static const bool is_const = true;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(*event.getMessage());
-  }
-};
-
-/**
- * Callback type void callback(const boost::shared_ptr<M>&);.  Use of non-const messages is not implemented yet,
- * so anything that would instantiate this will error at compile time
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<const boost::shared_ptr<M>& >
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(const boost::shared_ptr<MessageType>&)> CallbackType;
-  typedef MessageEvent<MessageType> EventType;
-
-  static const bool is_const = false;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(event.getMessage());
-  }
-};
-
-/**
- * Callback type void callback(const boost::shared_ptr<M const>&);
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<const boost::shared_ptr<M const>& >
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(const boost::shared_ptr<MessageType const>&)> CallbackType;
-  typedef MessageEvent<MessageType const> EventType;
-
-  static const bool is_const = true;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(event.getMessage());
-  }
-};
-
-
-/**
- * Callback type void callback(boost::shared_ptr<M const>);
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<boost::shared_ptr<M const> >
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(boost::shared_ptr<MessageType const>)> CallbackType;
-  typedef MessageEvent<MessageType const> EventType;
-
-  static const bool is_const = true;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(event.getMessage());
-  }
-};
-
-/**
- * Callback type void callback(const boost::shared_ptr<M const>&);.  Use of non-const messages is not implemented yet,
- * so anything that would instantiate this will error at compile time
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<boost::shared_ptr<M> >
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(boost::shared_ptr<MessageType>)> CallbackType;
-  typedef MessageEvent<MessageType> EventType;
-
-  static const bool is_const = false;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(event.getMessage());
-  }
-};
-
-/**
- * Callback type void callback(const ros::MessageEvent<M>&);.  Use of non-const messages is not implemented yet,
- * so anything that would instantiate this will error at compile time
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<const MessageEvent<M>& >
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(const MessageEvent<MessageType>&)> CallbackType;
-  typedef MessageEvent<MessageType> EventType;
-
-  static const bool is_const = false;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(event);
-  }
-};
-
-/**
- * Callback type void callback(const ros::MessageEvent<M const>&);
- */
-template<typename M>
-struct SubscriptionCallbackAdapter<const MessageEvent<M const>& >
-{
-  typedef typename boost::remove_reference<typename boost::remove_const<M>::type>::type MessageType;
-  typedef boost::function<void(const MessageEvent<MessageType const>&)> CallbackType;
-  typedef MessageEvent<MessageType const> EventType;
-
-  static const bool is_const = true;
-
-  static void call(const CallbackType& cb, const EventType& event)
-  {
-    cb(event);
-  }
-};
-
-/**
  * \brief Abstract base class used by subscriptions to deal with concrete message types through a common
  * interface.  This is one part of the roscpp API that is \b not fully stable, so overloading this class
  * is not recommended.
@@ -259,19 +92,20 @@ typedef boost::shared_ptr<SubscriptionCallbackHelper> SubscriptionCallbackHelper
  * \brief Concrete generic implementation of SubscriptionCallbackHelper for any normal message type.  Use directly with
  * care, this is mostly for internal use.
  */
-template<typename M, typename Enabled = void>
+template<typename P, typename Enabled = void>
 class SubscriptionCallbackHelperT : public SubscriptionCallbackHelper
 {
 public:
-  typedef typename SubscriptionCallbackAdapter<M>::MessageType NonConstType;
-  typedef typename SubscriptionCallbackAdapter<M>::EventType EventType;
+  typedef ParameterAdapter<P> Adapter;
+  typedef typename ParameterAdapter<P>::Message NonConstType;
+  typedef typename ParameterAdapter<P>::Event Event;
   typedef typename boost::add_const<NonConstType>::type ConstType;
   typedef boost::shared_ptr<NonConstType> NonConstTypePtr;
   typedef boost::shared_ptr<ConstType> ConstTypePtr;
 
-  static const bool is_const = SubscriptionCallbackAdapter<M>::is_const;
+  static const bool is_const = ParameterAdapter<P>::is_const;
 
-  typedef typename SubscriptionCallbackAdapter<M>::CallbackType Callback;
+  typedef boost::function<void(typename Adapter::Parameter)> Callback;
   typedef boost::function<NonConstTypePtr()> CreateFunction;
 
   SubscriptionCallbackHelperT(const Callback& callback, const CreateFunction& create = defaultMessageCreateFunction<NonConstType>)
@@ -299,8 +133,8 @@ public:
 
   virtual void call(SubscriptionCallbackHelperCallParams& params)
   {
-    EventType event(params.event, create_);
-    SubscriptionCallbackAdapter<M>::call(callback_, event);
+    Event event(params.event, create_);
+    callback_(ParameterAdapter<P>::getParameter(event));
   }
 
   virtual const std::type_info& getTypeInfo()
@@ -310,7 +144,7 @@ public:
 
   virtual bool isConst()
   {
-    return SubscriptionCallbackAdapter<M>::is_const;
+    return ParameterAdapter<P>::is_const;
   }
 
 private:
