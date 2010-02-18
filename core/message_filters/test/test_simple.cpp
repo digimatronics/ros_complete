@@ -1,7 +1,7 @@
 /*********************************************************************
 * Software License Agreement (BSD License)
 *
-*  Copyright (c) 2008, Willow Garage, Inc.
+*  Copyright (c) 2010, Willow Garage, Inc.
 *  All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -35,122 +35,121 @@
 #include <gtest/gtest.h>
 
 #include "ros/time.h"
-#include "message_filters/time_sequencer.h"
+#include "message_filters/simple_filter.h"
 
 using namespace message_filters;
 
-struct Header
-{
-  ros::Time stamp;
-};
-
-
 struct Msg
 {
-  Header header;
-  int data;
 };
 typedef boost::shared_ptr<Msg> MsgPtr;
 typedef boost::shared_ptr<Msg const> MsgConstPtr;
 
-namespace ros
+struct Filter : public SimpleFilter<Msg>
 {
-namespace message_traits
-{
-template<>
-struct TimeStamp<Msg>
-{
-  static ros::Time value(const Msg& m)
+  typedef ros::MessageEvent<Msg const> EventType;
+
+  void add(const EventType& evt)
   {
-    return m.header.stamp;
+    signalMessage(evt);
   }
 };
-}
-}
 
 class Helper
 {
 public:
   Helper()
-  : count_(0)
-  {}
-
-  void cb(const MsgConstPtr&)
   {
-    ++count_;
+    counts_.assign(0);
   }
 
-  int32_t count_;
+  void cb0(const MsgConstPtr& msg)
+  {
+    ++counts_[0];
+  }
+
+  void cb1(const Msg& msg)
+  {
+    ++counts_[1];
+  }
+
+  void cb2(MsgConstPtr msg)
+  {
+    ++counts_[2];
+  }
+
+  void cb3(const ros::MessageEvent<Msg const>& evt)
+  {
+    ++counts_[3];
+  }
+
+  void cb4(Msg msg)
+  {
+    ++counts_[4];
+  }
+
+  void cb5(const MsgPtr& msg)
+  {
+    ++counts_[5];
+  }
+
+  void cb6(MsgPtr msg)
+  {
+    ++counts_[6];
+  }
+
+  void cb7(const ros::MessageEvent<Msg>& evt)
+  {
+    ++counts_[7];
+  }
+
+  boost::array<int32_t, 30> counts_;
 };
 
-TEST(TimeSequencer, simple)
+TEST(SimpleFilter, callbackTypes)
 {
-  TimeSequencer<Msg> seq(ros::Duration(1.0), ros::Duration(0.01), 10);
   Helper h;
-  seq.registerCallback(boost::bind(&Helper::cb, &h, _1));
-  MsgPtr msg(new Msg);
-  msg->header.stamp = ros::Time::now();
-  seq.add(msg);
+  Filter f;
+  f.registerCallback(boost::bind(&Helper::cb0, &h, _1));
+  f.registerCallback<const Msg&>(boost::bind(&Helper::cb1, &h, _1));
+  f.registerCallback<MsgConstPtr>(boost::bind(&Helper::cb2, &h, _1));
+  f.registerCallback<const ros::MessageEvent<Msg const>&>(boost::bind(&Helper::cb3, &h, _1));
+  f.registerCallback<Msg>(boost::bind(&Helper::cb4, &h, _1));
+  f.registerCallback<const MsgPtr&>(boost::bind(&Helper::cb5, &h, _1));
+  f.registerCallback<MsgPtr>(boost::bind(&Helper::cb6, &h, _1));
+  f.registerCallback<const ros::MessageEvent<Msg>&>(boost::bind(&Helper::cb7, &h, _1));
 
-  ros::WallDuration(0.1).sleep();
-  ros::spinOnce();
-  ASSERT_EQ(h.count_, 0);
-
-  ros::Time::setNow(ros::Time::now() + ros::Duration(2.0));
-
-  ros::WallDuration(0.1).sleep();
-  ros::spinOnce();
-
-  ASSERT_EQ(h.count_, 1);
+  f.add(Filter::EventType(MsgPtr(new Msg)));
+  EXPECT_EQ(h.counts_[0], 1);
+  EXPECT_EQ(h.counts_[1], 1);
+  EXPECT_EQ(h.counts_[2], 1);
+  EXPECT_EQ(h.counts_[3], 1);
+  EXPECT_EQ(h.counts_[4], 1);
+  EXPECT_EQ(h.counts_[5], 1);
+  EXPECT_EQ(h.counts_[6], 1);
+  EXPECT_EQ(h.counts_[7], 1);
 }
 
-TEST(TimeSequencer, compilation)
+struct OldFilter
 {
-  TimeSequencer<Msg> seq(ros::Duration(1.0), ros::Duration(0.01), 10);
-  TimeSequencer<Msg> seq2(ros::Duration(1.0), ros::Duration(0.01), 10);
-  seq2.connectInput(seq);
-}
-
-struct EventHelper
-{
-public:
-  void cb(const ros::MessageEvent<Msg const>& evt)
+  Connection registerCallback(const boost::function<void(const MsgConstPtr&)>& func)
   {
-    event_ = evt;
+    return Connection();
   }
-
-  ros::MessageEvent<Msg const> event_;
 };
 
-TEST(TimeSequencer, eventInEventOut)
+TEST(SimpleFilter, oldRegisterWithNewFilter)
 {
-  TimeSequencer<Msg> seq(ros::Duration(1.0), ros::Duration(0.01), 10);
-  TimeSequencer<Msg> seq2(seq, ros::Duration(1.0), ros::Duration(0.01), 10);
-  EventHelper h;
-  seq2.registerCallback(&EventHelper::cb, &h);
-
-  ros::MessageEvent<Msg const> evt(MsgConstPtr(new Msg), ros::Time::now());
-  seq.add(evt);
-
-  ros::Time::setNow(ros::Time::now() + ros::Duration(2));
-  while (!h.event_.getMessage())
-  {
-    ros::WallDuration(0.01).sleep();
-    ros::spinOnce();
-  }
-
-  EXPECT_EQ(h.event_.getReceiptTime(), evt.getReceiptTime());
-  EXPECT_EQ(h.event_.getMessage(), evt.getMessage());
+  OldFilter f;
+  Helper h;
+  f.registerCallback(boost::bind(&Helper::cb3, &h, _1));
 }
 
 int main(int argc, char **argv){
   testing::InitGoogleTest(&argc, argv);
 
-  ros::init(argc, argv, "time_sequencer_test");
-  ros::NodeHandle nh;
-  ros::Time::setNow(ros::Time());
-
   return RUN_ALL_TESTS();
 }
+
 
 

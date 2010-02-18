@@ -172,14 +172,13 @@ struct Header<M, typename boost::enable_if<HasHeader<M> >::type >
 /**
  * \brief FrameId trait.  In the default implementation pointer()
  * returns &m.header.frame_id if HasHeader<M>::value is true, otherwise returns NULL.  value()
- * returns m.header.frame_id or an empty string.
+ * does not exist, and causes a compile error
  */
 template<typename M, typename Enable = void>
 struct FrameId
 {
   static std::string* pointer(M& m) { return 0; }
   static std::string const* pointer(const M& m) { return 0; }
-  static std::string value(const M& m) { return std::string(); }
 };
 
 template<typename M>
@@ -193,14 +192,13 @@ struct FrameId<M, typename boost::enable_if<HasHeader<M> >::type >
 /**
  * \brief FrameId trait.  In the default implementation pointer()
  * returns &m.header.stamp if HasHeader<M>::value is true, otherwise returns NULL.  value()
- * returns m.header.stamp or a zero timestamp.
+ * does not exist, and causes a compile error
  */
 template<typename M, typename Enable = void>
 struct TimeStamp
 {
   static ros::Time* pointer(M& m) { return 0; }
   static ros::Time const* pointer(const M& m) { return 0; }
-  static ros::Time value(const M& m) { return ros::Time(); }
 };
 
 template<typename M>
