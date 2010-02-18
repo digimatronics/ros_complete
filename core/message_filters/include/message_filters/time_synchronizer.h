@@ -163,7 +163,7 @@ public:
   typedef Signal9<M0, M1, M2, M3, M4, M5, M6, M7, M8> Signal;
   typedef boost::signal<void(const Tuple&)> DropSignal;
   typedef boost::function<void(const Tuple&)> DropCallback;
-  typedef const NullType& NullP;
+  typedef const boost::shared_ptr<NullType const>& NullP;
 
   static const uint8_t MAX_MESSAGES = 9;
 
