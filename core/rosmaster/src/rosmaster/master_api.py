@@ -30,7 +30,7 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Revision $Id: masterslave.py 7887 2010-01-15 21:39:15Z kwc $
+# Revision $Id$
 """
 ROS Master API. 
 
@@ -260,7 +260,7 @@ class ROSMasterHandler(object):
     @apivalidate('')
     def getUri(self, caller_id):
         """
-        Get the XML-RPC URI of this server
+        Get the XML-RPC URI of this server.
         @param caller_id str: ROS caller id    
         @return [int, str, str]: [1, "", xmlRpcUri]
         """

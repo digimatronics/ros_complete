@@ -33,7 +33,7 @@
 #
 # Revision $Id$
 
-import roslib; roslib.load_manifest('test_rospy')
+import roslib; roslib.load_manifest('test_rosmaster')
 
 import os
 import sys
@@ -45,10 +45,10 @@ import time
 class ThreadPoolMock(object):
     def queue_task(*args): pass
 
-class TestRospyMasterData(unittest.TestCase):
+class TestRosmasterRegistrations(unittest.TestCase):
 
     def test_NodeRef_services(self):
-        from rospy.masterdata import NodeRef, Registrations
+        from rosmaster.registrations import NodeRef, Registrations
         n = NodeRef('n1', 'http://localhost:1234')
         # test services
         n.add(Registrations.SERVICE, 'add_two_ints')
@@ -74,7 +74,7 @@ class TestRospyMasterData(unittest.TestCase):
         self.assert_(n.is_empty())
 
     def test_NodeRef_subs(self):
-        from rospy.masterdata import NodeRef, Registrations
+        from rosmaster.registrations import NodeRef, Registrations
         n = NodeRef('n1', 'http://localhost:1234')
         # test topic suscriptions
         n.add(Registrations.TOPIC_SUBSCRIPTIONS, 'topic1')
@@ -100,7 +100,7 @@ class TestRospyMasterData(unittest.TestCase):
         self.assert_(n.is_empty())
 
     def test_NodeRef_pubs(self):
-        from rospy.masterdata import NodeRef, Registrations
+        from rosmaster.registrations import NodeRef, Registrations
         n = NodeRef('n1', 'http://localhost:1234')
         # test topic publications
         n.add(Registrations.TOPIC_PUBLICATIONS, 'topic1')
@@ -126,8 +126,8 @@ class TestRospyMasterData(unittest.TestCase):
         self.assert_(n.is_empty())
 
     def test_NodeRef_base(self):
-        import rospy.exceptions
-        from rospy.masterdata import NodeRef, Registrations
+        import rosmaster.exceptions
+        from rosmaster.registrations import NodeRef, Registrations
         n = NodeRef('n1', 'http://localhost:1234')
         self.assertEquals('http://localhost:1234', n.api)
         self.assertEquals([], n.param_subscriptions)
@@ -139,11 +139,11 @@ class TestRospyMasterData(unittest.TestCase):
         try:
             n.add(12345, 'topic')
             self.fail("should have failed with invalid type")
-        except rospy.exceptions.ROSInternalException: pass
+        except rosmaster.exceptions.InternalException: pass
         try:
             n.remove(12345, 'topic')
             self.fail("should have failed with invalid type")
-        except rospy.exceptions.ROSInternalException: pass
+        except rosmaster.exceptions.InternalException: pass
 
         n.add(Registrations.TOPIC_PUBLICATIONS, 'topic1')
         n.add(Registrations.TOPIC_PUBLICATIONS, 'topic2')
@@ -157,7 +157,7 @@ class TestRospyMasterData(unittest.TestCase):
         self.assert_(n.is_empty())        
 
     def test_NodeRef_param_subs(self):
-        from rospy.masterdata import NodeRef, Registrations
+        from rosmaster.registrations import NodeRef, Registrations
         n = NodeRef('n1', 'http://localhost:1234')
         # test param suscriptions
         n.add(Registrations.PARAM_SUBSCRIPTIONS, 'param1')
@@ -267,8 +267,8 @@ class TestRospyMasterData(unittest.TestCase):
         self.assertEquals([], r.get_state())        
         
     def test_Registrations(self):
-        import rospy.exceptions
-        from rospy.masterdata import Registrations
+        import rosmaster.exceptions
+        from rosmaster.registrations import Registrations
         types = [Registrations.TOPIC_SUBSCRIPTIONS,
                  Registrations.TOPIC_PUBLICATIONS,
                  Registrations.SERVICE,
@@ -278,7 +278,7 @@ class TestRospyMasterData(unittest.TestCase):
         try:
             r = Registrations(-1)
             self.fail("Registrations accepted invalid type")
-        except rospy.exceptions.ROSInternalException, e: pass
+        except rosmaster.exceptions.InternalException, e: pass
         
         for t in types:
             r = Registrations(t)
@@ -301,7 +301,7 @@ class TestRospyMasterData(unittest.TestCase):
         self._subtest_Registrations_services(r)
 
     def test_RegistrationManager_services(self):
-        from rospy.masterdata import Registrations, RegistrationManager
+        from rosmaster.registrations import Registrations, RegistrationManager
         rm = RegistrationManager(ThreadPoolMock())
         
         self.assertEquals(None, rm.get_node('caller1'))
@@ -366,16 +366,16 @@ class TestRospyMasterData(unittest.TestCase):
         self.assertEquals(None, rm.get_node('caller1'))        
 
     def test_RegistrationManager_topic_pub(self):
-        from rospy.masterdata import Registrations, RegistrationManager
+        from rosmaster.registrations import Registrations, RegistrationManager
         rm = RegistrationManager(ThreadPoolMock())
         self.subtest_RegistrationManager(rm, rm.publishers, rm.register_publisher, rm.unregister_publisher)
         
     def test_RegistrationManager_topic_sub(self):
-        from rospy.masterdata import Registrations, RegistrationManager
+        from rosmaster.registrations import Registrations, RegistrationManager
         rm = RegistrationManager(ThreadPoolMock())
         self.subtest_RegistrationManager(rm, rm.subscribers, rm.register_subscriber, rm.unregister_subscriber)
     def test_RegistrationManager_param_sub(self):
-        from rospy.masterdata import Registrations, RegistrationManager
+        from rosmaster.registrations import Registrations, RegistrationManager
         rm = RegistrationManager(ThreadPoolMock())
         self.subtest_RegistrationManager(rm, rm.param_subscribers, rm.register_param_subscriber, rm.unregister_param_subscriber)
         
@@ -431,8 +431,8 @@ class TestRospyMasterData(unittest.TestCase):
         self.assertEquals(None, rm.get_node('caller1'))        
 
     def test_RegistrationManager_base(self):
-        import rospy.exceptions
-        from rospy.masterdata import Registrations, RegistrationManager
+        import rosmaster.exceptions
+        from rosmaster.registrations import Registrations, RegistrationManager
         threadpool = ThreadPoolMock()
 
         rm = RegistrationManager(threadpool)
@@ -536,8 +536,8 @@ class TestRospyMasterData(unittest.TestCase):
 
         
     def test_Registrations_unregister_all(self):
-        import rospy.exceptions
-        from rospy.masterdata import Registrations
+        import rosmaster.exceptions
+        from rosmaster.registrations import Registrations
 
         r = Registrations(Registrations.TOPIC_SUBSCRIPTIONS)        
         for k in ['topic1', 'topic1b', 'topic1c', 'topic1d']:        
@@ -582,7 +582,7 @@ class TestRospyMasterData(unittest.TestCase):
         self.assertEquals('rosrpc://node2:1234', r.get_service_api('service2'))
 
     def _subtest_Registrations_services(self, r):
-        import rospy.exceptions
+        import rosmaster.exceptions
 
         # call methods that use service_api_map, make sure they are guarded against lazy-init
         self.assertEquals(None, r.get_service_api('s1'))
@@ -596,7 +596,7 @@ class TestRospyMasterData(unittest.TestCase):
         try:
             r.register('service1', 'node1', 'http://node1:5678')
             self.fail("should require service_api")
-        except rospy.exceptions.ROSInternalException: pass
+        except rosmaster.exceptions.InternalException: pass
         
         r.register('service1', 'node1', 'http://node1:5678', 'rosrpc://node1:1234')
         
@@ -634,7 +634,7 @@ class TestRospyMasterData(unittest.TestCase):
         try:
             r.unregister('service1', 'node2', 'http://node2:1234')
             self.fail("service_api param must be specified")
-        except rospy.exceptions.ROSInternalException: pass
+        except rosmaster.exceptions.InternalException: pass
         
         # - fail if service is not known
         code, _, val = r.unregister('unknown', 'node2', 'http://node2:5678', 'rosprc://node2:1234')
@@ -685,4 +685,4 @@ class TestRospyMasterData(unittest.TestCase):
         
 if __name__ == '__main__':
     import rostest
-    rostest.unitrun('test_rospy', sys.argv[0], TestRospyMasterData, coverage_packages=['rospy.masterdata'])
+    rostest.unitrun('test_rosmaster', sys.argv[0], TestRosmasterRegistrations, coverage_packages=['rosmaster.registrations'])
