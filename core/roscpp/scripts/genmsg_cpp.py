@@ -271,9 +271,12 @@ def write_deprecated_member_functions(s, spec, pkg, msg):
     full_text = compute_full_text_escaped(gendeps_dict)
     
     fields = spec.fields()
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getDataType() const { return "%s/%s"; }\n'%(pkg,msg))
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMD5Sum() const { return "%s"; }\n'%(md5sum))
-    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return "%s"; }\n'%(full_text))
+    s.write('  ROSCPP_DEPRECATED static const std::string __s_getDataType() { return "%s/%s"; }\n'%(pkg,msg))
+    s.write('  ROSCPP_DEPRECATED static const std::string __s_getMD5Sum() { return "%s"; }\n'%(md5sum))
+    s.write('  ROSCPP_DEPRECATED static const std::string __s_getMessageDefinition() { return "%s"; }\n'%(full_text))
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getDataType() const { return __s_getDataType(); }\n')
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMD5Sum() const { return __s_getMD5Sum(); }\n')
+    s.write('  ROSCPP_DEPRECATED virtual const std::string __getMessageDefinition() const { return __s_getMessageDefinition(); }\n')
     
     s.write('  ROSCPP_DEPRECATED virtual uint8_t *serialize(uint8_t *write_ptr, uint32_t seq) const\n  {\n')
     s.write('    ros::serialization::OStream stream(write_ptr, 1000000000);\n')
