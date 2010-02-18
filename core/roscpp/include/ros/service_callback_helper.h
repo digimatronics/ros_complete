@@ -40,7 +40,7 @@
 
 namespace ros
 {
-struct ServiceMessageHelperCallParams
+struct ServiceCallbackHelperCallParams
 {
   SerializedMessage request;
   SerializedMessage response;
@@ -142,19 +142,19 @@ struct ServiceSpec
  * interface.  This is one part of the roscpp API that is \b not fully stable, so overloading this class
  * is not recommended
  */
-class ServiceMessageHelper
+class ServiceCallbackHelper
 {
 public:
-  virtual ~ServiceMessageHelper() {}
-  virtual bool call(ServiceMessageHelperCallParams& params) = 0;
+  virtual ~ServiceCallbackHelper() {}
+  virtual bool call(ServiceCallbackHelperCallParams& params) = 0;
 };
-typedef boost::shared_ptr<ServiceMessageHelper> ServiceMessageHelperPtr;
+typedef boost::shared_ptr<ServiceCallbackHelper> ServiceCallbackHelperPtr;
 
 /**
- * \brief Concrete generic implementation of ServiceMessageHelper for any normal service type
+ * \brief Concrete generic implementation of ServiceCallbackHelper for any normal service type
  */
 template<typename Spec>
-class ServiceMessageHelperT : public ServiceMessageHelper
+class ServiceCallbackHelperT : public ServiceCallbackHelper
 {
 public:
   typedef typename Spec::RequestType RequestType;
@@ -165,14 +165,14 @@ public:
   typedef boost::function<RequestPtr()> ReqCreateFunction;
   typedef boost::function<ResponsePtr()> ResCreateFunction;
 
-  ServiceMessageHelperT(const Callback& callback, const ReqCreateFunction& create_req = defaultServiceCreateFunction<RequestType>, const ResCreateFunction& create_res = defaultServiceCreateFunction<ResponseType>)
+  ServiceCallbackHelperT(const Callback& callback, const ReqCreateFunction& create_req = defaultServiceCreateFunction<RequestType>, const ResCreateFunction& create_res = defaultServiceCreateFunction<ResponseType>)
   : callback_(callback)
   , create_req_(create_req)
   , create_res_(create_res)
   {
   }
 
-  virtual bool call(ServiceMessageHelperCallParams& params)
+  virtual bool call(ServiceCallbackHelperCallParams& params)
   {
     namespace ser = serialization;
     RequestPtr req(create_req_());

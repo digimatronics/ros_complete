@@ -43,7 +43,7 @@ namespace ros
 {
 
 ServicePublication::ServicePublication(const std::string& name, const std::string &md5sum, const std::string& data_type, const std::string& request_data_type,
-                             const std::string& response_data_type, const ServiceMessageHelperPtr& helper, CallbackQueueInterface* callback_queue,
+                             const std::string& response_data_type, const ServiceCallbackHelperPtr& helper, CallbackQueueInterface* callback_queue,
                              const VoidConstPtr& tracked_object)
 : name_(name)
 , md5sum_(md5sum)
@@ -84,7 +84,7 @@ void ServicePublication::drop()
 class ServiceCallback : public CallbackInterface
 {
 public:
-  ServiceCallback(const ServiceMessageHelperPtr& helper, const boost::shared_array<uint8_t>& buf, size_t num_bytes, const ServiceClientLinkPtr& link, bool has_tracked_object, const VoidConstWPtr& tracked_object)
+  ServiceCallback(const ServiceCallbackHelperPtr& helper, const boost::shared_array<uint8_t>& buf, size_t num_bytes, const ServiceClientLinkPtr& link, bool has_tracked_object, const VoidConstWPtr& tracked_object)
   : helper_(helper)
   , buffer_(buf)
   , num_bytes_(num_bytes)
@@ -114,7 +114,7 @@ public:
       }
     }
 
-    ServiceMessageHelperCallParams params;
+    ServiceCallbackHelperCallParams params;
     params.request = SerializedMessage(buffer_, num_bytes_);
     params.connection_header = link_->getConnection()->getHeader().getValues();
     try
@@ -135,7 +135,7 @@ public:
   }
 
 private:
-  ServiceMessageHelperPtr helper_;
+  ServiceCallbackHelperPtr helper_;
   boost::shared_array<uint8_t> buffer_;
   uint32_t num_bytes_;
   ServiceClientLinkPtr link_;

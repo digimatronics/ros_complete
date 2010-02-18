@@ -108,7 +108,7 @@ public:
   void call(const ros::MessageEvent<M const>& event)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    bool nonconst_need_copy = callbacks_.size() > 1;
+    bool nonconst_need_copy = event.nonConstWillCopy() || callbacks_.size() > 1;
     typename V_CallbackHelper1::iterator it = callbacks_.begin();
     typename V_CallbackHelper1::iterator end = callbacks_.end();
     for (; it != end; ++it)

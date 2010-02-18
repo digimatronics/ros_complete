@@ -178,7 +178,7 @@ public:
             const M5Event& e5, const M6Event& e6, const M7Event& e7, const M8Event& e8)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    bool nonconst_need_copy = callbacks_.size() > 1;
+    bool nonconst_need_copy = event.nonConstWillCopy() || callbacks_.size() > 1;
     typename V_CallbackHelper9::iterator it = callbacks_.begin();
     typename V_CallbackHelper9::iterator end = callbacks_.end();
     for (; it != end; ++it)

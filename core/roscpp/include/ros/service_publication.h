@@ -28,7 +28,7 @@
 #ifndef ROSCPP_SERVICE_PUBLICATION_H
 #define ROSCPP_SERVICE_PUBLICATION_H
 
-#include "ros/service_message_helper.h"
+#include "ros/service_callback_helper.h"
 
 #include "XmlRpc.h"
 
@@ -62,7 +62,7 @@ class ServicePublication : public boost::enable_shared_from_this<ServicePublicat
 {
 public:
   ServicePublication(const std::string& name, const std::string &md5sum, const std::string& data_type, const std::string& request_data_type,
-                const std::string& response_data_type, const ServiceMessageHelperPtr& helper, CallbackQueueInterface* queue,
+                const std::string& response_data_type, const ServiceCallbackHelperPtr& helper, CallbackQueueInterface* queue,
                 const VoidConstPtr& tracked_object);
   ~ServicePublication();
 
@@ -103,7 +103,7 @@ private:
   std::string data_type_;
   std::string request_data_type_;
   std::string response_data_type_;
-  ServiceMessageHelperPtr helper_;
+  ServiceCallbackHelperPtr helper_;
 
   V_ServiceClientLink client_links_;
   boost::mutex client_links_mutex_;

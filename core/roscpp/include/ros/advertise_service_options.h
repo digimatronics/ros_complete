@@ -29,7 +29,7 @@
 #define ROSCPP_ADVERTISE_SERVICE_OPTIONS_H
 
 #include "ros/forwards.h"
-#include "ros/service_message_helper.h"
+#include "ros/service_callback_helper.h"
 #include "ros/service_traits.h"
 #include "ros/message_traits.h"
 
@@ -71,7 +71,7 @@ struct AdvertiseServiceOptions
     datatype = st::datatype<MReq>();
     req_datatype = mt::datatype<MReq>();
     res_datatype = mt::datatype<MRes>();
-    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<ServiceSpec<MReq, MRes> >(_callback));
+    helper = ServiceCallbackHelperPtr(new ServiceCallbackHelperT<ServiceSpec<MReq, MRes> >(_callback));
   }
 
   /**
@@ -91,7 +91,7 @@ struct AdvertiseServiceOptions
     datatype = st::datatype<Service>();
     req_datatype = mt::datatype<Request>();
     res_datatype = mt::datatype<Response>();
-    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<ServiceSpec<Request, Response> >(_callback));
+    helper = ServiceCallbackHelperPtr(new ServiceCallbackHelperT<ServiceSpec<Request, Response> >(_callback));
   }
 
   /**
@@ -111,7 +111,7 @@ struct AdvertiseServiceOptions
     datatype = st::datatype<Request>();
     req_datatype = mt::datatype<Request>();
     res_datatype = mt::datatype<Response>();
-    helper = ServiceMessageHelperPtr(new ServiceMessageHelperT<Spec>(_callback));
+    helper = ServiceCallbackHelperPtr(new ServiceCallbackHelperT<Spec>(_callback));
   }
 
   std::string service;                                                ///< Service name
@@ -120,7 +120,7 @@ struct AdvertiseServiceOptions
   std::string req_datatype;                                           ///< Request message datatype
   std::string res_datatype;                                           ///< Response message datatype
 
-  ServiceMessageHelperPtr helper;                                     ///< Helper object used for creating messages and calling callbacks
+  ServiceCallbackHelperPtr helper;                                     ///< Helper object used for creating messages and calling callbacks
 
   CallbackQueueInterface* callback_queue;                             ///< Queue to add callbacks to.  If NULL, the global callback queue will be used
 
