@@ -62,7 +62,7 @@ public:
   typedef ros::MessageEvent<M7 const> M7Event;
   typedef ros::MessageEvent<M8 const> M8Event;
 
-  virtual void call(bool nonconst_need_copy, const M0Event& e0, const M1Event& e1, const M2Event& e2, const M3Event& e3,
+  virtual void call(bool nonconst_force_copy, const M0Event& e0, const M1Event& e1, const M2Event& e2, const M3Event& e3,
                     const M4Event& e4, const M5Event& e5, const M6Event& e6, const M7Event& e7, const M8Event& e8) = 0;
 
   typedef boost::shared_ptr<CallbackHelper9> Ptr;
@@ -110,18 +110,18 @@ public:
   {
   }
 
-  virtual void call(bool nonconst_need_copy, const M0Event& e0, const M1Event& e1, const M2Event& e2, const M3Event& e3,
+  virtual void call(bool nonconst_force_copy, const M0Event& e0, const M1Event& e1, const M2Event& e2, const M3Event& e3,
                     const M4Event& e4, const M5Event& e5, const M6Event& e6, const M7Event& e7, const M8Event& e8)
   {
-    M0Event my_e0(e0, nonconst_need_copy);
-    M1Event my_e1(e1, nonconst_need_copy);
-    M2Event my_e2(e2, nonconst_need_copy);
-    M3Event my_e3(e3, nonconst_need_copy);
-    M4Event my_e4(e4, nonconst_need_copy);
-    M5Event my_e5(e5, nonconst_need_copy);
-    M6Event my_e6(e6, nonconst_need_copy);
-    M7Event my_e7(e7, nonconst_need_copy);
-    M8Event my_e8(e8, nonconst_need_copy);
+    M0Event my_e0(e0, nonconst_force_copy || e0.nonConstWillCopy());
+    M1Event my_e1(e1, nonconst_force_copy || e0.nonConstWillCopy());
+    M2Event my_e2(e2, nonconst_force_copy || e0.nonConstWillCopy());
+    M3Event my_e3(e3, nonconst_force_copy || e0.nonConstWillCopy());
+    M4Event my_e4(e4, nonconst_force_copy || e0.nonConstWillCopy());
+    M5Event my_e5(e5, nonconst_force_copy || e0.nonConstWillCopy());
+    M6Event my_e6(e6, nonconst_force_copy || e0.nonConstWillCopy());
+    M7Event my_e7(e7, nonconst_force_copy || e0.nonConstWillCopy());
+    M8Event my_e8(e8, nonconst_force_copy || e0.nonConstWillCopy());
     callback_(A0::getParameter(e0),
               A1::getParameter(e1),
               A2::getParameter(e2),
@@ -178,13 +178,13 @@ public:
             const M5Event& e5, const M6Event& e6, const M7Event& e7, const M8Event& e8)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    bool nonconst_need_copy = event.nonConstWillCopy() || callbacks_.size() > 1;
+    bool nonconst_force_copy = callbacks_.size() > 1;
     typename V_CallbackHelper9::iterator it = callbacks_.begin();
     typename V_CallbackHelper9::iterator end = callbacks_.end();
     for (; it != end; ++it)
     {
       const CallbackHelper9Ptr& helper = *it;
-      helper->call(nonconst_need_copy, e0, e1, e2, e3, e4, e5, e6, e7, e8);
+      helper->call(nonconst_force_copy, e0, e1, e2, e3, e4, e5, e6, e7, e8);
     }
   }
 

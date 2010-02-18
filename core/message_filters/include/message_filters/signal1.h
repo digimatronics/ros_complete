@@ -68,9 +68,9 @@ public:
   {
   }
 
-  virtual void call(const ros::MessageEvent<M const>& event, bool nonconst_need_copy)
+  virtual void call(const ros::MessageEvent<M const>& event, bool nonconst_force_copy)
   {
-    Event my_event(event, nonconst_need_copy);
+    Event my_event(event, nonconst_force_copy || event.nonConstWillCopy());
     callback_(Adapter::getParameter(my_event));
   }
 
@@ -108,13 +108,13 @@ public:
   void call(const ros::MessageEvent<M const>& event)
   {
     boost::mutex::scoped_lock lock(mutex_);
-    bool nonconst_need_copy = event.nonConstWillCopy() || callbacks_.size() > 1;
+    bool nonconst_force_copy = callbacks_.size() > 1;
     typename V_CallbackHelper1::iterator it = callbacks_.begin();
     typename V_CallbackHelper1::iterator end = callbacks_.end();
     for (; it != end; ++it)
     {
       const CallbackHelper1Ptr& helper = *it;
-      helper->call(event, nonconst_need_copy);
+      helper->call(event, nonconst_force_copy);
     }
   }
 
