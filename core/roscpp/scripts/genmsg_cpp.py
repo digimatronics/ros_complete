@@ -307,8 +307,8 @@ def compute_full_text_escaped(gen_deps_dict):
     lines = definition.split('\n')
     s = StringIO()
     for line in lines:
-        line.replace('\\', '\\\\')
-        line.replace('"', '\\"')
+        line = line.replace('\\', '\\\\')
+        line = line.replace('"', '\\"')
         s.write('%s\\n \\\n'%(line))
         
     val = s.getvalue()
