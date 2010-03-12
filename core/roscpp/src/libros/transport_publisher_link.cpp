@@ -44,6 +44,7 @@
 #include "ros/transport/transport_tcp.h"
 #include "ros/timer_manager.h"
 #include "ros/callback_queue.h"
+#include "ros/internal_timer_manager.h"
 
 #include <boost/bind.hpp>
 
@@ -66,7 +67,7 @@ TransportPublisherLink::~TransportPublisherLink()
 
   if (retry_timer_handle_ != -1)
   {
-    TimerManager<WallTime, WallDuration, WallTimerEvent>::global().remove(retry_timer_handle_);
+    getInternalTimerManager()->remove(retry_timer_handle_);
   }
 }
 
@@ -122,7 +123,7 @@ bool TransportPublisherLink::onHeaderReceived(const ConnectionPtr& conn, const H
 
   if (retry_timer_handle_ != -1)
   {
-    TimerManager<WallTime, WallDuration, WallTimerEvent>::global().remove(retry_timer_handle_);
+    getInternalTimerManager()->remove(retry_timer_handle_);
     retry_timer_handle_ = -1;
   }
 
@@ -135,7 +136,7 @@ void TransportPublisherLink::onMessageLength(const ConnectionPtr& conn, const bo
 {
   if (retry_timer_handle_ != -1)
   {
-    TimerManager<WallTime, WallDuration, WallTimerEvent>::global().remove(retry_timer_handle_);
+    getInternalTimerManager()->remove(retry_timer_handle_);
     retry_timer_handle_ = -1;
   }
 
@@ -250,13 +251,13 @@ void TransportPublisherLink::onConnectionDropped(const ConnectionPtr& conn)
   {
     retry_period_ = WallDuration(0.1);
     next_retry_ = WallTime::now() + retry_period_;
-    retry_timer_handle_ = TimerManager<WallTime, WallDuration, WallTimerEvent>::global().add(WallDuration(retry_period_),
+    retry_timer_handle_ = getInternalTimerManager()->add(WallDuration(retry_period_),
         boost::bind(&TransportPublisherLink::onRetryTimer, this, _1), getInternalCallbackQueue().get(),
         VoidConstPtr(), false);
   }
   else
   {
-    TimerManager<WallTime, WallDuration, WallTimerEvent>::global().setPeriod(retry_timer_handle_, retry_period_);
+    getInternalTimerManager()->setPeriod(retry_timer_handle_, retry_period_);
   }
 }
 

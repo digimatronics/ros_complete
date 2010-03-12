@@ -47,6 +47,7 @@
 #include "ros/rosout_appender.h"
 #include "ros/subscribe_options.h"
 #include "ros/transport/transport_tcp.h"
+#include "ros/internal_timer_manager.h"
 
 #include "roscpp/GetLoggers.h"
 #include "roscpp/SetLoggerLevel.h"
@@ -279,6 +280,8 @@ void start()
 
   PollManager::instance()->addPollThreadListener(checkForShutdown);
   XMLRPCManager::instance()->bind("shutdown", shutdownCallback);
+
+  initInternalTimerManager();
 
   TopicManager::instance()->start();
   ServiceManager::instance()->start();
