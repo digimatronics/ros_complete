@@ -195,6 +195,9 @@ void TransportPublisherLink::onRetryTimer(const ros::WallTimerEvent&)
     needs_retry_ = false;
     SubscriptionPtr parent = parent_.lock();
     // TODO: support retry on more than just TCP
+    // For now, since UDP does not have a heartbeat, we do not attempt to retry
+    // UDP connections since an error there likely means some invalid operation has
+    // happened.
     if (connection_->getTransport()->getType() == std::string("TCPROS"))
     {
       std::string topic = parent ? parent->getName() : "unknown";
