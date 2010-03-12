@@ -262,8 +262,9 @@ bool TransportTCP::connect(const std::string& host, int port)
   sin.sin_port = htons(port);
 
   int ret = ::connect(sock_, (sockaddr *)&sin, sizeof(sin));
-  ROS_ASSERT(ret != 0);
-  if (errno != EINPROGRESS)
+  ROS_ASSERT((flags_ & SYNCHRONOUS) || ret != 0);
+  if (((flags_ & SYNCHRONOUS) && ret != 0) || // synchronous, connect() should return 0
+      (!(flags_ & SYNCHRONOUS) && errno != EINPROGRESS)) // asynchronous, connect() should return -1 and errno should be EINPROGRESS
   {
     ROSCPP_LOG_DEBUG("Connect to tcpros publisher [%s:%d] failed with error [%d, %s]", host.c_str(), port, ret, strerror(errno));
     close();
