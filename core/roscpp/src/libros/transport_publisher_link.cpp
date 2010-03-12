@@ -40,6 +40,8 @@
 #include "ros/this_node.h"
 #include "ros/connection_manager.h"
 #include "ros/file_log.h"
+#include "ros/poll_manager.h"
+#include "ros/transport/transport_tcp.h"
 
 #include <boost/bind.hpp>
 
@@ -63,19 +65,23 @@ bool TransportPublisherLink::initialize(const ConnectionPtr& connection)
   connection_->addDropListener(boost::bind(&TransportPublisherLink::onConnectionDropped, this, _1));
 
   if (connection_->getTransport()->requiresHeader())
+  {
     connection_->setHeaderReceivedCallback(boost::bind(&TransportPublisherLink::onHeaderReceived, this, _1, _2));
+
+    SubscriptionPtr parent = parent_.lock();
+
+    M_string header;
+    header["topic"] = parent->getName();
+    header["md5sum"] = parent->md5sum();
+    header["callerid"] = this_node::getName();
+    header["type"] = parent->datatype();
+    header["tcp_nodelay"] = transport_hints_.getTCPNoDelay() ? "1" : "0";
+    connection_->writeHeader(header, boost::bind(&TransportPublisherLink::onHeaderWritten, this, _1));
+  }
   else
+  {
     connection_->read(4, boost::bind(&TransportPublisherLink::onMessageLength, this, _1, _2, _3, _4));
-
-  SubscriptionPtr parent = parent_.lock();
-
-  M_string header;
-  header["topic"] = parent->getName();
-  header["md5sum"] = parent->md5sum();
-  header["callerid"] = this_node::getName();
-  header["type"] = parent->datatype();
-  header["tcp_nodelay"] = transport_hints_.getTCPNoDelay() ? "1" : "0";
-  connection_->writeHeader(header, boost::bind(&TransportPublisherLink::onHeaderWritten, this, _1));
+  }
 
   return true;
 }
@@ -136,7 +142,9 @@ void TransportPublisherLink::onMessage(const ConnectionPtr& conn, const boost::s
   ROS_ASSERT(conn == connection_);
 
   if (success)
+  {
     handleMessage(SerializedMessage(buffer, size), true, false);
+  }
 
   if (success || !connection_->getTransport()->requiresHeader())
   {
@@ -148,10 +156,38 @@ void TransportPublisherLink::onConnectionDropped(const ConnectionPtr& conn)
 {
   ROS_ASSERT(conn == connection_);
 
-  if (SubscriptionPtr parent = parent_.lock())
-  {
-    ROSCPP_LOG_DEBUG("Connection to publisher [%s] to topic [%s] dropped", connection_->getTransport()->getTransportInfo().c_str(), parent->getName().c_str());
+  SubscriptionPtr parent = parent_.lock();
+  std::string topic = parent ? parent->getName() : "unknown";
 
+  ROSCPP_LOG_DEBUG("Connection to publisher [%s] to topic [%s] dropped", connection_->getTransport()->getTransportInfo().c_str(), topic.c_str());
+
+
+  // TODO: support retry on more than just TCP
+  if (conn->getTransport()->getType() == std::string("TCPROS"))
+  {
+    TransportTCPPtr old_transport = boost::dynamic_pointer_cast<TransportTCP>(conn->getTransport());
+    ROS_ASSERT(old_transport);
+    const std::string& host = old_transport->getConnectedHost();
+    int port = old_transport->getConnectedPort();
+
+    ROSCPP_LOG_DEBUG("Retrying connection to [%s:%d] for topic [%s]", host.c_str(), port, topic.c_str());
+
+    TransportTCPPtr transport(new TransportTCP(&PollManager::instance()->getPollSet()));
+    if (transport->connect(host, port))
+    {
+      ConnectionPtr connection(new Connection);
+      connection->initialize(transport, false, HeaderReceivedFunc());
+      initialize(connection);
+
+      ConnectionManager::instance()->addConnection(connection);
+    }
+    else
+    {
+      ROSCPP_LOG_DEBUG("connect() failed when retrying connection to [%s:%d] for topic [%s]", host.c_str(), port, topic.c_str());
+    }
+  }
+  else if (parent)
+  {
     parent->removePublisherLink(shared_from_this());
   }
 }
