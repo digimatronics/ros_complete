@@ -277,6 +277,19 @@ void start()
   g_started = true;
   g_ok = true;
 
+  bool enable_debug = false;
+  const char* enable_debug_env = getenv("ROS_ENABLE_DEBUG");
+  if (enable_debug_env)
+  {
+    try
+    {
+      enable_debug = boost::lexical_cast<bool>(enable_debug_env);
+    }
+    catch (boost::bad_lexical_cast&)
+    {
+    }
+  }
+
   param::param("/tcp_keepalive", TransportTCP::s_use_keepalive_, TransportTCP::s_use_keepalive_);
 
   PollManager::instance()->addPollThreadListener(checkForShutdown);
@@ -322,6 +335,7 @@ void start()
 
   if (g_shutting_down) goto end;
 
+  if (enable_debug)
   {
     ros::AdvertiseServiceOptions ops;
     ops.init<roscpp::Empty>(names::resolve("~debug/close_all_connections"), closeAllConnections);
