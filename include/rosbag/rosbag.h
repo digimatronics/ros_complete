@@ -45,6 +45,7 @@
 
 #include <boost/thread/mutex.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -68,7 +69,6 @@ namespace rosbag
       };
   }
 
-
   //! Struct to store message information
   struct MsgInfo
   {
@@ -85,12 +85,29 @@ namespace rosbag
     pos_t    pos;
   };
 
+  //! Comparator to sort MessageInstances by time-stamp
+  struct IndexEntryCompare
+  {
+    bool operator() (const ros::Time& a, const IndexEntry& b) const
+    {
+      return a < b.time;
+    }
+    bool operator() (const IndexEntry& a, const ros::Time& b) const
+    {
+      return a.time < b;
+    }
+  };
 
   class MessageInstance;
   class MessageInstanceCompare;
 
+
   //! Typedef for index: map of topic_name -> list of MessageInstance
-  typedef std::multiset<MessageInstance, MessageInstanceCompare> MessageList;
+  //  typedef std::multiset<MessageInstance, MessageInstanceCompare> MessageList;
+
+  // STL doesn't like us using vector
+  //typedef std::vector<MessageInstance> MessageList;
+  typedef std::list<MessageInstance> MessageList;
 
   //! Intended typedef to use for the Bag Index.
   typedef std::map<std::string, MessageList> BagIndex;
@@ -113,6 +130,7 @@ namespace rosbag
   //  wrong type
   class InstantiateException : public Exception {};
 
+  class View;
 
   //! Class for writinging to a bagfile
   class Bag
@@ -172,6 +190,10 @@ namespace rosbag
                              const ros::Time& start_time = ros::TIME_MIN, 
                              const ros::Time& end_time = ros::TIME_MAX);
 
+    View getViewByTopic(const std::vector<std::string>& topics,
+                        const ros::Time& start_time = ros::TIME_MIN, 
+                        const ros::Time& end_time = ros::TIME_MAX);
+
     //! Return a MessageList using a subset of types
     MessageList getMessageListByType(const std::vector<std::string>& types,
                              const ros::Time& start_time = ros::TIME_MIN, 
@@ -179,6 +201,9 @@ namespace rosbag
 
   protected:
     //! Actually try to load a record from a particular offset
+
+    // NOTE: THIS SHOULD PROBABLY TAKE A MESSAGEINSTANCE
+
     template <class T>
     boost::shared_ptr<T const> instantiate(uint64_t pos)
     {
@@ -381,8 +406,11 @@ namespace rosbag
     /*!
      * Templated type-check 
      */
-    template <class T>
-    bool isType();
+    template <class T>  bool isType() const
+    {
+      return (ros::message_traits::MD5Sum<T>::value() == getMd5sum() &&
+              ros::message_traits::DataType<T>::value() == getDatatype());
+    }
 
     /*!
      * Templated instantiate
@@ -401,11 +429,13 @@ namespace rosbag
     MessageInstance(const MsgInfo& info,
                     const IndexEntry& ind,
                     Bag& bag) : info_(info), index_(ind), bag_(bag) {}
-
+    
   private:
 
     const MsgInfo& info_;
     const IndexEntry& index_;
+
+    // We really should not be able to mutate bag
     Bag& bag_;
 
   };
@@ -420,6 +450,93 @@ namespace rosbag
       else
         return false;
     }
+  };
+
+
+  class View
+  {
+    friend class Bag;
+  public:
+
+    class const_iterator;
+
+    // Our iterator still internally stores a MessageList::const_iterator which constrains
+    // It's ability to dereference
+    class iterator : public boost::iterator_facade<iterator,
+                                                   const MessageInstance,
+                                                   boost::forward_traversal_tag>
+    {
+    public:
+      iterator() {}
+
+      iterator(MessageList::const_iterator p) : pos_(p) {}
+
+      iterator(iterator const& other)
+        : pos_(other.pos_) {}
+
+    private:
+      friend class const_iterator;
+      friend class boost::iterator_core_access;
+
+      bool equal(iterator const& other) const;
+
+      bool equal(const_iterator const& other) const;
+
+      void increment();
+
+      // This wouldn't have to be const if we weren't storing a const MessageList internally
+      const MessageInstance& dereference() const;
+
+      MessageList::const_iterator pos_;
+    };
+
+
+    // This really is almost identcal to the iterator... could probably be done with a typedef
+    // Need to put some thought into if we actually need both iterator types
+    class const_iterator : public boost::iterator_facade<const_iterator,
+                                                         const MessageInstance,
+                                                         boost::forward_traversal_tag>
+    {
+    public:
+      const_iterator() {}
+
+      const_iterator(MessageList::const_iterator p) : pos_(p) {}
+
+      const_iterator(iterator const& other)
+        : pos_(other.pos_) {}
+
+      const_iterator(const_iterator const& other)
+        : pos_(other.pos_) {}
+
+    private:
+      friend class iterator;
+      friend class boost::iterator_core_access;
+
+      bool equal(iterator const& other) const;
+
+      bool equal(const_iterator const& other) const;
+
+      void increment();
+
+      const MessageInstance& dereference() const;
+
+      MessageList::const_iterator pos_;
+    };
+
+    iterator begin();
+    const_iterator begin() const;
+    iterator end();
+    const_iterator end()  const;
+    uint32_t size()  const;
+
+  protected:
+    
+    View(const MessageList& message_list) : message_list_(message_list) {}
+
+  private:
+
+    const MessageList message_list_;
+    
   };
 
 

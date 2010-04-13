@@ -80,6 +80,100 @@ TEST(Rosbag, simpleread)
 
 }
 
+TEST(Rosbag, viewread)
+{
+
+  rosbag::Bag bag;
+  bag.open("test.bag", rosbag::bagmode::Read);
+  
+  std::vector<std::string> topics;
+  topics.push_back(std::string("chatter"));
+  topics.push_back(std::string("numbers"));
+
+  rosbag::View messages = bag.getViewByTopic(topics);
+
+  BOOST_FOREACH(const rosbag::MessageInstance m, messages)
+  {
+    std_msgs::String::ConstPtr s = m.instantiate<std_msgs::String>();
+    if (s != NULL)
+    {
+      ASSERT_EQ(s->data, std::string("foo"));
+    }
+
+    std_msgs::Int32::ConstPtr i = m.instantiate<std_msgs::Int32>();
+    if (i != NULL)
+    {
+      ASSERT_EQ(i->data, 42);
+    }
+  }
+
+  bag.close();
+
+}
+
+
+// Create a bag file where messages have a sequential count, but on random topics
+// And verify it gets sorted correctly when we produce our view
+TEST(Rosbag, verifytimesort)
+{
+
+  rosbag::Bag outbag;
+  outbag.open("time.bag", rosbag::bagmode::Write);
+  
+  std_msgs::Int32 imsg;
+  for (int i = 0; i < 1000; i++)
+  {
+    imsg.data = i;
+    switch (rand() % 5)
+    {
+    case 0:
+      outbag.write("t0", ros::Time::now(), imsg);
+      break;
+    case 1:
+      outbag.write("t1", ros::Time::now(), imsg);
+      break;
+    case 2:
+      outbag.write("t2", ros::Time::now(), imsg);
+      break;
+    case 3:
+      outbag.write("t2", ros::Time::now(), imsg);
+      break;
+    case 4:
+      outbag.write("t4", ros::Time::now(), imsg);
+      break;
+    }
+  }
+
+  outbag.close();
+
+
+  rosbag::Bag bag;
+  bag.open("time.bag", rosbag::bagmode::Read);
+  
+  std::vector<std::string> topics;
+  topics.push_back(std::string("t0"));
+  topics.push_back(std::string("t1"));
+  topics.push_back(std::string("t2"));
+  topics.push_back(std::string("t3"));
+  topics.push_back(std::string("t4"));
+
+  rosbag::View messages = bag.getViewByTopic(topics);
+
+  int i = 0;
+
+  BOOST_FOREACH(const rosbag::MessageInstance m, messages)
+  {
+    std_msgs::Int32::ConstPtr imsg = m.instantiate<std_msgs::Int32>();
+    if (imsg != NULL)
+    {
+      ASSERT_EQ(imsg->data, i++);
+    }
+  }
+
+  bag.close();
+
+}
+
 int main(int argc, char **argv)
 {
   testing::InitGoogleTest(&argc, argv);
