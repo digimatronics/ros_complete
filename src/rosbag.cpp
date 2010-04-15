@@ -35,8 +35,6 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/iostreams/filter/bzip2.hpp>
 
-#include <algorithm>
-#include <queue>
 
 using namespace rosbag;
 
@@ -787,29 +785,6 @@ rosbag::Bag::checkField(const ros::M_string& fields,
 }
 
 
-// The merge helper stores the range of messages on a given topic
-// The comparator below helps us to sort these helpers based on the
-// First iterator so that we can store them in a priority queue
-struct MergeHelper
-{
-  std::vector<IndexEntry>::const_iterator iter;
-  std::vector<IndexEntry>::const_iterator end;
-  const MsgInfo& msg_info;
-  
-  MergeHelper(const std::vector<IndexEntry>::const_iterator& _iter,
-                    const std::vector<IndexEntry>::const_iterator& _end,
-                    const MsgInfo& _msg_info) : iter(_iter), end(_end), msg_info(_msg_info) {}
-};
-
-// This class gets used to make a priority queue of merge helpers
-struct MergeCompare
-{
-  bool operator() (MergeHelper*& a, MergeHelper*& b) const
-  {
-    return (a->iter)->time > (b->iter)->time;
-  }
-};
-
 // In the following code we do an efficient merge of our sorted lists and store them in a new list
 // To get rid of the list structure all together we can essentially just store the merge_que inside
 // our custom iterator, though it needs a little more logic to handle reverse iteration appropriately
@@ -819,7 +794,7 @@ rosbag::MessageList rosbag::Bag::getMessageListByTopic(const std::vector<std::st
                                                        const ros::Time& end_time)
 {
   rosbag::MessageList message_list;
-  std::priority_queue<MergeHelper*, std::vector<MergeHelper*>, MergeCompare> merge_queue;
+  rosbag::MergeQueue merge_queue;
 
   for (std::vector<std::string>::const_iterator titer = topics.begin(); titer != topics.end(); titer++)
   {
@@ -829,12 +804,12 @@ rosbag::MessageList rosbag::Bag::getMessageListByTopic(const std::vector<std::st
     if (ind != topic_indexes_.end() && key != topics_recorded_.end())
     {
       // std::lower_bound / std::upper_bound do a binary search to find the appropriate range of Index Entries given our time range
-      MergeHelper* h = new MergeHelper(std::lower_bound(ind->second.begin(), ind->second.end(), start_time, IndexEntryCompare()),
-                                       std::upper_bound(ind->second.begin(), ind->second.end(), end_time, IndexEntryCompare()),
-                                       key->second );
+      MergeHelper h(std::lower_bound(ind->second.begin(), ind->second.end(), start_time, IndexEntryCompare()),
+                    std::upper_bound(ind->second.begin(), ind->second.end(), end_time, IndexEntryCompare()),
+                    key->second );
 
       // Only both to insert our helper if it describes a valid range
-      if (h->iter != h->end)
+      if (h.iter != h.end)
         merge_queue.push(h);
     }
   }
@@ -842,24 +817,20 @@ rosbag::MessageList rosbag::Bag::getMessageListByTopic(const std::vector<std::st
   while (!merge_queue.empty())
   {
     // Take our first element
-    MergeHelper* t = merge_queue.top();
+    MergeHelper t = merge_queue.top();
 
     // Pop it since it's going to be changing and needs to be re-inserted
     merge_queue.pop();
 
     // Put it in our merged list
-    message_list.push_back( MessageInstance(t->msg_info, *(t->iter), *this) );
+    message_list.push_back( MessageInstance(*(t.msg_info), *(t.iter), *this) );
 
     // Increment the iterator
-    (t->iter)++;
+    (t.iter)++;
 
     // Delete our helper if we're done with it -- else put itback in queue
-    if (t->iter == t->end)
-    {
-      delete t;
-    } else {
+    if (t.iter != t.end)
       merge_queue.push(t);
-    }
   }
 
   return message_list;
@@ -871,79 +842,101 @@ rosbag::View rosbag::Bag::getViewByTopic(const std::vector<std::string>& topics,
                                          const ros::Time& start_time, 
                                          const ros::Time& end_time)
 {
-  View view(getMessageListByTopic(topics, start_time, end_time));
-  return view;
+  rosbag::MessageList message_list;
+  rosbag::MergeQueue merge_queue;
+  int size = 0;
+
+  for (std::vector<std::string>::const_iterator titer = topics.begin(); titer != topics.end(); titer++)
+  {
+    std::map<std::string, std::vector<IndexEntry> >::iterator ind = topic_indexes_.find(*titer);
+    std::map<std::string, MsgInfo>::iterator key = topics_recorded_.find(*titer);
+
+    if (ind != topic_indexes_.end() && key != topics_recorded_.end())
+    {
+      // std::lower_bound / std::upper_bound do a binary search to find the appropriate range of Index Entries given our time range
+      MergeHelper h(std::lower_bound(ind->second.begin(), ind->second.end(), start_time, IndexEntryCompare()),
+                    std::upper_bound(ind->second.begin(), ind->second.end(), end_time, IndexEntryCompare()),
+                    key->second );
+
+      // Only both to insert our helper if it describes a valid range
+      if (h.iter != h.end)
+      {
+        size += h.end - h.iter;
+        merge_queue.push(h);
+      }
+    }
+  }
+  return View(this, merge_queue, size);
 }
 
 
-
-
-rosbag::View::iterator rosbag::View::begin()
+// We simply copy the merge_queue state into the iterator
+rosbag::View::iterator rosbag::View::begin() const
 { 
-  return iterator(message_list_.begin());
+  return iterator(bag_, merge_queue_);
 }
 
-rosbag::View::iterator rosbag::View::end()
+rosbag::View::iterator rosbag::View::end() const
 {
-  return iterator(message_list_.end());
-}
-
-rosbag::View::const_iterator rosbag::View::begin() const
-{ 
-  return const_iterator(message_list_.begin());
-}
-
-rosbag::View::const_iterator rosbag::View::end()  const
-{
-  return const_iterator(message_list_.end());
+  // The default constructed iterator signifies end
+  return iterator(bag_, MergeQueue());
 }
 
 uint32_t rosbag::View::size()  const
 { 
-  return message_list_.size(); 
+  // Forgot I can't do this with a priority queue.  The refactoring of
+  // the queue and other data will fix this problem as well.
+
+  /*
+  uint32_t count = 0;
+  for (rosbag::MergeQueue::iterator iter = merge_queue_.begin();
+       iter != merge_queue_.end();
+       iter++)
+  {
+    count += (merge_queue->end - merge_queue->iter);
+  }
+  return count;
+  */
+  return size_;
 }
-
-
 
 bool rosbag::View::iterator::equal(rosbag::View::iterator const& other) const
 {
-  return this->pos_ == other.pos_;
+  // We need some way of verifying these are actually talking about
+  // the same merge_queue data since we shouldn't be able to compare
+  // iterators from different Views.
+
+  // If both queues are empty, they are equal (end == end)
+  if (merge_queue_.empty() && other.merge_queue_.empty())
+    return true;
+
+  // If either is empty at this point they can't be equal (since above was false)
+  if (merge_queue_.empty() || other.merge_queue_.empty())
+    return false;
+
+  // Finally, compare the locations of their respective iterators
+  return merge_queue_.top().iter == other.merge_queue_.top().iter;
 }
 
-
-bool rosbag::View::iterator::equal(rosbag::View::const_iterator const& other) const
-{
-  return this->pos_ == other.pos_;
-}
 
 void rosbag::View::iterator::increment()
 {
-  pos_++;
+  // Take our first element
+  MergeHelper t = merge_queue_.top();
+  
+  // Pop it since it's going to be changing and needs to be re-inserted
+  merge_queue_.pop();
+  
+  // Increment the iterator
+  (t.iter)++;
+  
+  // Delete our helper if we're done with it -- else put itback in queue
+  if (t.iter != t.end)
+    merge_queue_.push(t);
 }
 
-const MessageInstance& rosbag::View::iterator::dereference() const
+// SOme kind of checking probably ought to go here in case we are at end?
+const MessageInstance rosbag::View::iterator::dereference() const
 {
-  return *pos_;
-}
-
-
-bool rosbag::View::const_iterator::equal(rosbag::View::iterator const& other) const
-{
-  return this->pos_ == other.pos_;
-}
-
-
-bool rosbag::View::const_iterator::equal(rosbag::View::const_iterator const& other) const
-{
-  return this->pos_ == other.pos_;
-}
-
-void rosbag::View::const_iterator::increment()
-{
-  pos_++;
-}
-
-const MessageInstance& rosbag::View::const_iterator::dereference() const
-{
-  return *pos_;
+  return MessageInstance(*(merge_queue_.top().msg_info), *(merge_queue_.top().iter), *bag_);
 }

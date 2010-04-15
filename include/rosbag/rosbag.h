@@ -52,6 +52,8 @@
 #include <map>
 #include <stdexcept>
 #include <set>
+#include <algorithm>
+#include <queue>
 
 namespace rosbag
 {
@@ -370,11 +372,101 @@ namespace rosbag
 
   };
 
+
+  // The merge helper stores the range of messages on a given topic
+  // The comparator below helps us to sort these helpers based on the
+  // First iterator so that we can store them in a priority queue
+  struct MergeHelper
+  {
+    std::vector<IndexEntry>::const_iterator iter;
+    std::vector<IndexEntry>::const_iterator end;
+    const MsgInfo* msg_info;
+    
+    MergeHelper(const std::vector<IndexEntry>::const_iterator& _iter,
+                const std::vector<IndexEntry>::const_iterator& _end,
+                const MsgInfo& _msg_info) : iter(_iter), end(_end), msg_info(&_msg_info) {}
+  };
+
+  // This class gets used to make a priority queue of merge helpers
+  struct MergeCompare
+  {
+    bool operator() (MergeHelper& a, MergeHelper& b) const
+    {
+      return (a.iter)->time > (b.iter)->time;
+    }
+  };
+
+  typedef std::priority_queue<MergeHelper, std::vector<MergeHelper>, MergeCompare> MergeQueue;
+
+
+  // Our current View has a bug.  Our internal storage end is based on
+  // an iterator element rather than a time.  This means if we update
+  // the underlying index to include a new message after our end-time
+  // but before where our end-iterator points, our view will include
+  // it when it shouldn't.  Similarly, adding new messages before our
+  // first message but after our start time won't be capture in the
+  // view either.
+
+  class View
+  {
+    friend class Bag;
+  public:
+    // Our iterator still internally stores a MessageList::const_iterator which constrains its ability to dereference
+
+    // Making this reverse-traversable is going to be trickier...
+    class iterator : public boost::iterator_facade<iterator, MessageInstance const, boost::forward_traversal_tag>
+    {
+    public:
+      // Note: the default constructor on the merge_queue means this is an empty queue -- our definition of end.
+      iterator(Bag* bag, const MergeQueue& merge_queue) : bag_(bag), merge_queue_(merge_queue) {}
+      iterator(iterator const& other) : bag_(other.bag_), merge_queue_(other.merge_queue_) {}
+
+    private:
+      friend class boost::iterator_core_access;
+
+      bool equal(iterator const& other) const;
+
+      void increment();
+
+      // Leaving this const for now, even though it doesn't have to be
+      const MessageInstance dereference() const;
+
+
+      Bag* bag_;
+
+      // This is more state than is actually necessary but refactoring
+      // it is going to be a little bit of work.  The end-iterators
+      // only need to be stored in the View-proper.  We still need to
+      // store our per-topic iterators in a priority queue and then we
+      // need to locate where the other information.  At the very
+      // least this means a struct with iterator + pointer into
+      // another data structure.
+      MergeQueue merge_queue_;
+
+    };
+
+    typedef iterator const_iterator;
+
+    iterator begin() const;
+    iterator end()   const;
+    uint32_t size()  const;
+
+  protected:
+    View(Bag* bag, const MergeQueue& merge_queue, uint32_t size) : bag_(bag), merge_queue_(merge_queue), size_(size) {}
+
+  private:
+    Bag* bag_;
+    MergeQueue merge_queue_;
+    const uint32_t size_;
+
+  };
+
+
   //! Class representing an actual message
   class MessageInstance
   {
     friend class Bag;
-
+    friend class View::iterator;
 
   public:
     const std::string getTopic() const
@@ -413,11 +505,13 @@ namespace rosbag
     template <class T>
     boost::shared_ptr<T const> instantiate() const
     {
+
       if (ros::message_traits::MD5Sum<T>::value() != getMd5sum() &&
         ros::message_traits::MD5Sum<T>::value()[0] != '*')
         return boost::shared_ptr<T const>();
-
-      return bag_->instantiate<T>(index_->pos);
+      {
+        return bag_->instantiate<T>(index_->pos);
+      }
     }
 
   protected:
@@ -443,43 +537,6 @@ namespace rosbag
     }
   };
 
-  class View
-  {
-    friend class Bag;
-  public:
-    // Our iterator still internally stores a MessageList::const_iterator which constrains its ability to dereference
-    class iterator : public boost::iterator_facade<iterator, MessageInstance const, boost::forward_traversal_tag>
-    {
-    public:
-      iterator() {}
-      iterator(MessageList::const_iterator p) : pos_(p) {}
-      iterator(iterator const& other) : pos_(other.pos_) {}
-
-    private:
-      friend class boost::iterator_core_access;
-
-      bool equal(iterator const& other) const;
-
-      void increment();
-
-      // This wouldn't have to be const if we weren't storing a const MessageList internally
-      const MessageInstance& dereference() const;
-
-      MessageList::const_iterator pos_;
-    };
-
-    typedef const_iterator iterator;
-
-    iterator begin() const;
-    iterator end()   const;
-    uint32_t size()  const;
-
-  protected:
-    View(const MessageList& message_list) : message_list_(message_list) {}
-
-  private:
-    MessageList const message_list_;
-  };
 }
 
 #endif
