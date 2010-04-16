@@ -29,6 +29,7 @@
 #include "std_msgs/String.h"
 #include "std_msgs/Int32.h"
 #include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
 #include <gtest/gtest.h>
 
 TEST(Rosbag, simplewrite)
@@ -81,46 +82,109 @@ TEST(Rosbag, simpleread)
 
 }
 
-// Create a bag file where messages have a sequential count, but on random topics
-// And verify it gets sorted correctly when we produce our view
-TEST(Rosbag, verifytimesort)
+
+TEST(Rosbag, timequery)
 {
 
   rosbag::Bag outbag;
-  outbag.open("time.bag", rosbag::bagmode::Write);
+  outbag.open("timequery.bag", rosbag::bagmode::Write);
   
   std_msgs::Int32 imsg;
+
   for (int i = 0; i < 1000; i++)
   {
     imsg.data = i;
     switch (rand() % 5)
     {
     case 0:
-      outbag.write("t0", ros::Time::now(), imsg);
+      outbag.write("t0", ros::Time(i,0), imsg);
       break;
     case 1:
-      outbag.write("t1", ros::Time::now(), imsg);
+      outbag.write("t1", ros::Time(i,0), imsg);
       break;
     case 2:
-      outbag.write("t2", ros::Time::now(), imsg);
+      outbag.write("t2", ros::Time(i,0), imsg);
       break;
     case 3:
-      outbag.write("t2", ros::Time::now(), imsg);
+      outbag.write("t2", ros::Time(i,0), imsg);
       break;
     case 4:
-      outbag.write("t4", ros::Time::now(), imsg);
+      outbag.write("t4", ros::Time(i,0), imsg);
       break;
     }
   }
-
   outbag.close();
 
 
   rosbag::Bag bag;
-  bag.open("time.bag", rosbag::bagmode::Read);
+  bag.open("timequery.bag", rosbag::bagmode::Read);
   
   rosbag::View view;
-  view.addQuery(bag, rosbag::Query());
+  view.addQuery(bag, rosbag::Query(ros::Time(23,0), ros::Time(782,0)));
+
+  int i = 23;
+
+  BOOST_FOREACH(const rosbag::MessageInstance m, view)
+  {
+    std_msgs::Int32::ConstPtr imsg = m.instantiate<std_msgs::Int32>();
+    if (imsg != NULL)
+    {
+      ASSERT_EQ(imsg->data, i++);
+
+      ASSERT_TRUE(m.getTime() < ros::Time(783,0));
+    }
+  }
+
+  bag.close();
+}
+
+TEST(Rosbag, topicquery)
+{
+
+  rosbag::Bag outbag;
+  outbag.open("topicquery.bag", rosbag::bagmode::Write);
+  
+  std_msgs::Int32 imsg;
+
+  int j0 = 0;
+  int j1 = 0;
+
+  for (int i = 0; i < 1000; i++)
+  {
+    switch (rand() % 5)
+    {
+    case 0:
+      imsg.data = j0++;
+      outbag.write("t0", ros::Time(i,0), imsg);
+      break;
+    case 1:
+      imsg.data = j0++;
+      outbag.write("t1", ros::Time(i,0), imsg);
+      break;
+    case 2:
+      imsg.data = j1++;
+      outbag.write("t2", ros::Time(i,0), imsg);
+      break;
+    case 3:
+      imsg.data = j1++;
+      outbag.write("t3", ros::Time(i,0), imsg);
+      break;
+    case 4:
+      imsg.data = j1++;
+      outbag.write("t4", ros::Time(i,0), imsg);
+      break;
+    }
+  }
+  outbag.close();
+
+
+  rosbag::Bag bag;
+  bag.open("topicquery.bag", rosbag::bagmode::Read);
+  
+  std::vector<std::string> t = boost::assign::list_of("t0")("t1");
+
+  rosbag::View view;
+  view.addQuery(bag, rosbag::TopicQuery(t));
 
   int i = 0;
 
@@ -134,8 +198,9 @@ TEST(Rosbag, verifytimesort)
   }
 
   bag.close();
-
 }
+
+
 
 
 TEST(Rosbag, verifymultibag)
