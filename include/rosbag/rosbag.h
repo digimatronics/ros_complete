@@ -448,6 +448,72 @@ namespace rosbag
     }
   };
 
+  class View;
+
+  //! Class representing an actual message
+  class MessageInstance
+  {
+    friend class Bag;
+    friend class View;
+
+  public:
+    const std::string getTopic() const
+    {
+      return info_->topic;
+    }
+    const std::string getDatatype() const
+    {
+      return info_->datatype;
+    }
+    const std::string getMd5sum() const
+    {
+      return info_->md5sum;
+    }
+    const std::string getDef() const
+    {
+      return info_->msg_def;
+    }
+    const ros::Time getTime() const
+    {
+      return index_->time;
+    };
+
+    /*!
+     * Templated type-check 
+     */
+    template <class T>  bool isType() const
+    {
+      return (ros::message_traits::MD5Sum<T>::value() == getMd5sum() &&
+              ros::message_traits::DataType<T>::value() == getDatatype());
+    }
+
+    /*!
+     * Templated instantiate
+     */
+    template <class T>
+    boost::shared_ptr<T const> instantiate() const
+    {
+
+      if (ros::message_traits::MD5Sum<T>::value() != getMd5sum() &&
+        ros::message_traits::MD5Sum<T>::value()[0] != '*')
+        return boost::shared_ptr<T const>();
+      {
+        return bag_->instantiate<T>(index_->pos);
+      }
+    }
+
+  protected:
+    MessageInstance(const MsgInfo& info,
+                    const IndexEntry& ind,
+                    Bag& bag) : info_(&info), index_(&ind), bag_(&bag) {}
+    
+  private:
+    const MsgInfo*    info_;
+    const IndexEntry* index_;
+    Bag*              bag_;
+  };
+
+
   // Our current View has a bug.  Our internal storage end is based on
   // an iterator element rather than a time.  This means if we update
   // the underlying index to include a new message after our end-time
@@ -523,69 +589,6 @@ namespace rosbag
 
   };
 
-
-  //! Class representing an actual message
-  class MessageInstance
-  {
-    friend class Bag;
-    friend class View::iterator;
-
-  public:
-    const std::string getTopic() const
-    {
-      return info_->topic;
-    }
-    const std::string getDatatype() const
-    {
-      return info_->datatype;
-    }
-    const std::string getMd5sum() const
-    {
-      return info_->md5sum;
-    }
-    const std::string getDef() const
-    {
-      return info_->msg_def;
-    }
-    const ros::Time getTime() const
-    {
-      return index_->time;
-    };
-
-    /*!
-     * Templated type-check 
-     */
-    template <class T>  bool isType() const
-    {
-      return (ros::message_traits::MD5Sum<T>::value() == getMd5sum() &&
-              ros::message_traits::DataType<T>::value() == getDatatype());
-    }
-
-    /*!
-     * Templated instantiate
-     */
-    template <class T>
-    boost::shared_ptr<T const> instantiate() const
-    {
-
-      if (ros::message_traits::MD5Sum<T>::value() != getMd5sum() &&
-        ros::message_traits::MD5Sum<T>::value()[0] != '*')
-        return boost::shared_ptr<T const>();
-      {
-        return bag_->instantiate<T>(index_->pos);
-      }
-    }
-
-  protected:
-    MessageInstance(const MsgInfo& info,
-                    const IndexEntry& ind,
-                    Bag& bag) : info_(&info), index_(&ind), bag_(&bag) {}
-    
-  private:
-    const MsgInfo*    info_;
-    const IndexEntry* index_;
-    Bag*              bag_;
-  };
 
   //! Comparator to sort MessageInstances by time-stamp
   struct MessageInstanceCompare
