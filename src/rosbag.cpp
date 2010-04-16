@@ -784,104 +784,63 @@ rosbag::Bag::checkField(const ros::M_string& fields,
   return fitr;
 }
 
+typedef std::pair<std::string, MsgInfo> MessageInfoMap;
 
-// In the following code we do an efficient merge of our sorted lists and store them in a new list
-// To get rid of the list structure all together we can essentially just store the merge_que inside
-// our custom iterator, though it needs a little more logic to handle reverse iteration appropriately
-
-rosbag::MessageList rosbag::Bag::getMessageListByTopic(const std::vector<std::string>& topics,
-                                                       const ros::Time& start_time, 
-                                                       const ros::Time& end_time)
+void rosbag::View::addQuery(Bag& bag, const Query& query)
 {
-  rosbag::MessageList message_list;
-  rosbag::MergeQueue merge_queue;
+  std::vector<ViewIterHelper> iters;
 
-  for (std::vector<std::string>::const_iterator titer = topics.begin(); titer != topics.end(); titer++)
+  queries_.push_back(new BagQuery(&bag, query));
+
+  //  BOOST_FOREACH(const MessageInfoMap& m, bag.topics_recorded_)
+  for (std::map<std::string, MsgInfo>::iterator m = bag.topics_recorded_.begin();
+       m != bag.topics_recorded_.end();
+       m++)
   {
-    std::map<std::string, std::vector<IndexEntry> >::iterator ind = topic_indexes_.find(*titer);
-    std::map<std::string, MsgInfo>::iterator key = topics_recorded_.find(*titer);
-
-    if (ind != topic_indexes_.end() && key != topics_recorded_.end())
+    if (query.evaluate(m->second))
     {
-      // std::lower_bound / std::upper_bound do a binary search to find the appropriate range of Index Entries given our time range
-      MergeHelper h(std::lower_bound(ind->second.begin(), ind->second.end(), start_time, IndexEntryCompare()),
-                    std::upper_bound(ind->second.begin(), ind->second.end(), end_time, IndexEntryCompare()),
-                    key->second );
+      std::map<std::string, std::vector<IndexEntry> >::iterator ind = bag.topic_indexes_.find(m->second.topic);
 
-      // Only both to insert our helper if it describes a valid range
-      if (h.iter != h.end)
-        merge_queue.push(h);
-    }
-  }
-
-  while (!merge_queue.empty())
-  {
-    // Take our first element
-    MergeHelper t = merge_queue.top();
-
-    // Pop it since it's going to be changing and needs to be re-inserted
-    merge_queue.pop();
-
-    // Put it in our merged list
-    message_list.push_back( MessageInstance(*(t.msg_info), *(t.iter), *this) );
-
-    // Increment the iterator
-    (t.iter)++;
-
-    // Delete our helper if we're done with it -- else put itback in queue
-    if (t.iter != t.end)
-      merge_queue.push(t);
-  }
-
-  return message_list;
-}
-
-
-
-rosbag::View rosbag::Bag::getViewByTopic(const std::vector<std::string>& topics,
-                                         const ros::Time& start_time, 
-                                         const ros::Time& end_time)
-{
-  rosbag::MessageList message_list;
-  rosbag::MergeQueue merge_queue;
-  int size = 0;
-
-  for (std::vector<std::string>::const_iterator titer = topics.begin(); titer != topics.end(); titer++)
-  {
-    std::map<std::string, std::vector<IndexEntry> >::iterator ind = topic_indexes_.find(*titer);
-    std::map<std::string, MsgInfo>::iterator key = topics_recorded_.find(*titer);
-
-    if (ind != topic_indexes_.end() && key != topics_recorded_.end())
-    {
-      // std::lower_bound / std::upper_bound do a binary search to find the appropriate range of Index Entries given our time range
-      MergeHelper h(std::lower_bound(ind->second.begin(), ind->second.end(), start_time, IndexEntryCompare()),
-                    std::upper_bound(ind->second.begin(), ind->second.end(), end_time, IndexEntryCompare()),
-                    key->second );
-
-      // Only both to insert our helper if it describes a valid range
-      if (h.iter != h.end)
+      if (ind != bag.topic_indexes_.end())
       {
-        size += h.end - h.iter;
-        merge_queue.push(h);
+        // std::lower_bound / std::upper_bound do a binary search to find the appropriate range of Index Entries given our time range
+        MessageRange* mr = new MessageRange(std::lower_bound(ind->second.begin(), ind->second.end(), query.getBeginTime(), IndexEntryCompare()),
+                                            std::upper_bound(ind->second.begin(), ind->second.end(), query.getEndTime(), IndexEntryCompare()),
+                                            &m->second,
+                                            queries_.back());
+        
+        ranges_.push_back(mr);
       }
     }
   }
-  return View(this, merge_queue, size);
 }
-
 
 // We simply copy the merge_queue state into the iterator
 rosbag::View::iterator rosbag::View::begin() const
 { 
-  return iterator(bag_, merge_queue_);
+  std::vector<ViewIterHelper> iters;
+
+  BOOST_FOREACH( const MessageRange* mr, ranges_ )
+  {
+    if (mr->begin != mr->end)
+    {
+      iters.push_back(ViewIterHelper(mr->begin, mr));
+    }
+  }
+
+  std::sort(iters.begin(), iters.end(), ViewIterHelperCompare());
+
+  return iterator(this, iters);
 }
 
 rosbag::View::iterator rosbag::View::end() const
 {
   // The default constructed iterator signifies end
-  return iterator(bag_, MergeQueue());
+  return iterator(this, std::vector<ViewIterHelper>());
 }
 
+
+// This doesn't work for now
 uint32_t rosbag::View::size()  const
 { 
   // Forgot I can't do this with a priority queue.  The refactoring of
@@ -897,7 +856,7 @@ uint32_t rosbag::View::size()  const
   }
   return count;
   */
-  return size_;
+  return 0;
 }
 
 bool rosbag::View::iterator::equal(rosbag::View::iterator const& other) const
@@ -907,36 +866,31 @@ bool rosbag::View::iterator::equal(rosbag::View::iterator const& other) const
   // iterators from different Views.
 
   // If both queues are empty, they are equal (end == end)
-  if (merge_queue_.empty() && other.merge_queue_.empty())
+  if (iters_.empty() && other.iters_.empty())
     return true;
 
   // If either is empty at this point they can't be equal (since above was false)
-  if (merge_queue_.empty() || other.merge_queue_.empty())
+  if (iters_.empty() || other.iters_.empty())
     return false;
 
   // Finally, compare the locations of their respective iterators
-  return merge_queue_.top().iter == other.merge_queue_.top().iter;
+  return iters_.back().iter == other.iters_.back().iter;
 }
 
 
 void rosbag::View::iterator::increment()
 {
-  // Take our first element
-  MergeHelper t = merge_queue_.top();
-  
-  // Pop it since it's going to be changing and needs to be re-inserted
-  merge_queue_.pop();
-  
-  // Increment the iterator
-  (t.iter)++;
-  
-  // Delete our helper if we're done with it -- else put itback in queue
-  if (t.iter != t.end)
-    merge_queue_.push(t);
+  iters_.back().iter++;
+
+  if (iters_.back().iter == iters_.back().range->end)
+    iters_.pop_back();
+
+  std::sort(iters_.begin(), iters_.end(), ViewIterHelperCompare());
 }
 
 // SOme kind of checking probably ought to go here in case we are at end?
 const MessageInstance rosbag::View::iterator::dereference() const
 {
-  return MessageInstance(*(merge_queue_.top().msg_info), *(merge_queue_.top().iter), *bag_);
+  rosbag::MsgInfo mi = *(iters_.back().range->msg_info);
+  return MessageInstance(*(iters_.back().range->msg_info), *(iters_.back().iter), *(iters_.back().range->bag_query->first));
 }

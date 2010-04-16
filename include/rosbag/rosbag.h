@@ -43,6 +43,7 @@
 
 #include "rosbag/constants.h"
 
+#include <boost/foreach.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iterator/iterator_facade.hpp>
@@ -54,6 +55,7 @@
 #include <set>
 #include <algorithm>
 #include <queue>
+#include <string>
 
 namespace rosbag
 {
@@ -128,11 +130,13 @@ namespace rosbag
   class InstantiateException : public Exception {};
 
   class View;
+  class Query;
 
   //! Class for writinging to a bagfile
   class Bag
   {
     friend class MessageInstance;
+    friend class View;
 
   public:
      //! Constructor
@@ -180,21 +184,6 @@ namespace rosbag
      * Can throw BagNotOpenException or BagIOException
      */
     void write(const std::string& topic_name, ros::Time time, const MessageInstance& msg);
-
-
-    //! Return a MessageList using a subset of topics
-    MessageList getMessageListByTopic(const std::vector<std::string>& topics,
-                             const ros::Time& start_time = ros::TIME_MIN, 
-                             const ros::Time& end_time = ros::TIME_MAX);
-
-    View getViewByTopic(const std::vector<std::string>& topics,
-                        const ros::Time& start_time = ros::TIME_MIN, 
-                        const ros::Time& end_time = ros::TIME_MAX);
-
-    //! Return a MessageList using a subset of types
-    MessageList getMessageListByType(const std::vector<std::string>& types,
-                             const ros::Time& start_time = ros::TIME_MIN, 
-                             const ros::Time& end_time = ros::TIME_MAX);
 
   protected:
     //! Actually try to load a record from a particular offset
@@ -373,31 +362,91 @@ namespace rosbag
   };
 
 
-  // The merge helper stores the range of messages on a given topic
-  // The comparator below helps us to sort these helpers based on the
-  // First iterator so that we can store them in a priority queue
-  struct MergeHelper
+  // A base class for specifying queries from a bag
+  class Query
   {
-    std::vector<IndexEntry>::const_iterator iter;
-    std::vector<IndexEntry>::const_iterator end;
-    const MsgInfo* msg_info;
-    
-    MergeHelper(const std::vector<IndexEntry>::const_iterator& _iter,
-                const std::vector<IndexEntry>::const_iterator& _end,
-                const MsgInfo& _msg_info) : iter(_iter), end(_end), msg_info(&_msg_info) {}
+  public:
+    Query(const ros::Time& begin_time = ros::TIME_MIN, const ros::Time& end_time = ros::TIME_MAX ) :
+      begin_time_(begin_time),
+      end_time_(end_time) { }
+
+    ros::Time getBeginTime() const { return begin_time_; }
+
+    ros::Time getEndTime() const { return end_time_; }
+
+    virtual bool evaluate(const MsgInfo& info) const { return true; }
+
+  private:
+    ros::Time begin_time_;
+    ros::Time end_time_;
   };
 
-  // This class gets used to make a priority queue of merge helpers
-  struct MergeCompare
+  // Subclass of query to get messages on a specified topic
+  class TopicQuery : public Query
   {
-    bool operator() (MergeHelper& a, MergeHelper& b) const
+  public:
+    TopicQuery(const std::vector<std::string> topics, const ros::Time& begin_time = ros::TIME_MIN, const ros::Time& end_time = ros::TIME_MAX ) :
+      Query(begin_time, end_time),
+      topics_(topics) { }
+
+    virtual bool evaluate(const MsgInfo& info) const {
+      BOOST_FOREACH( std::string t, topics_ )
+      {
+        if (t == info.topic)
+          return true;
+      }
+      return false;
+    }
+
+  private:
+    std::vector<std::string> topics_;
+  };
+
+  // Pairs of queries and the bags they come from (Internally used by View)
+  typedef std::pair<Bag*, Query> BagQuery;
+
+  // A Range of messages from a particular bag query -- used for iteration logic
+  struct MessageRange
+  {
+    std::vector<IndexEntry>::const_iterator begin;
+    std::vector<IndexEntry>::const_iterator end;
+   
+    // ***********************************
+    // **************WARNING**************
+    // ***********************************
+    // Double check if this is safe -- this is a pointer to a data
+    // structure stored in a map.
+    const MsgInfo* msg_info;
+
+    // Pointer to vector of queries in View
+    const BagQuery* bag_query;
+    
+    MessageRange(const std::vector<IndexEntry>::const_iterator& _begin,
+                const std::vector<IndexEntry>::const_iterator& _end,
+                const MsgInfo* _msg_info,
+                const BagQuery* _bag_query) : begin(_begin), end(_end), msg_info(_msg_info), bag_query(_bag_query) {}
+  };
+
+  // The actual iterator data structure
+  struct ViewIterHelper
+  {
+    std::vector<IndexEntry>::const_iterator iter;
+
+    // Pointer to vector of ranges in View
+    const MessageRange* range;
+
+    ViewIterHelper(std::vector<IndexEntry>::const_iterator _iter, const MessageRange* _range) :
+      iter(_iter), range(_range) { }
+  };
+
+  // Comparison that allows us to easily sort of ViewIterHelpers
+  struct ViewIterHelperCompare
+  {
+    bool operator() (const ViewIterHelper& a, const ViewIterHelper& b) const
     {
       return (a.iter)->time > (b.iter)->time;
     }
   };
-
-  typedef std::priority_queue<MergeHelper, std::vector<MergeHelper>, MergeCompare> MergeQueue;
-
 
   // Our current View has a bug.  Our internal storage end is based on
   // an iterator element rather than a time.  This means if we update
@@ -406,7 +455,6 @@ namespace rosbag
   // it when it shouldn't.  Similarly, adding new messages before our
   // first message but after our start time won't be capture in the
   // view either.
-
   class View
   {
     friend class Bag;
@@ -417,11 +465,14 @@ namespace rosbag
     class iterator : public boost::iterator_facade<iterator, MessageInstance const, boost::forward_traversal_tag>
     {
     public:
+      iterator(iterator const& other) : view_(other.view_), iters_(other.iters_) {}
+
+    protected:
       // Note: the default constructor on the merge_queue means this is an empty queue -- our definition of end.
-      iterator(Bag* bag, const MergeQueue& merge_queue) : bag_(bag), merge_queue_(merge_queue) {}
-      iterator(iterator const& other) : bag_(other.bag_), merge_queue_(other.merge_queue_) {}
+      iterator(const View* view, const std::vector<ViewIterHelper>& iters) : view_(view), iters_(iters) {}
 
     private:
+      friend class View;
       friend class boost::iterator_core_access;
 
       bool equal(iterator const& other) const;
@@ -431,17 +482,8 @@ namespace rosbag
       // Leaving this const for now, even though it doesn't have to be
       const MessageInstance dereference() const;
 
-
-      Bag* bag_;
-
-      // This is more state than is actually necessary but refactoring
-      // it is going to be a little bit of work.  The end-iterators
-      // only need to be stored in the View-proper.  We still need to
-      // store our per-topic iterators in a priority queue and then we
-      // need to locate where the other information.  At the very
-      // least this means a struct with iterator + pointer into
-      // another data structure.
-      MergeQueue merge_queue_;
+      const View* view_;
+      std::vector<ViewIterHelper> iters_;
 
     };
 
@@ -451,13 +493,26 @@ namespace rosbag
     iterator end()   const;
     uint32_t size()  const;
 
-  protected:
-    View(Bag* bag, const MergeQueue& merge_queue, uint32_t size) : bag_(bag), merge_queue_(merge_queue), size_(size) {}
+    View() {}
+
+    ~View() {
+      BOOST_FOREACH(MessageRange* mr, ranges_)
+      {
+        delete mr;
+      }
+      BOOST_FOREACH(BagQuery* bq, queries_)
+      {
+        delete bq;
+      }
+    }
+
+    
+    void addQuery(Bag& bag, const Query& query);
 
   private:
-    Bag* bag_;
-    MergeQueue merge_queue_;
-    const uint32_t size_;
+
+    std::vector<MessageRange*> ranges_;
+    std::vector<BagQuery*> queries_;
 
   };
 
