@@ -271,3 +271,80 @@ int main(int argc, char **argv)
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+
+
+TEST(Rosbag, modify)
+{
+
+  rosbag::Bag outbag;
+  outbag.open("modify.bag", rosbag::bagmode::Write);
+  
+  std_msgs::Int32 imsg;
+
+  int j0 = 0;
+  int j1 = 1;
+
+  // Create a bag with 2 interlaced topics
+  for (int i = 0; i < 100; i++)
+  {
+    imsg.data = j0;
+    j0+=2;
+    outbag.write("t0", ros::Time(2*i,0), imsg);
+
+    imsg.data = j1;
+    j1+=2;
+    outbag.write("t1", ros::Time(2*i+1,0), imsg);
+  }
+  outbag.close();
+
+
+  rosbag::Bag bag;
+  bag.open("modify.bag", rosbag::bagmode::Read);
+
+  std::vector<std::string> t0 = boost::assign::list_of("t0");
+  std::vector<std::string> t1 = boost::assign::list_of("t1");  
+
+  // We're going to skip the t1 for the first half
+  j0 = 0;
+  j1 = 101;
+
+  rosbag::View view;
+  view.addQuery(bag, rosbag::TopicQuery(t0));
+
+  rosbag::View::iterator iter = view.begin();
+  
+  for (int i = 0; i < 50; i++)
+  {
+    std_msgs::Int32::ConstPtr imsg = iter->instantiate<std_msgs::Int32>();
+    if (imsg != NULL)
+    {
+      ASSERT_EQ(imsg->data, j0);
+      j0+=2;
+    }
+    iter++;
+  }
+
+  // We now add our query, and expect it to show up
+  view.addQuery(bag, rosbag::TopicQuery(t1));
+
+  for (int i = 0; i < 50; i++)
+  {
+    std_msgs::Int32::ConstPtr imsg = iter->instantiate<std_msgs::Int32>();
+    if (imsg != NULL)
+    {
+      ASSERT_EQ(imsg->data, j0);
+      j0+=2;
+    }
+    iter++;
+    imsg = iter->instantiate<std_msgs::Int32>();
+    if (imsg != NULL)
+    {
+      ASSERT_EQ(imsg->data, j1);
+      j1+=2;
+    }
+    iter++;
+  }
+
+  bag.close();
+}

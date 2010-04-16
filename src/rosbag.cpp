@@ -813,50 +813,73 @@ void rosbag::View::addQuery(Bag& bag, const Query& query)
       }
     }
   }
+
+  view_rev_ += 1;
 }
 
 // We simply copy the merge_queue state into the iterator
 rosbag::View::iterator rosbag::View::begin() const
 { 
-  std::vector<ViewIterHelper> iters;
-
-  BOOST_FOREACH( const MessageRange* mr, ranges_ )
-  {
-    if (mr->begin != mr->end)
-    {
-      iters.push_back(ViewIterHelper(mr->begin, mr));
-    }
-  }
-
-  std::sort(iters.begin(), iters.end(), ViewIterHelperCompare());
-
-  return iterator(this, iters);
+  return iterator(this);
 }
 
 rosbag::View::iterator rosbag::View::end() const
 {
   // The default constructed iterator signifies end
-  return iterator(this, std::vector<ViewIterHelper>());
+  return iterator(this, true);
 }
 
 
 // This doesn't work for now
 uint32_t rosbag::View::size()  const
 { 
-  // Forgot I can't do this with a priority queue.  The refactoring of
-  // the queue and other data will fix this problem as well.
-
-  /*
-  uint32_t count = 0;
-  for (rosbag::MergeQueue::iterator iter = merge_queue_.begin();
-       iter != merge_queue_.end();
-       iter++)
-  {
-    count += (merge_queue->end - merge_queue->iter);
-  }
-  return count;
-  */
   return 0;
+}
+
+
+void rosbag::View::iterator::populate()
+{
+  iters_.clear();
+
+  BOOST_FOREACH( const MessageRange* mr, view_->ranges_ )
+  {
+    if (mr->begin != mr->end)
+    {
+      iters_.push_back(ViewIterHelper(mr->begin, mr));
+    }
+  }
+  
+  std::sort(iters_.begin(), iters_.end(), ViewIterHelperCompare());
+  
+  view_rev_ = view_->view_rev_;
+}
+
+void rosbag::View::iterator::populateSeek(std::vector<IndexEntry>::const_iterator iter)
+{
+  iters_.clear();
+
+  BOOST_FOREACH( const MessageRange* mr, view_->ranges_ )
+  {
+    std::vector<IndexEntry>::const_iterator start = std::lower_bound(mr->begin, mr->end, iter->time, IndexEntryCompare());
+    if (start != mr->end)
+    {
+      iters_.push_back(ViewIterHelper(start, mr));
+    }
+  }
+  
+  std::sort(iters_.begin(), iters_.end(), ViewIterHelperCompare());
+  
+  while (iter != iters_.back().iter)
+    increment();
+
+  view_rev_ = view_->view_rev_;
+}
+
+
+rosbag::View::iterator::iterator(const View* view, bool end) : view_(view)
+{
+  if (!end)
+    populate();
 }
 
 bool rosbag::View::iterator::equal(rosbag::View::iterator const& other) const
@@ -880,6 +903,12 @@ bool rosbag::View::iterator::equal(rosbag::View::iterator const& other) const
 
 void rosbag::View::iterator::increment()
 {
+  if (view_rev_ != view_->view_rev_)
+  {
+    std::vector<IndexEntry>::const_iterator cur = iters_.back().iter;
+    populateSeek(cur);
+  }
+
   iters_.back().iter++;
 
   if (iters_.back().iter == iters_.back().range->end)

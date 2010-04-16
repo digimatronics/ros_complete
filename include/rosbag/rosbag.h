@@ -457,7 +457,6 @@ namespace rosbag
   // view either.
   class View
   {
-    friend class Bag;
   public:
     // Our iterator still internally stores a MessageList::const_iterator which constrains its ability to dereference
 
@@ -465,15 +464,19 @@ namespace rosbag
     class iterator : public boost::iterator_facade<iterator, MessageInstance const, boost::forward_traversal_tag>
     {
     public:
-      iterator(iterator const& other) : view_(other.view_), iters_(other.iters_) {}
+      // Default copy constructor is fine
+      //      iterator(iterator const& other) : view_(other.view_), iters_(other.iters_) {}
 
     protected:
       // Note: the default constructor on the merge_queue means this is an empty queue -- our definition of end.
-      iterator(const View* view, const std::vector<ViewIterHelper>& iters) : view_(view), iters_(iters) {}
+      iterator(const View* view, bool end = false);
 
     private:
       friend class View;
       friend class boost::iterator_core_access;
+
+      void populate();
+      void populateSeek(std::vector<IndexEntry>::const_iterator iter);
 
       bool equal(iterator const& other) const;
 
@@ -484,6 +487,7 @@ namespace rosbag
 
       const View* view_;
       std::vector<ViewIterHelper> iters_;
+      uint32_t view_rev_;
 
     };
 
@@ -493,7 +497,7 @@ namespace rosbag
     iterator end()   const;
     uint32_t size()  const;
 
-    View() {}
+    View() : view_rev_(0) {}
 
     ~View() {
       BOOST_FOREACH(MessageRange* mr, ranges_)
@@ -505,14 +509,17 @@ namespace rosbag
         delete bq;
       }
     }
-
     
     void addQuery(Bag& bag, const Query& query);
 
-  private:
+  protected:
+
+    friend class iterator;
 
     std::vector<MessageRange*> ranges_;
     std::vector<BagQuery*> queries_;
+
+    uint32_t view_rev_;
 
   };
 
