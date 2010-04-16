@@ -162,31 +162,31 @@ bool rosbag::Bag::open(const std::string &file_name, int mode)
 
 bool rosbag::Bag::readVersion()
 {
-    char logtypename[100];
+  char logtypename[100];
 
-    std::string version_line;
-    getline(read_stream_, version_line);
+  std::string version_line;
+  getline(read_stream_, version_line);
 
-    sscanf(version_line.c_str(), "#ROS%s V%d.%d", logtypename, &version_major_, &version_minor_);
+  sscanf(version_line.c_str(), "#ROS%s V%d.%d", logtypename, &version_major_, &version_minor_);
 
-    if (version_major_ == 0 && version_line[0] == '#')
-    {
-      version_major_ = 1;
-    }
+  if (version_major_ == 0 && version_line[0] == '#')
+  {
+    version_major_ = 1;
+  }
 
-    version_ = version_major_ * 100 + version_minor_;
+  version_ = version_major_ * 100 + version_minor_;
 
-    int cur_version_major;
-    int cur_version_minor;
-    sscanf(VERSION.c_str(), "%d.%d", &cur_version_major, &cur_version_minor);
+  int cur_version_major;
+  int cur_version_minor;
+  sscanf(VERSION.c_str(), "%d.%d", &cur_version_major, &cur_version_minor);
 
-    if (version_major_ != cur_version_major && version_minor_ != cur_version_minor)
-    {
-      ROS_FATAL("Rosbag does not currently support reading anything but the current version.");
-      assert(0);
-    }
+  if (version_major_ != cur_version_major && version_minor_ != cur_version_minor)
+  {
+    ROS_FATAL("Rosbag does not currently support reading anything but the current version.");
+    assert(0);
+  }
 
-    return true;
+  return true;
 }
 
 
@@ -213,7 +213,7 @@ bool rosbag::Bag::readHeader(ros::Header& header, uint32_t& next_msg_size)
   {
     header_buf_len_ = header_len;
     header_buf_ = (unsigned char*)realloc(header_buf_,
-                                             header_buf_len_);
+                                          header_buf_len_);
     ROS_ASSERT(header_buf_);
   }
 
@@ -761,10 +761,10 @@ void rosbag::Bag::seek(pos_t pos)
 
 ros::M_string::const_iterator
 rosbag::Bag::checkField(const ros::M_string& fields,
-           const std::string& field,
-           unsigned int min_len,
-           unsigned int max_len,
-           bool required)
+                        const std::string& field,
+                        unsigned int min_len,
+                        unsigned int max_len,
+                        bool required)
 {
   ros::M_string::const_iterator fitr;
   fitr = fields.find(field);
