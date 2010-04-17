@@ -63,7 +63,7 @@ TEST(Rosbag, simpleread)
   rosbag::View view;
   view.addQuery(bag, rosbag::TopicQuery(topics));
 
-  BOOST_FOREACH( rosbag::MessageInstance m, view)
+  BOOST_FOREACH(const rosbag::MessageInstance m, view)
   {
     std_msgs::String::ConstPtr s = m.instantiate<std_msgs::String>();
     if (s != NULL)
@@ -266,14 +266,6 @@ TEST(Rosbag, verifymultibag)
 
 }
 
-int main(int argc, char **argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
-
-
-
 TEST(Rosbag, modify)
 {
 
@@ -317,6 +309,7 @@ TEST(Rosbag, modify)
   for (int i = 0; i < 50; i++)
   {
     std_msgs::Int32::ConstPtr imsg = iter->instantiate<std_msgs::Int32>();
+
     if (imsg != NULL)
     {
       ASSERT_EQ(imsg->data, j0);
@@ -331,13 +324,16 @@ TEST(Rosbag, modify)
   for (int i = 0; i < 50; i++)
   {
     std_msgs::Int32::ConstPtr imsg = iter->instantiate<std_msgs::Int32>();
+
     if (imsg != NULL)
     {
       ASSERT_EQ(imsg->data, j0);
       j0+=2;
     }
+
     iter++;
     imsg = iter->instantiate<std_msgs::Int32>();
+
     if (imsg != NULL)
     {
       ASSERT_EQ(imsg->data, j1);
@@ -347,4 +343,11 @@ TEST(Rosbag, modify)
   }
 
   bag.close();
+}
+
+
+int main(int argc, char **argv)
+{
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

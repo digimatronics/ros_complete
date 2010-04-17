@@ -47,6 +47,15 @@ rosbag::Bag::Bag()
 rosbag::Bag::~Bag()
 {
   close();
+
+
+  for (std::map<std::string, MsgInfo*>::iterator it = topics_recorded_.begin();
+       it != topics_recorded_.end();
+       it++)
+  {
+    delete it->second;
+  }
+
 }
 
 const void* rosbag::Bag::getHeaderBuffer()
@@ -319,7 +328,7 @@ void rosbag::Bag::write(const std::string& topic_name, ros::Time time, const ros
   }
 
   bool needs_def_written = false;
-  std::map<std::string, MsgInfo>::iterator key;
+  std::map<std::string, MsgInfo*>::iterator key;
   {
     boost::mutex::scoped_lock lock(topics_recorded_mutex_);
 
@@ -327,11 +336,13 @@ void rosbag::Bag::write(const std::string& topic_name, ros::Time time, const ros
 
     if (key == topics_recorded_.end())
     {
-      MsgInfo& info = topics_recorded_[topic_name];
-      info.topic    = topic_name;
-      info.msg_def  = msg.__getMessageDefinition();
-      info.datatype = msg.__getDataType();
-      info.md5sum   = msg.__getMD5Sum();
+      MsgInfo* info = new MsgInfo();
+      info->topic    = topic_name;
+      info->msg_def  = msg.__getMessageDefinition();
+      info->datatype = msg.__getDataType();
+      info->md5sum   = msg.__getMD5Sum();
+
+      topics_recorded_[topic_name] = info;
 
       key = topics_recorded_.find(topic_name);
 
@@ -340,7 +351,7 @@ void rosbag::Bag::write(const std::string& topic_name, ros::Time time, const ros
       needs_def_written = true;
     }
   }
-  const MsgInfo& msg_info = key->second;
+  const MsgInfo* msg_info = key->second;
 
   {
     boost::mutex::scoped_lock lock(check_disk_mutex_);
@@ -393,9 +404,9 @@ void rosbag::Bag::write(const std::string& topic_name, ros::Time time, const ros
       ros::M_string header;
       header[OP_FIELD_NAME]    = std::string((char*)&OP_MSG_DEF, 1);
       header[TOPIC_FIELD_NAME] = topic_name;
-      header[MD5_FIELD_NAME]   = msg_info.md5sum;
-      header[TYPE_FIELD_NAME]  = msg_info.datatype;
-      header[DEF_FIELD_NAME]   = msg_info.msg_def;
+      header[MD5_FIELD_NAME]   = msg_info->md5sum;
+      header[TYPE_FIELD_NAME]  = msg_info->datatype;
+      header[DEF_FIELD_NAME]   = msg_info->msg_def;
       writeHeader(header, 0);
     }
 
@@ -418,8 +429,8 @@ void rosbag::Bag::write(const std::string& topic_name, ros::Time time, const ros
     ros::M_string header;
     header[OP_FIELD_NAME]    = std::string((char*)&OP_MSG_DATA, 1);
     header[TOPIC_FIELD_NAME] = topic_name;
-    header[MD5_FIELD_NAME]   = msg_info.md5sum;
-    header[TYPE_FIELD_NAME]  = msg_info.datatype;
+    header[MD5_FIELD_NAME]   = msg_info->md5sum;
+    header[TYPE_FIELD_NAME]  = msg_info->datatype;
     header[SEC_FIELD_NAME]   = std::string((char*)&time.sec, 4);
     header[NSEC_FIELD_NAME]  = std::string((char*)&time.nsec, 4);
 
@@ -518,13 +529,13 @@ void rosbag::Bag::writeIndex()
       
       uint32_t topic_index_size = topic_index.size();
       
-      const MsgInfo& msg_info = topics_recorded_[topic_name];
+      const MsgInfo* msg_info = topics_recorded_[topic_name];
       
       // Write the index record header
       ros::M_string header;
       header[OP_FIELD_NAME]    = std::string((char*)&OP_INDEX_DATA, 1);
       header[TOPIC_FIELD_NAME] = topic_name;
-      header[TYPE_FIELD_NAME]  = msg_info.datatype;
+      header[TYPE_FIELD_NAME]  = msg_info->datatype;
       header[VER_FIELD_NAME]   = std::string((char*)&INDEX_VERSION, 4);
       header[COUNT_FIELD_NAME] = std::string((char*)&topic_index_size, 4);
       
@@ -708,15 +719,16 @@ bool rosbag::Bag::readDef(uint64_t pos)
     return false;
   message_definition = fitr->second;
 
-  std::map<std::string, MsgInfo>::iterator key = topics_recorded_.find(topic_name);
+  std::map<std::string, MsgInfo*>::iterator key = topics_recorded_.find(topic_name);
 
   if (key == topics_recorded_.end())
   {
-    MsgInfo& info = topics_recorded_[topic_name];
-    info.topic    = topic_name;
-    info.msg_def  = message_definition;
-    info.datatype = datatype;
-    info.md5sum   = md5sum;
+    MsgInfo* info = new MsgInfo();
+    info->topic    = topic_name;
+    info->msg_def  = message_definition;
+    info->datatype = datatype;
+    info->md5sum   = md5sum;
+    topics_recorded_[topic_name] = info;
 
   }
 
@@ -784,8 +796,6 @@ rosbag::Bag::checkField(const ros::M_string& fields,
   return fitr;
 }
 
-typedef std::pair<std::string, MsgInfo> MessageInfoMap;
-
 void rosbag::View::addQuery(Bag& bag, const Query& query)
 {
   std::vector<ViewIterHelper> iters;
@@ -793,20 +803,20 @@ void rosbag::View::addQuery(Bag& bag, const Query& query)
   queries_.push_back(new BagQuery(&bag, query));
 
   //  BOOST_FOREACH(const MessageInfoMap& m, bag.topics_recorded_)
-  for (std::map<std::string, MsgInfo>::iterator m = bag.topics_recorded_.begin();
+  for (std::map<std::string, MsgInfo*>::iterator m = bag.topics_recorded_.begin();
        m != bag.topics_recorded_.end();
        m++)
   {
     if (query.evaluate(m->second))
     {
-      std::map<std::string, std::vector<IndexEntry> >::iterator ind = bag.topic_indexes_.find(m->second.topic);
+      std::map<std::string, std::vector<IndexEntry> >::iterator ind = bag.topic_indexes_.find(m->second->topic);
 
       if (ind != bag.topic_indexes_.end())
       {
         // std::lower_bound / std::upper_bound do a binary search to find the appropriate range of Index Entries given our time range
         MessageRange* mr = new MessageRange(std::lower_bound(ind->second.begin(), ind->second.end(), query.getBeginTime(), IndexEntryCompare()),
                                             std::upper_bound(ind->second.begin(), ind->second.end(), query.getEndTime(), IndexEntryCompare()),
-                                            &m->second,
+                                            m->second,
                                             queries_.back());
         
         ranges_.push_back(mr);
@@ -918,8 +928,7 @@ void rosbag::View::iterator::increment()
 }
 
 // SOme kind of checking probably ought to go here in case we are at end?
-const MessageInstance rosbag::View::iterator::dereference() const
+MessageInstance rosbag::View::iterator::dereference() const
 {
-  rosbag::MsgInfo mi = *(iters_.back().range->msg_info);
-  return MessageInstance(*(iters_.back().range->msg_info), *(iters_.back().iter), *(iters_.back().range->bag_query->first));
+  return MessageInstance((iters_.back().range->msg_info), *(iters_.back().iter), *(iters_.back().range->bag_query->first));
 }

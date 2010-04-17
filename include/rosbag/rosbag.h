@@ -87,6 +87,8 @@ struct IndexEntry
 {
   ros::Time time;
   pos_t    pos;
+
+  IndexEntry() : pos(0) {}
 };
 
 //! Comparator to sort MessageInstances by time-stamp
@@ -193,7 +195,6 @@ protected:
   template <class T>
   boost::shared_ptr<T const> instantiate(uint64_t pos)
   {
-
     boost::shared_ptr<T> p;
 
     read_stream_.seekg(pos, std::ios::beg);
@@ -338,7 +339,7 @@ private:
   boost::mutex                        record_mutex_;
     
   // Keep track of which topics have had their message definitions written already
-  std::map<std::string, MsgInfo>      topics_recorded_;
+  std::map<std::string, MsgInfo*>      topics_recorded_;
   boost::mutex                        topics_recorded_mutex_;
     
   std::map<std::string, std::vector<IndexEntry> > topic_indexes_;
@@ -374,7 +375,7 @@ public:
 
   ros::Time getEndTime() const { return end_time_; }
 
-  virtual bool evaluate(const MsgInfo& info) const { return true; }
+  virtual bool evaluate(const MsgInfo* info) const { return true; }
 
 private:
   ros::Time begin_time_;
@@ -389,10 +390,10 @@ public:
     Query(begin_time, end_time),
     topics_(topics) { }
 
-  virtual bool evaluate(const MsgInfo& info) const {
+  virtual bool evaluate(const MsgInfo* info) const {
     BOOST_FOREACH( std::string t, topics_ )
     {
-      if (t == info.topic)
+      if (t == info->topic)
         return true;
     }
     return false;
@@ -411,11 +412,6 @@ struct MessageRange
   std::vector<IndexEntry>::const_iterator begin;
   std::vector<IndexEntry>::const_iterator end;
    
-  // ***********************************
-  // **************WARNING**************
-  // ***********************************
-  // Double check if this is safe -- this is a pointer to a data
-  // structure stored in a map.
   const MsgInfo* msg_info;
 
   // Pointer to vector of queries in View
@@ -475,7 +471,7 @@ public:
   }
   const ros::Time getTime() const
   {
-    return index_->time;
+    return index_.time;
   };
 
   /*!
@@ -497,19 +493,18 @@ public:
     if (ros::message_traits::MD5Sum<T>::value() != getMd5sum() &&
         ros::message_traits::MD5Sum<T>::value()[0] != '*')
       return boost::shared_ptr<T const>();
-    {
-      return bag_->instantiate<T>(index_->pos);
-    }
+    
+    return bag_->instantiate<T>(index_.pos);
   }
 
 protected:
-  MessageInstance(const MsgInfo& info,
+  MessageInstance(const MsgInfo* info,
                   const IndexEntry& ind,
-                  Bag& bag) : info_(&info), index_(&ind), bag_(&bag) {}
+                  Bag& bag) : info_(info), index_(ind), bag_(&bag) {}
     
 private:
   const MsgInfo*    info_;
-  const IndexEntry* index_;
+  const IndexEntry  index_;
   Bag*              bag_;
 };
 
@@ -527,7 +522,7 @@ public:
   // Our iterator still internally stores a MessageList::const_iterator which constrains its ability to dereference
 
   // Making this reverse-traversable is going to be trickier...
-  class iterator : public boost::iterator_facade<iterator, MessageInstance const, boost::forward_traversal_tag>
+  class iterator : public boost::iterator_facade<iterator, MessageInstance, boost::forward_traversal_tag, MessageInstance>
   {
   public:
     // Default copy constructor is fine
@@ -549,7 +544,7 @@ public:
     void increment();
 
     // Leaving this const for now, even though it doesn't have to be
-    const MessageInstance dereference() const;
+    MessageInstance dereference() const;
 
     const View* view_;
     std::vector<ViewIterHelper> iters_;
