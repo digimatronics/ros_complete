@@ -165,7 +165,7 @@ public:
   typedef boost::function<RequestPtr()> ReqCreateFunction;
   typedef boost::function<ResponsePtr()> ResCreateFunction;
 
-  ServiceCallbackHelperT(const Callback& callback, const ReqCreateFunction& create_req = defaultServiceCreateFunction<RequestType>, const ResCreateFunction& create_res = defaultServiceCreateFunction<ResponseType>)
+  ServiceCallbackHelperT(const Callback& callback, ReqCreateFunction create_req = defaultServiceCreateFunction<RequestType>, ResCreateFunction create_res = defaultServiceCreateFunction<ResponseType>)
   : callback_(callback)
   , create_req_(create_req)
   , create_res_(create_res)

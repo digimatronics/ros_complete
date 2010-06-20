@@ -93,7 +93,7 @@ public:
     nonconst_need_copy_ = nonconst_need_copy;
   }
 
-  MessageEvent(const MessageEvent<void const>& rhs, const CreateFunction& create)
+  MessageEvent(const MessageEvent<void const>& rhs, CreateFunction create)
   {
     init(boost::const_pointer_cast<Message>(boost::static_pointer_cast<ConstMessage>(rhs.getMessage())), rhs.getConnectionHeaderPtr(), rhs.getReceiptTime(), rhs.nonConstWillCopy(), create);
   }
@@ -116,12 +116,12 @@ public:
     init(message, getConnectionHeader(message.get()), receipt_time, true, ros::defaultMessageCreateFunction<Message>);
   }
 
-  MessageEvent(const ConstMessagePtr& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time, bool nonconst_need_copy, const CreateFunction& create)
+  MessageEvent(const ConstMessagePtr& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time, bool nonconst_need_copy, CreateFunction create)
   {
     init(message, connection_header, receipt_time, nonconst_need_copy, create);
   }
 
-  void init(const ConstMessagePtr& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time, bool nonconst_need_copy, const CreateFunction& create)
+  void init(const ConstMessagePtr& message, const boost::shared_ptr<M_string>& connection_header, ros::Time receipt_time, bool nonconst_need_copy, CreateFunction create)
   {
     message_ = message;
     connection_header_ = connection_header;

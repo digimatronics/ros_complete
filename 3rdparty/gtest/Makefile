@@ -1,9 +1,9 @@
 all: gtest
 
-TARBALL = build/gtest-1.3.0.tar.gz
-TARBALL_URL = http://pr.willowgarage.com/downloads/gtest-1.3.0.tar.gz
-SOURCE_DIR = build/gtest-1.3.0
-MD5SUM_FILE = gtest-1.3.0.tar.gz.md5sum
+TARBALL = build/gtest-1.5.0.tar.gz
+TARBALL_URL = http://googletest.googlecode.com/files/gtest-1.5.0.tar.gz #http://pr.willowgarage.com/downloads/gtest-1.4.0.tar.gz
+SOURCE_DIR = build/gtest-1.5.0
+#MD5SUM_FILE = gtest-1.4.0.tar.gz.md5sum
 include $(shell rospack find mk)/download_unpack_build.mk
 
 # gtest's death test appears to hang when gtest is compiled with Bullseye's
@@ -17,7 +17,7 @@ NEWPATH = $(PATH)
 endif
 
 gtest: $(SOURCE_DIR)/unpacked
-	cd $(SOURCE_DIR) && PATH=$(NEWPATH) ./configure --prefix=$(CURDIR)/gtest
+	cd $(SOURCE_DIR) && PATH=$(NEWPATH) CXXFLAGS=-DGTEST_HAS_TR1_TUPLE=0 ./configure --prefix=$(CURDIR)/gtest
 	cd $(SOURCE_DIR) && PATH=$(NEWPATH) make install
 	touch gtest
 

@@ -37,6 +37,7 @@
 #include "macros.h"
 
 #include <vector>
+#include <cstring>
 
 #include <boost/array.hpp>
 #include <boost/call_traits.hpp>

@@ -80,7 +80,7 @@ struct SubscribeOptions
   template<class P>
   void initByFullCallbackType(const std::string& _topic, uint32_t _queue_size,
        const boost::function<void (P)>& _callback,
-       const boost::function<boost::shared_ptr<typename ParameterAdapter<P>::Message>(void)>& factory_fn = defaultMessageCreateFunction<typename ParameterAdapter<P>::Message>)
+       boost::function<boost::shared_ptr<typename ParameterAdapter<P>::Message>(void)> factory_fn = defaultMessageCreateFunction<typename ParameterAdapter<P>::Message>)
   {
     typedef typename ParameterAdapter<P>::Message MessageType;
     topic = _topic;
@@ -101,7 +101,7 @@ struct SubscribeOptions
   template<class M>
   void init(const std::string& _topic, uint32_t _queue_size,
        const boost::function<void (const boost::shared_ptr<M const>&)>& _callback,
-       const boost::function<boost::shared_ptr<M>(void)>& factory_fn = defaultMessageCreateFunction<M>)
+       boost::function<boost::shared_ptr<M>(void)> factory_fn = defaultMessageCreateFunction<M>)
   {
     typedef typename ParameterAdapter<M>::Message MessageType;
     topic = _topic;

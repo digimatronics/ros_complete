@@ -419,7 +419,7 @@ macro(rosbuild_init)
   include_directories(${_gtest_PACKAGE_PATH}/gtest/include)
   link_directories(${_gtest_PACKAGE_PATH}/gtest/lib)
   set(_gtest_LIBRARIES -lgtest)
-  set(_gtest_CFLAGS_OTHER "")
+  set(_gtest_CFLAGS_OTHER "-DGTEST_HAS_TR1_TUPLE=0")
   set(_gtest_LDFLAGS_OTHER "-Wl,-rpath,${_gtest_PACKAGE_PATH}/gtest/lib")
   
   #
