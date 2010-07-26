@@ -177,6 +177,7 @@ void ServiceServerLink::onConnectionDropped(const ConnectionPtr& conn)
 
 void ServiceServerLink::onRequestWritten(const ConnectionPtr& conn)
 {
+  //ros::WallDuration(0.1).sleep();
   connection_->read(5, boost::bind(&ServiceServerLink::onResponseOkAndLength, this, _1, _2, _3, _4));
 }
 
@@ -193,10 +194,10 @@ void ServiceServerLink::onResponseOkAndLength(const ConnectionPtr& conn, const b
 
   if (len > 1000000000)
   {
-    ROS_ERROR("woah! a message of over a gigabyte was " \
+    ROS_ERROR("a message of over a gigabyte was " \
                 "predicted in tcpros. that seems highly " \
                 "unlikely, so I'll assume protocol " \
-                "synchronization is lost... it's over.");
+                "synchronization is lost.");
     conn->drop(Connection::Destructing);
 
     return;
@@ -321,6 +322,8 @@ bool ServiceServerLink::call(const SerializedMessage& req, SerializedMessage& re
   info->finished_ = false;
   info->call_finished_ = false;
   info->caller_thread_id_ = boost::this_thread::get_id();
+
+  //ros::WallDuration(0.1).sleep();
 
   bool immediate = false;
   {

@@ -127,12 +127,13 @@ bool TransportTCP::initializeSocket()
   ROS_ASSERT(poll_set_ || (flags_ & SYNCHRONOUS));
   if (poll_set_)
   {
+    ROS_DEBUG("Adding socket [%d] to pollset", sock_);
     poll_set_->addSocket(sock_, boost::bind(&TransportTCP::socketUpdate, this, _1), shared_from_this());
   }
 
   if (!(flags_ & SYNCHRONOUS))
   {
-    enableRead();
+    //enableRead();
   }
 
   return true;
@@ -162,8 +163,6 @@ void TransportTCP::setKeepAlive(bool use, uint32_t idle, uint32_t interval, uint
 {
   if (use)
   {
-    ROSCPP_LOG_DEBUG("Enabling TCP Keepalive on socket [%d]", sock_);
-
     int val = 1;
     if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) != 0)
     {
@@ -175,26 +174,24 @@ void TransportTCP::setKeepAlive(bool use, uint32_t idle, uint32_t interval, uint
     val = idle;
     if (setsockopt(sock_, SOL_TCP, TCP_KEEPIDLE, &val, sizeof(val)) != 0)
     {
-      ROS_ERROR("setsockopt failed to set TCP_KEEPIDLE on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
+      ROS_DEBUG("setsockopt failed to set TCP_KEEPIDLE on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
     }
 
     val = interval;
     if (setsockopt(sock_, SOL_TCP, TCP_KEEPINTVL, &val, sizeof(val)) != 0)
     {
-      ROS_ERROR("setsockopt failed to set TCP_KEEPINTVL on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
+      ROS_DEBUG("setsockopt failed to set TCP_KEEPINTVL on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
     }
 
     val = count;
     if (setsockopt(sock_, SOL_TCP, TCP_KEEPCNT, &val, sizeof(val)) != 0)
     {
-      ROS_ERROR("setsockopt failed to set TCP_KEEPCNT on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
+      ROS_DEBUG("setsockopt failed to set TCP_KEEPCNT on socket [%d] [%s]", sock_, cached_remote_host_.c_str());
     }
 #endif
   }
   else
   {
-    ROSCPP_LOG_DEBUG("Disabling TCP Keepalive on socket [%d]", sock_);
-
     int val = 0;
     if (setsockopt(sock_, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) != 0)
     {
@@ -252,7 +249,7 @@ bool TransportTCP::connect(const std::string& host, int port)
       return false;
     }
 
-    ROSCPP_LOG_DEBUG("Resolved publisher host [%s] to [%s]", host.c_str(), inet_ntoa(sin.sin_addr));
+    ROSCPP_LOG_DEBUG("Resolved publisher host [%s] to [%s] for socket [%d]", host.c_str(), inet_ntoa(sin.sin_addr), sock_);
   }
   else
   {
@@ -277,7 +274,14 @@ bool TransportTCP::connect(const std::string& host, int port)
     return false;
   }
 
-  ROSCPP_LOG_DEBUG("Connect succeeded to [%s:%d] on socket [%d]", host.c_str(), port, sock_);
+  if (flags_ & SYNCHRONOUS)
+  {
+    ROSCPP_LOG_DEBUG("connect() succeeded to [%s:%d] on socket [%d]", host.c_str(), port, sock_);
+  }
+  else
+  {
+    ROSCPP_LOG_DEBUG("Async connect() in progress to [%s:%d] on socket [%d]", host.c_str(), port, sock_);
+  }
 
   return true;
 }
@@ -314,6 +318,11 @@ bool TransportTCP::listen(int port, int backlog, const AcceptCallback& accept_cb
     return false;
   }
 
+  if (!(flags_ & SYNCHRONOUS))
+  {
+    enableRead();
+  }
+
   return true;
 }
 
@@ -330,8 +339,6 @@ void TransportTCP::close()
       {
         closed_ = true;
 
-        ROSCPP_LOG_DEBUG("TCP socket [%d] closed", sock_);
-
         ROS_ASSERT(sock_ != -1);
 
         if (poll_set_)
@@ -343,6 +350,10 @@ void TransportTCP::close()
         if (::close(sock_) < 0)
         {
           ROS_ERROR("Error closing socket [%d]: [%s]", sock_, strerror(errno));
+        }
+        else
+        {
+          ROSCPP_LOG_DEBUG("TCP socket [%d] closed", sock_);
         }
 
         sock_ = -1;
@@ -379,9 +390,10 @@ int32_t TransportTCP::read(uint8_t* buffer, uint32_t size)
   int num_bytes = ::recv(sock_, buffer, size, 0);
   if (num_bytes < 0)
   {
-    if (errno != EAGAIN)
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
     {
-      ROSCPP_LOG_DEBUG("recv() failed with error [%s]", strerror(errno));
+      ROSCPP_LOG_DEBUG("recv() on socket [%d] failed with error [%s]", sock_, strerror(errno));
+      close();
     }
     else
     {
@@ -417,7 +429,7 @@ int32_t TransportTCP::write(uint8_t* buffer, uint32_t size)
   {
     if(errno != EAGAIN)
     {
-      ROSCPP_LOG_DEBUG("send() failed with error [%s]", strerror(errno));
+      ROSCPP_LOG_DEBUG("send() on socket [%d] failed with error [%s]", sock_, strerror(errno));
 
       close();
     }
@@ -447,6 +459,26 @@ void TransportTCP::enableRead()
   {
     poll_set_->addEvents(sock_, POLLIN);
     expecting_read_ = true;
+  }
+}
+
+void TransportTCP::disableRead()
+{
+  ROS_ASSERT(!(flags_ & SYNCHRONOUS));
+
+  {
+    boost::recursive_mutex::scoped_lock lock(close_mutex_);
+
+    if (closed_)
+    {
+      return;
+    }
+  }
+
+  if (expecting_read_)
+  {
+    poll_set_->delEvents(sock_, POLLIN);
+    expecting_read_ = false;
   }
 }
 
@@ -499,7 +531,7 @@ TransportTCPPtr TransportTCP::accept()
   int new_sock = ::accept(sock_, (sockaddr *)&client_address, &len);
   if (new_sock >= 0)
   {
-    ROSCPP_LOG_DEBUG("Accepted connection on socket [%d]", new_sock);
+    ROSCPP_LOG_DEBUG("Accepted connection on socket [%d], new socket [%d]", sock_, new_sock);
 
     TransportTCPPtr transport(new TransportTCP(poll_set_, flags_));
     if (!transport->setSocket(new_sock))
@@ -526,44 +558,60 @@ void TransportTCP::socketUpdate(int events)
     return;
   }
 
+  // Handle read events before err/hup/nval, since there may be data left on the wire
+  if ((events & POLLIN) && expecting_read_)
+  {
+    if (is_server_)
+    {
+      // Should not block here, because poll() said that it's ready
+      // for reading
+      TransportTCPPtr transport = accept();
+      if (transport)
+      {
+        ROS_ASSERT(accept_cb_);
+        accept_cb_(transport);
+      }
+    }
+    else
+    {
+      if (read_cb_)
+      {
+        read_cb_(shared_from_this());
+      }
+    }
+  }
+
+  if (closed_)
+  {
+    return;
+  }
+
+  if ((events & POLLOUT) && expecting_write_)
+  {
+    if (write_cb_)
+    {
+      write_cb_(shared_from_this());
+    }
+  }
+
+  if (closed_)
+  {
+    return;
+  }
+
   if((events & POLLERR) ||
      (events & POLLHUP) ||
      (events & POLLNVAL))
   {
-    ROSCPP_LOG_DEBUG("Socket %d closed with (ERR|HUP|NVAL) events %d", sock_, events);
+    uint32_t error = -1;
+    socklen_t len = sizeof(error);
+    if (getsockopt(sock_, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+    {
+      ROSCPP_LOG_DEBUG("getsockopt failed on socket [%d]", sock_);
+    }
+    
+    ROSCPP_LOG_DEBUG("Socket %d closed with (ERR|HUP|NVAL) events %d: %s", sock_, events, strerror(error));
     close();
-  }
-  else
-  {
-    if ((events & POLLIN) && expecting_read_)
-    {
-      if (is_server_)
-      {
-        // Should not block here, because poll() said that it's ready
-        // for reading
-        TransportTCPPtr transport = accept();
-        if (transport)
-        {
-          ROS_ASSERT(accept_cb_);
-          accept_cb_(transport);
-        }
-      }
-      else
-      {
-        if (read_cb_)
-        {
-          read_cb_(shared_from_this());
-        }
-      }
-    }
-
-    if ((events & POLLOUT) && expecting_write_)
-    {
-      if (write_cb_)
-      {
-        write_cb_(shared_from_this());
-      }
-    }
   }
 }
 

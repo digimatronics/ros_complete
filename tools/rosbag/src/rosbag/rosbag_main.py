@@ -58,18 +58,16 @@ def record_cmd(argv):
                                    description="Record a bag file with the contents of specified topics.",
                                    formatter=optparse.IndentedHelpFormatter())
 
-    parser.add_option("-a", "--all",           dest="all",      default=False, action="store_true",        help="record all topics")
-    parser.add_option("-e", "--regex",         dest="regex",    default=False, action="store_true",        help="match topics using regular expressions")
-    parser.add_option("-x", "--exclude",        dest="exclude_regex", default="", action="store",
-help="Exclude topics matching the follow regular expression (subtracts from -a or regex)")
-    parser.add_option("-q", "--quiet",         dest="quiet",    default=False, action="store_true",        help="suppress console output")
-    parser.add_option("-o", "--output-prefix", dest="prefix",   default=None,  action="store",             help="prepend PREFIX to beginning of bag name (name will always end with date stamp)")
-    parser.add_option("-O", "--output-name",   dest="name",     default=None,  action="store",             help="record to bag with namename NAME.bag")
-    parser.add_option("--split",               dest="split",    default=0,     type='int', action="store", help="split bag into files of size SIZE", metavar="SIZE")
-    parser.add_option("-b", "--buffsize",      dest="buffsize", default=256,   type='int', action="store", help="use in internal buffer of SIZE MB (Default: %default, 0 = infinite)", metavar="SIZE")
-    parser.add_option("-l", "--limit",         dest="num",      default=0,     type='int', action="store", help="only record NUM messages on each topic")
-    #parser.add_option("-z", "--zlib",          dest="zlib",     default=False, action="store_true",        help="use ZLIB compression")
-    parser.add_option("-j", "--bz2",           dest="bz2",      default=False, action="store_true",        help="use BZ2 compression")
+    parser.add_option("-a", "--all",           dest="all",           default=False, action="store_true",        help="record all topics")
+    parser.add_option("-e", "--regex",         dest="regex",         default=False, action="store_true",        help="match topics using regular expressions")
+    parser.add_option("-x", "--exclude",       dest="exclude_regex", default="",    action="store",             help="Exclude topics matching the follow regular expression (subtracts from -a or regex)")
+    parser.add_option("-q", "--quiet",         dest="quiet",         default=False, action="store_true",        help="suppress console output")
+    parser.add_option("-o", "--output-prefix", dest="prefix",        default=None,  action="store",             help="prepend PREFIX to beginning of bag name (name will always end with date stamp)")
+    parser.add_option("-O", "--output-name",   dest="name",          default=None,  action="store",             help="record to bag with name NAME.bag")
+    parser.add_option(      "--split",         dest="split",         default=0,     type='int', action="store", help="split bag into files of size SIZE MB", metavar="SIZE")
+    parser.add_option("-b", "--buffsize",      dest="buffsize",      default=256,   type='int', action="store", help="use in internal buffer of SIZE MB (Default: %default, 0 = infinite)", metavar="SIZE")
+    parser.add_option("-l", "--limit",         dest="num",           default=0,     type='int', action="store", help="only record NUM messages on each topic")
+    parser.add_option("-j", "--bz2",           dest="bz2",           default=False, action="store_true",        help="use BZ2 compression")
 
     (options, args) = parser.parse_args(argv)
 
@@ -85,23 +83,18 @@ help="Exclude topics matching the follow regular expression (subtracts from -a o
     cmd.extend(['--limit', str(options.num)])
     cmd.extend(['--split', str(options.split)])
 
-    if options.quiet: cmd.extend(["--quiet"])
-    if options.prefix: cmd.extend(["-o", options.prefix])
-    if options.name:   cmd.extend(["-O", options.name])
+    if options.quiet:         cmd.extend(["--quiet"])
+    if options.prefix:        cmd.extend(["-o", options.prefix])
+    if options.name:          cmd.extend(["-O", options.name])
     if options.exclude_regex: cmd.extend(["--exclude", options.exclude_regex])
-    if options.all:    cmd.extend(["--all"])
-    if options.regex:  cmd.extend(["--regex"])
-    if options.bz2:    cmd.extend(["--bz2"])
+    if options.all:           cmd.extend(["--all"])
+    if options.regex:         cmd.extend(["--regex"])
+    if options.bz2:           cmd.extend(["--bz2"])
 
     cmd.extend(args)
 
     recordpath = os.path.join(roslib.rospack.rospackexec(['find', 'rosbag']), 'bin', 'record')
     os.execv(recordpath, cmd)
-
-#    proc = subprocess.Popen(cmd)
-#    signal.signal(signal.SIGINT, signal.SIG_IGN)   # ignore sigint since we're basically just pretending to be the subprocess now
-#    res = proc.wait()
-#    sys.exit(res)
 
 def info_cmd(argv):
     parser = optparse.OptionParser(usage='rosbag info [options] BAGFILE1 [BAGFILE2 BAGFILE3 ...]',
@@ -150,7 +143,7 @@ def play_cmd(argv):
     parser.add_option("-r", "--rate",         dest="rate",       default=1.0,   type='float', action="store", help="multiply the publish rate by FACTOR", metavar="FACTOR")
     parser.add_option("-s", "--start",        dest="start",      default=0.0,   type='float', action="store", help="start SEC seconds into the bag files", metavar="SEC")
     parser.add_option("-l", "--loop",         dest="loop",       default=False, action="store_true", help="loop playback")
-    parser.add_option("-k", "--keep-alive",   dest="keep_alive", default=False, action="store_true", help="keep alive past end of bag (useful for publishg latched topics)")
+    parser.add_option("-k", "--keep-alive",   dest="keep_alive", default=False, action="store_true", help="keep alive past end of bag (useful for publishing latched topics)")
     parser.add_option("--try-future-version", dest="try_future", default=False, action="store_true", help="still try to open a bag file, even if the version number is not known to the player")
 
     (options, args) = parser.parse_args(argv)
@@ -179,11 +172,6 @@ def play_cmd(argv):
 
     playpath = os.path.join(roslib.rospack.rospackexec(['find', 'rosbag']), 'bin', 'play')
     os.execv(playpath, cmd)
-
-#    proc = subprocess.Popen(cmd)
-#    signal.signal(signal.SIGINT, signal.SIG_IGN)   # ignore sigint since we're basically just pretending to be the subprocess now
-#    res = proc.wait()
-#    sys.exit(res)
 
 def filter_cmd(argv):
     def expr_eval(expr):
@@ -436,8 +424,9 @@ def check_cmd(argv):
 def compress_cmd(argv):
     parser = optparse.OptionParser(usage='rosbag compress [options] BAGFILE1 [BAGFILE2 ...]',
                                    description='Compress one or more bag files.')
-    parser.add_option('-f', '--force', action='store_true', dest='force', help='force overwriting of backup file if it exists')
-    parser.add_option('-q', '--quiet', action='store_true', dest='quiet', help='suppress noncritical messages')
+    parser.add_option(      '--output-dir', action='store',      dest='output_dir', help='write to directory DIR', metavar='DIR')
+    parser.add_option('-f', '--force',      action='store_true', dest='force',      help='force overwriting of backup file if it exists')
+    parser.add_option('-q', '--quiet',      action='store_true', dest='quiet',      help='suppress noncritical messages')
 
     (options, args) = parser.parse_args(argv)
 
@@ -446,13 +435,14 @@ def compress_cmd(argv):
 
     op = lambda inbag, outbag, quiet: change_compression_op(inbag, outbag, Compression.BZ2, options.quiet)
 
-    bag_op(args, False, lambda b: False, op, options.force, options.quiet)
+    bag_op(args, False, lambda b: False, op, options.output_dir, options.force, options.quiet)
 
 def decompress_cmd(argv):
     parser = optparse.OptionParser(usage='rosbag decompress [options] BAGFILE1 [BAGFILE2 ...]',
                                    description='Decompress one or more bag files.')
-    parser.add_option('-f', '--force', action='store_true', dest='force', help='force overwriting of backup file if it exists')
-    parser.add_option('-q', '--quiet', action='store_true', dest='quiet', help='suppress noncritical messages')
+    parser.add_option(      '--output-dir', action='store',      dest='output_dir', help='write to directory DIR', metavar='DIR')
+    parser.add_option('-f', '--force',      action='store_true', dest='force',      help='force overwriting of backup file if it exists')
+    parser.add_option('-q', '--quiet',      action='store_true', dest='quiet',      help='suppress noncritical messages')
 
     (options, args) = parser.parse_args(argv)
 
@@ -461,13 +451,14 @@ def decompress_cmd(argv):
     
     op = lambda inbag, outbag, quiet: change_compression_op(inbag, outbag, Compression.NONE, options.quiet)
     
-    bag_op(args, False, lambda b: False, op, options.force, options.quiet)
+    bag_op(args, False, lambda b: False, op, options.output_dir, options.force, options.quiet)
 
 def reindex_cmd(argv):
     parser = optparse.OptionParser(usage='rosbag reindex [options] BAGFILE1 [BAGFILE2 ...]',
                                    description='Reindexes one or more bag files.')
-    parser.add_option('-f', '--force', action='store_true', dest='force', help='force overwriting of backup file if it exists')
-    parser.add_option('-q', '--quiet', action='store_true', dest='quiet', help='suppress noncritical messages')
+    parser.add_option(      '--output-dir', action='store',      dest='output_dir', help='write to directory DIR', metavar='DIR')
+    parser.add_option('-f', '--force',      action='store_true', dest='force',      help='force overwriting of backup file if it exists')
+    parser.add_option('-q', '--quiet',      action='store_true', dest='quiet',      help='suppress noncritical messages')
 
     (options, args) = parser.parse_args(argv)
 
@@ -476,9 +467,9 @@ def reindex_cmd(argv):
     
     op = lambda inbag, outbag, quiet: reindex_op(inbag, outbag, options.quiet)
 
-    bag_op(args, True, lambda b: b.version > 102, op, options.force, options.quiet)
+    bag_op(args, True, lambda b: b.version > 102, op, options.output_dir, options.force, options.quiet)
 
-def bag_op(inbag_filenames, allow_unindexed, copy_fn, op, force=False, quiet=False):
+def bag_op(inbag_filenames, allow_unindexed, copy_fn, op, output_dir=None, force=False, quiet=False):
     for inbag_filename in inbag_filenames:
         # Check we can read the file
         try:
@@ -489,33 +480,48 @@ def bag_op(inbag_filenames, allow_unindexed, copy_fn, op, force=False, quiet=Fal
         except (ROSBagException, IOError), ex:
             print >> sys.stderr, 'ERROR reading %s: %s' % (inbag_filename, str(ex))
             continue
-    
+
+        # Determine whether we should copy the bag    
         copy = copy_fn(inbag)
         
         inbag.close()
-    
-        # Rename the input bag to ###.orig.###, and open for reading
-        (root, ext) = os.path.splitext(inbag_filename)
-        backup_filename = '%s.orig%s' % (root, ext)
-        
-        if not force and os.path.exists(backup_filename):
-            if not quiet:
-                print >> sys.stderr, 'Skipping %s. Backup path %s already exists.' % (inbag_filename, backup_filename)
-            continue
-        
-        try:
+
+        # Determine filename for output bag
+        if output_dir is None:
+            outbag_filename = inbag_filename
+        else:
+            outbag_filename = os.path.join(output_dir, os.path.split(inbag_filename)[1])
+
+        backup_filename = None
+        if outbag_filename == inbag_filename:
+            # Rename the input bag to ###.orig.###, and open for reading
+            backup_filename = '%s.orig%s' % os.path.splitext(inbag_filename)
+            
+            if not force and os.path.exists(backup_filename):
+                if not quiet:
+                    print >> sys.stderr, 'Skipping %s. Backup path %s already exists.' % (inbag_filename, backup_filename)
+                continue
+            
+            try:
+                if copy:
+                    shutil.copy(inbag_filename, backup_filename)
+                else:
+                    os.rename(inbag_filename, backup_filename)
+            except OSError, ex:
+                print >> sys.stderr, 'ERROR %s %s to %s: %s' % ('copying' if copy else 'moving', inbag_filename, backup_filename, str(ex))
+                continue
+            
+            source_filename = backup_filename
+        else:
             if copy:
-                shutil.copy(inbag_filename, backup_filename)
+                shutil.copy(inbag_filename, outbag_filename)
+                source_filename = outbag_filename
             else:
-                os.rename(inbag_filename, backup_filename)
-        except OSError, ex:
-            print >> sys.stderr, 'ERROR %s %s to %s: %s' % ('copying' if copy else 'moving', inbag_filename, backup_filename, str(ex))
-            continue
-        outbag_filename = inbag_filename
-    
+                source_filename = inbag_filename
+
         try:
-            inbag = Bag(backup_filename, 'r', allow_unindexed=allow_unindexed)
-    
+            inbag = Bag(source_filename, 'r', allow_unindexed=allow_unindexed)
+
             # Open the output bag file for writing
             try:
                 if copy:
@@ -526,28 +532,29 @@ def bag_op(inbag_filenames, allow_unindexed, copy_fn, op, force=False, quiet=Fal
                 print >> sys.stderr, 'ERROR writing to %s: %s' % (outbag_filename, str(ex))
                 inbag.close()
                 continue
-            
+
             # Perform the operation
             try:
                 op(inbag, outbag, quiet=quiet)
             except ROSBagException, ex:
-                print >> sys.stderr, '\nERROR operating on %s: %s' % (inbag_filename, str(ex))
+                print >> sys.stderr, '\nERROR operating on %s: %s' % (source_filename, str(ex))
                 inbag.close()
                 outbag.close()
                 continue
                 
             outbag.close()
             inbag.close()
-    
+
         except KeyboardInterrupt:
-            try:
-                if copy:
-                    os.remove(backup_filename)
-                else:
-                    os.rename(backup_filename, inbag_filename)
-            except OSError, ex:
-                print >> sys.stderr, 'ERROR %s %s to %s: %s', ('removing' if copy else 'moving', backup_filename, inbag_filename, str(ex))
-                break
+            if backup_filename is not None:
+                try:
+                    if copy:
+                        os.remove(backup_filename)
+                    else:
+                        os.rename(backup_filename, inbag_filename)
+                except OSError, ex:
+                    print >> sys.stderr, 'ERROR %s %s to %s: %s', ('removing' if copy else 'moving', backup_filename, inbag_filename, str(ex))
+                    break
     
         except (ROSBagException, IOError), ex:
             print >> sys.stderr, 'ERROR operating on %s: %s' % (inbag_filename, str(ex))
@@ -558,9 +565,9 @@ def change_compression_op(inbag, outbag, compression, quiet):
     if quiet:
         for topic, msg, t in inbag.read_messages(raw=True):
             outbag.write(topic, msg, t, raw=True)
-    else:   
-        meter = ProgressMeter(outbag.filename, inbag.size)
-    
+    else:
+        meter = ProgressMeter(outbag.filename, inbag._uncompressed_size)
+
         total_bytes = 0
         for topic, msg, t in inbag.read_messages(raw=True):
             msg_type, serialized_bytes, md5sum, pos, pytype = msg
@@ -643,7 +650,7 @@ class RosbagCmds(UserDict.UserDict):
             print >> sys.stderr
             print >> sys.stderr, self.get_valid_cmds()
 
-class ProgressMeter:
+class ProgressMeter(object):
     def __init__(self, path, bytes_total, refresh_rate=1.0):
         self.path           = path
         self.bytes_total    = bytes_total
@@ -760,4 +767,3 @@ def rosbagmain(argv=None):
             cmds['help']([cmd])
     except KeyboardInterrupt:
         pass
-    

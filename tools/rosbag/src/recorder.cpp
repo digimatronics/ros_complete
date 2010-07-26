@@ -139,17 +139,22 @@ int Recorder::run() {
 
     queue_ = new std::queue<OutgoingMessage>;
 
+    ros::Subscriber trigger_sub;
+
     // Spin up a thread for writing to the file
     boost::thread record_thread;
     if (options_.snapshot)
+    {
         record_thread = boost::thread(boost::bind(&Recorder::doRecordSnapshotter, this));
+
+        // Subscribe to the snapshot trigger
+        trigger_sub = nh.subscribe<std_msgs::Empty>("snapshot_trigger", 100, boost::bind(&Recorder::snapshotTrigger, this, _1));
+    }
     else
         record_thread = boost::thread(boost::bind(&Recorder::doRecord, this));
 
     ros::Time::waitForValid();
 
-    // Subscribe to the snapshot trigger
-    ros::Subscriber trigger_sub = nh.subscribe<std_msgs::Empty>("snapshot_trigger", 100, boost::bind(&Recorder::snapshotTrigger, this, _1));
 
     // Subscribe to each topic
     if (!options_.regex) {
@@ -284,8 +289,17 @@ void Recorder::doQueue(ros::MessageEvent<topic_tools::ShapeShifter const> msg_ev
 void Recorder::updateFilenames() {
     vector<string> parts;
 
-    if (options_.prefix.length() > 0)
-        parts.push_back(options_.prefix);
+    std::string prefix = options_.prefix;
+    uint32_t ind = prefix.rfind(".bag");
+
+    if (ind == prefix.size() - 4)
+    {
+      prefix.erase(ind);
+      ind = prefix.rfind(".bag");
+    }
+
+    if (prefix.length() >= 0)
+        parts.push_back(prefix);
     if (options_.append_date)
         parts.push_back(timeToStr(ros::WallTime::now()));
     if (options_.split_size > 0)
