@@ -38,6 +38,8 @@ test-future: all
 	cd build && make -k $@
 gcoverage: all
 	cd build && make $@
+install: all
+	cd build && make $@
 
 eclipse-project: 
 	mv Makefile Makefile.ros

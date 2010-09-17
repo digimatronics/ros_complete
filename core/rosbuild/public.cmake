@@ -138,6 +138,11 @@ macro(rosbuild_init)
 
   project(${_project})
 
+  set(CMAKE_INSTALL_PREFIX "/tmp/ros-installed")
+  set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+  # Always install the manifest
+  install(FILES "manifest.xml" DESTINATION ${PROJECT_NAME})
+
   # Must call include(rosconfig) after project, because rosconfig uses
   # PROJECT_SOURCE_DIR
   include($ENV{ROS_ROOT}/core/rosbuild/rosconfig.cmake)
@@ -761,6 +766,9 @@ macro(rosbuild_gensrv)
       message("${_mtime_error}")
       message(FATAL_ERROR "[rosbuild] Failed to set mtime; aborting")
     endif(_set_mtime_failed)
+    # Arrange for installation
+    rosbuild_install_directory(srv)
+    rosbuild_install_directory(srv_gen)
   endif(NOT _srvlist)
   # Create target to trigger service generation in the case where no libs
   # or executables are made.
@@ -792,6 +800,9 @@ macro(rosbuild_genmsg)
       message("${_mtime_error}")
       message(FATAL_ERROR "[rosbuild] Failed to set mtime; aborting")
     endif(_set_mtime_failed)
+    # Arrange for installation
+    rosbuild_install_directory(msg)
+    rosbuild_install_directory(msg_gen)
   endif(NOT _msglist)
   # Create target to trigger message generation in the case where no libs
   # or executables are made.
@@ -1169,3 +1180,50 @@ macro(rosbuild_include pkg module)
   endif(NOT _found)
 endmacro(rosbuild_include)
 
+macro(rosbuild_install_executable exe)
+  parse_arguments(_var "" "INSTALL_TO_ROOT" ${ARGN})
+  if(_var_INSTALL_TO_ROOT)
+    install(TARGETS ${exe}
+            RUNTIME DESTINATION bin)
+  else(_var_INSTALL_TO_ROOT)
+    install(TARGETS ${exe}
+            RUNTIME DESTINATION ${PROJECT_NAME}/bin)
+  endif(_var_INSTALL_TO_ROOT)
+endmacro(rosbuild_install_executable)
+
+macro(rosbuild_install_library lib)
+  parse_arguments(_var "" "INSTALL_TO_PACKAGE" ${ARGN})
+  if(_var_INSTALL_TO_PACKAGE)
+    install(TARGETS ${lib}
+            RUNTIME DESTINATION ${PROJECT_NAME}/lib
+            LIBRARY DESTINATION ${PROJECT_NAME}/lib)
+  else(_var_INSTALL_TO_PACKAGE)
+    install(TARGETS ${lib}
+            RUNTIME DESTINATION lib
+            LIBRARY DESTINATION lib)
+  endif(_var_INSTALL_TO_PACKAGE)
+endmacro(rosbuild_install_library)
+
+macro(rosbuild_install_files)
+  foreach(_file ${ARGV})
+    get_filename_component(_dir ${_file} PATH)
+    install(FILES ${_file}
+	    DESTINATION ${PROJECT_NAME}/${_dir})
+  endforeach(_file)
+endmacro(rosbuild_install_files)
+
+macro(rosbuild_install_programs)
+  foreach(_file ${ARGV})
+    get_filename_component(_dir ${_file} PATH)
+    install(PROGRAMS ${_file}
+	    DESTINATION ${PROJECT_NAME}/${_dir})
+  endforeach(_file)
+endmacro(rosbuild_install_programs)
+
+macro(rosbuild_install_directory _dir)
+  install(DIRECTORY ${_dir}
+          DESTINATION ${PROJECT_NAME}
+	  USE_SOURCE_PERMISSIONS
+	  PATTERN ".svn" EXCLUDE
+	  PATTERN "build" EXCLUDE)
+endmacro(rosbuild_install_directory)
