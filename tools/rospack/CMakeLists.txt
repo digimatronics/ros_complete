@@ -3,11 +3,7 @@
 cmake_minimum_required(VERSION 2.4.6)
 set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_INSTALL_PREFIX /tmp/rospack)
-#set(CMAKE_INSTALL_RPATH_USE_LINK_RPATH true)
-#set(CMAKE_SKIP_BUILD_RPATH true)
 set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 
 include_directories(include ${PROJECT_SOURCE_DIR})
 
@@ -82,6 +78,11 @@ set_target_properties(rosstackexe PROPERTIES OUTPUT_NAME rosstack)
 
 target_link_libraries(rospackexe rospack)
 target_link_libraries(rosstackexe rosstack rospack)
+
+install(TARGETS rospackexe
+        RUNTIME DESTINATION ${ROS_INSTALL_PREFIX}/bin)
+install(TARGETS rosstackexe
+        RUNTIME DESTINATION ${ROS_INSTALL_PREFIX}/bin)
 
 if(ROS_BUILD_STATIC_EXES AND ${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   # This will probably only work on Linux.  The LINK_SEARCH_END_STATIC

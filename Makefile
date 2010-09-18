@@ -37,3 +37,7 @@ clean_dist:
 package_source:
 	$(shell rospack find rosbuild)/bin/package_source.py $(CURDIR)
 
+install:
+	@mkdir -p build
+	cd build && cmake $(CMAKE_FLAGS) ..
+	cd build && make $@

@@ -8,7 +8,7 @@
 all:
 	@mkdir -p build
 	-mkdir -p bin
-	@if ! (cd build && cmake ..); then \
+	@if ! (cd build && cmake $(EXTRA_CMAKE_FLAGS) ..); then \
 	  echo "[rosbuild] CMake failed; trying to clean and start over"; \
 	  make clean; \
 	  mkdir -p build; \

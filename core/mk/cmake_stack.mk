@@ -21,6 +21,9 @@ clean:
 package_source: all
 	$(shell rospack find rosbuild)/bin/package_source.py $(CURDIR)
 
+install: all
+	cd build && make $@
+
 # All other targets are just passed through
 #test: all
 #	if cd build && make -k $@; then make test-results; else make test-results && exit 1; fi

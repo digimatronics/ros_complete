@@ -138,10 +138,17 @@ macro(rosbuild_init)
 
   project(${_project})
 
-  set(CMAKE_INSTALL_PREFIX "/tmp/ros-installed")
+  if(NOT ROS_INSTALL_PREFIX)
+    # For testing
+    set(ROS_INSTALL_PREFIX "/tmp/ros-installed")
+  endif(NOT ROS_INSTALL_PREFIX)
+  if(NOT CMAKE_INSTALL_PREFIX)
+    # For testing
+    set(CMAKE_INSTALL_PREFIX ${ROS_INSTALL_PREFIX}/${PROJECT_NAME})
+  endif(NOT CMAKE_INSTALL_PREFIX)
   set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
   # Always install the manifest
-  install(FILES "manifest.xml" DESTINATION ${PROJECT_NAME})
+  install(FILES "manifest.xml" DESTINATION .)
 
   # Must call include(rosconfig) after project, because rosconfig uses
   # PROJECT_SOURCE_DIR
@@ -183,6 +190,7 @@ macro(rosbuild_init)
   rosbuild_invoke_rospack(${PROJECT_NAME} _rospack deps_manifests_invoke_result deps-manifests)
   rosbuild_invoke_rospack(${PROJECT_NAME} _rospack msgsrv_gen_invoke_result deps-msgsrv)
   set(ROS_MANIFEST_LIST "${PROJECT_SOURCE_DIR}/manifest.xml ${_rospack_deps_manifests_invoke_result} ${_rospack_msgsrv_gen_invoke_result}")
+    
   # convert whitespace-separated string to ;-separated list
   separate_arguments(ROS_MANIFEST_LIST)
 
@@ -1009,7 +1017,62 @@ macro(rosbuild_make_distribution)
   # cleaned, so we don't need to ignore .a, .o, .so, etc.
   list(APPEND CPACK_SOURCE_IGNORE_FILES "/build/;/.svn/;.gitignore;build-failure;test-failure;rosmakeall-buildfailures-withcontext.txt;rosmakeall-profile;rosmakeall-buildfailures.txt;rosmakeall-testfailures.txt;rosmakeall-coverage.txt;/log/")
   include(CPack)
+
+  # Set up for stack installation.  Doing this here because
+  # rosbuild_make_distribution() is the one hook that is called from every
+  # stack's CMakeLists.txt.
+  rosbuild_install_stack()
 endmacro(rosbuild_make_distribution)
+
+# Set up for installation of a stack.  Should only be called at a stack
+# level.
+macro(rosbuild_install_stack)
+  # For testing
+  set(ROS_INSTALL_PREFIX "/tmp/ros-installed")
+
+  set(CMAKE_INSTALL_PREFIX ${ROS_INSTALL_PREFIX}/${PROJECT_NAME})
+
+  # Always install the manifest
+  install(FILES "stack.xml" DESTINATION .)
+
+  # Find the rosbuild-controlled packages, and set up to use their install
+  # targets.
+  execute_process(COMMAND $ENV{ROS_ROOT}/core/rosbuild/bin/find_rosbuild_controlled_packages.py ${PROJECT_NAME}
+                  OUTPUT_VARIABLE _rosbuild_pkgs_out
+                  ERROR_VARIABLE _rosbuild_pkgs_err
+                  ERROR_VARIABLE _rosbuild_pkgs_result
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  separate_arguments(_rosbuild_pkgs_out)
+  #foreach(_pkg ${_rosbuild_pkgs_out})
+  foreach(_pkg rospack)
+    rosbuild_find_ros_package(${_pkg})
+    execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
+                    OUTPUT_VARIABLE _relative_path_out
+                    ERROR_VARIABLE _relative_path_err
+                    RESULT_VARIABLE _relative_path_result
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    install(CODE "execute_process(COMMAND bash -c \"cd ${${_pkg}_PACKAGE_PATH}; EXTRA_CMAKE_FLAGS='-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/${_relative_path_out} -DROS_INSTALL_PREFIX=${ROS_INSTALL_PREFIX}' make install\")")
+  endforeach(_pkg)
+  # Find the non-rosbuild-controlled packages, and set up to install them
+  # manually.
+  execute_process(COMMAND $ENV{ROS_ROOT}/core/rosbuild/bin/find_rosbuild_controlled_packages.py -r ${PROJECT_NAME}
+                  OUTPUT_VARIABLE _nonrosbuild_pkgs_out
+                  ERROR_VARIABLE _nonrosbuild_pkgs_err
+                  ERROR_VARIABLE _nonrosbuild_pkgs_result
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  separate_arguments(_nonrosbuild_pkgs_out)
+  foreach(_pkg ${_nonrosbuild_pkgs_out})
+    rosbuild_find_ros_package(${_pkg})
+    execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
+                    OUTPUT_VARIABLE _relative_path_out
+                    ERROR_VARIABLE _relative_path_err
+                    RESULT_VARIABLE _relative_path_result
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    # TODO: be smarter about this copy
+    #install(CODE "execute_process(COMMAND cp -a ${${_pkg}_PACKAGE_PATH} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/${_relative_path_out})")
+  endforeach(_pkg)
+ 
+endmacro(rosbuild_install_stack)
 
 # Compute the number of hardware cores on the machine.  Intended to use for
 # gating tests that have heavy processor requirements. It calls out to
@@ -1184,10 +1247,10 @@ macro(rosbuild_install_executable exe)
   parse_arguments(_var "" "INSTALL_TO_ROOT" ${ARGN})
   if(_var_INSTALL_TO_ROOT)
     install(TARGETS ${exe}
-            RUNTIME DESTINATION bin)
+            RUNTIME DESTINATION ${ROS_INSTALL_PREFIX}/bin)
   else(_var_INSTALL_TO_ROOT)
     install(TARGETS ${exe}
-            RUNTIME DESTINATION ${PROJECT_NAME}/bin)
+            RUNTIME DESTINATION bin)
   endif(_var_INSTALL_TO_ROOT)
 endmacro(rosbuild_install_executable)
 
@@ -1195,12 +1258,12 @@ macro(rosbuild_install_library lib)
   parse_arguments(_var "" "INSTALL_TO_PACKAGE" ${ARGN})
   if(_var_INSTALL_TO_PACKAGE)
     install(TARGETS ${lib}
-            RUNTIME DESTINATION ${PROJECT_NAME}/lib
-            LIBRARY DESTINATION ${PROJECT_NAME}/lib)
-  else(_var_INSTALL_TO_PACKAGE)
-    install(TARGETS ${lib}
             RUNTIME DESTINATION lib
             LIBRARY DESTINATION lib)
+  else(_var_INSTALL_TO_PACKAGE)
+    install(TARGETS ${lib}
+            RUNTIME DESTINATION ${ROS_INSTALL_PREFIX}/lib
+            LIBRARY DESTINATION ${ROS_INSTALL_PREFIX}/lib)
   endif(_var_INSTALL_TO_PACKAGE)
 endmacro(rosbuild_install_library)
 
@@ -1208,7 +1271,7 @@ macro(rosbuild_install_files)
   foreach(_file ${ARGV})
     get_filename_component(_dir ${_file} PATH)
     install(FILES ${_file}
-	    DESTINATION ${PROJECT_NAME}/${_dir})
+	    DESTINATION ${_dir})
   endforeach(_file)
 endmacro(rosbuild_install_files)
 
@@ -1216,13 +1279,13 @@ macro(rosbuild_install_programs)
   foreach(_file ${ARGV})
     get_filename_component(_dir ${_file} PATH)
     install(PROGRAMS ${_file}
-	    DESTINATION ${PROJECT_NAME}/${_dir})
+	    DESTINATION ${_dir})
   endforeach(_file)
 endmacro(rosbuild_install_programs)
 
 macro(rosbuild_install_directory _dir)
   install(DIRECTORY ${_dir}
-          DESTINATION ${PROJECT_NAME}
+          DESTINATION .
 	  USE_SOURCE_PERMISSIONS
 	  PATTERN ".svn" EXCLUDE
 	  PATTERN "build" EXCLUDE)
