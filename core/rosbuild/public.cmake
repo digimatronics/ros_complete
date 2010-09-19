@@ -1043,8 +1043,8 @@ macro(rosbuild_install_stack)
                   ERROR_VARIABLE _rosbuild_pkgs_result
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
   separate_arguments(_rosbuild_pkgs_out)
-  #foreach(_pkg ${_rosbuild_pkgs_out})
-  foreach(_pkg rospack)
+  foreach(_pkg ${_rosbuild_pkgs_out})
+  #foreach(_pkg rospack)
     rosbuild_find_ros_package(${_pkg})
     execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
                     OUTPUT_VARIABLE _relative_path_out
@@ -1069,7 +1069,7 @@ macro(rosbuild_install_stack)
                     RESULT_VARIABLE _relative_path_result
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
     # TODO: be smarter about this copy
-    #install(CODE "execute_process(COMMAND cp -a ${${_pkg}_PACKAGE_PATH} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/${_relative_path_out})")
+    install(CODE "execute_process(COMMAND cp -a ${${_pkg}_PACKAGE_PATH} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/${_relative_path_out})")
   endforeach(_pkg)
  
 endmacro(rosbuild_install_stack)
