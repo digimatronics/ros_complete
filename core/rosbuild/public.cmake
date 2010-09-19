@@ -3,10 +3,7 @@
 # to rosbuild_init(), related to #1487.
 set(ROSBUILD_init_called 0)
 
-# Was rosbuild_install_everything() called?  This is a crutch to do a naive
-# installation of a package that hasn't been upgraded to the
-# rosbuild_install_* API.
-set(rosbuild_install_everything_called True)
+set(rosbuild_install_everything False)
 
 # Use this package to get add_file_dependencies()
 include(AddFileDependencies)
@@ -137,19 +134,24 @@ macro(rosbuild_init)
   # Record that we've been called
   set(ROSBUILD_init_called 1)
 
+  parse_arguments(_var "" "INSTALL_EVERYTHING" ${ARGN})
+  if(_var_INSTALL_EVERYTHING)
+    set(rosbuild_install_everything True)
+  endif(_var_INSTALL_EVERYTHING)
+
   # Infer package name from directory name.
   get_filename_component(_project ${PROJECT_SOURCE_DIR} NAME)
   message("[rosbuild] Building package ${_project}")
 
   project(${_project})
-  if(rosbuild_install_everything_called)
+  if(rosbuild_install_everything)
     install(CODE "execute_process(COMMAND cmake -E make_directory ${CMAKE_INSTALL_PREFIX})")
     install(DIRECTORY ${PROJECT_SOURCE_DIR}/
             DESTINATION .
 	    USE_SOURCE_PERMISSIONS
 	    PATTERN ".svn" EXCLUDE
 	    PATTERN "build" EXCLUDE)
-  endif(rosbuild_install_everything_called)
+  endif(rosbuild_install_everything)
 
   if(NOT ROS_INSTALL_PREFIX)
     # For testing
@@ -472,9 +474,9 @@ endmacro(rosbuild_init)
 # invocation to set up compiling and linking.
 macro(rosbuild_add_executable exe)
   add_executable(${ARGV})
-  if(rosbuild_install_everything_called)
+  if(rosbuild_install_everything)
     rosbuild_install_executable(${exe})
-  endif(rosbuild_install_everything_called)
+  endif(rosbuild_install_everything)
 
   # Add explicit dependency of each file on our manifest.xml and those of
   # our dependencies.
@@ -544,9 +546,9 @@ macro(rosbuild_add_library lib)
     # If shared libs are being built, they get the default CMake target name
     # No matter what, the libraries get the same name in the end.
     _rosbuild_add_library(${lib} ${lib} SHARED ${ARGN})
-    if(rosbuild_install_everything_called)
+    if(rosbuild_install_everything)
       rosbuild_install_library(${lib})
-    endif(rosbuild_install_everything_called)
+    endif(rosbuild_install_everything)
   endif(ROS_BUILD_SHARED_LIBS)
 
   if(ROS_BUILD_STATIC_LIBS)
@@ -559,9 +561,9 @@ macro(rosbuild_add_library lib)
     endif(NOT ROS_BUILD_SHARED_LIBS)
 
     _rosbuild_add_library(${static_lib_name} ${lib} STATIC ${ARGN})
-    if(rosbuild_install_everything_called)
+    if(rosbuild_install_everything)
       rosbuild_install_library(${static_lib_name})
-    endif(rosbuild_install_everything_called)
+    endif(rosbuild_install_everything)
   endif(ROS_BUILD_STATIC_LIBS)
 
 endmacro(rosbuild_add_library)
@@ -1325,11 +1327,3 @@ macro(rosbuild_install_directory _dir)
 	  PATTERN ".svn" EXCLUDE
 	  PATTERN "build" EXCLUDE)
 endmacro(rosbuild_install_directory)
-
-# This is a crutch to do a naive
-# installation of a package that hasn't been upgraded to the
-# rosbuild_install_* API.
-macro(rosbuild_install_everything)
-  set(rosbuild_install_everything_called True)
-endmacro(rosbuild_install_everything)
-
