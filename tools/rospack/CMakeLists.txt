@@ -5,6 +5,8 @@ set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
+install(FILES "manifest.xml" DESTINATION .)
+
 include_directories(include ${PROJECT_SOURCE_DIR})
 
 # Include the rosbuild's rosconfig.cmake, which includes logic for checking
@@ -33,6 +35,9 @@ if(ROS_BUILD_SHARED_LIBS)
   # No matter what, the libraries get the same name in the end.
   add_library(rospack SHARED ${rospack_sources})
   add_library(rosstack SHARED ${rosstack_sources})
+  install(TARGETS rospack rosstack 
+          RUNTIME DESTINATION ${ROS_INSTALL_PREFIX}/lib
+          LIBRARY DESTINATION ${ROS_INSTALL_PREFIX}/lib)
 
   # Prevent deletion of existing lib of same name
   set_target_properties(rospack PROPERTIES CLEAN_DIRECT_OUTPUT 1)
@@ -52,6 +57,8 @@ if(ROS_BUILD_STATIC_LIBS)
 
   add_library(${static_rospack} STATIC ${rospack_sources})
   add_library(${static_rosstack} STATIC ${rosstack_sources})
+  install(TARGETS rospack rosstack 
+          ARCHIVE DESTINATION ${ROS_INSTALL_PREFIX}/lib)
 
   # Set output name to be the same as shared lib (may not work on Windows)
   set_target_properties(${static_rospack} PROPERTIES OUTPUT_NAME "rospack")
