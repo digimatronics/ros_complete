@@ -1079,8 +1079,8 @@ macro(rosbuild_install_stack)
                   ERROR_VARIABLE _rosbuild_pkgs_result
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
   separate_arguments(_rosbuild_pkgs_out)
-  #foreach(_pkg ${_rosbuild_pkgs_out})
-  foreach(_pkg roslang;genmsg_cpp;rospack;roslib;xmlrpcpp;rosconsole;roscpp;std_msgs;rosclean;rosgraph;rospy;rosmaster;rosout;roslaunch;rostest;topic_tools;rostopic;rosrecord;rosbag)
+  foreach(_pkg ${_rosbuild_pkgs_out})
+  #foreach(_pkg roslang;genmsg_cpp;rospack;roslib;xmlrpcpp;rosconsole;roscpp;std_msgs;rosclean;rosgraph;rospy;rosmaster;rosout;roslaunch;rostest;topic_tools;rostopic;rosrecord;rosbag)
     rosbuild_find_ros_package(${_pkg})
     execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
                     OUTPUT_VARIABLE _relative_path_out
