@@ -43,3 +43,9 @@ target_link_libraries(test_time roslib)
 rosbuild_add_gtest(test_package test/package.cpp)
 target_link_libraries(test_package roslib)
  
+rosbuild_install_library(roslib)
+rosbuild_install_directory(src/roslib)
+rosbuild_install_directory(src/ros)
+rosbuild_install_directory(include)
+rosbuild_install_directory(scripts)
+

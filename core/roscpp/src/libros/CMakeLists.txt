@@ -61,3 +61,5 @@ rosbuild_add_library(ros
                     )
 target_link_libraries(ros)
 rosbuild_link_boost(ros thread signals filesystem system)
+
+rosbuild_install_library(ros)
