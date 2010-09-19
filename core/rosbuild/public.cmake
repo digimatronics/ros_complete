@@ -3,6 +3,11 @@
 # to rosbuild_init(), related to #1487.
 set(ROSBUILD_init_called 0)
 
+# Was rosbuild_install_everything() called?  This is a crutch to do a naive
+# installation of a package that hasn't been upgraded to the
+# rosbuild_install_* API.
+set(rosbuild_install_everything_called True)
+
 # Use this package to get add_file_dependencies()
 include(AddFileDependencies)
 # Used to check if a function exists
@@ -137,6 +142,14 @@ macro(rosbuild_init)
   message("[rosbuild] Building package ${_project}")
 
   project(${_project})
+  if(rosbuild_install_everything_called)
+    install(CODE "execute_process(COMMAND cmake -E make_directory ${CMAKE_INSTALL_PREFIX})")
+    install(DIRECTORY ${PROJECT_SOURCE_DIR}/
+            DESTINATION .
+	    USE_SOURCE_PERMISSIONS
+	    PATTERN ".svn" EXCLUDE
+	    PATTERN "build" EXCLUDE)
+  endif(rosbuild_install_everything_called)
 
   if(NOT ROS_INSTALL_PREFIX)
     # For testing
@@ -459,6 +472,9 @@ endmacro(rosbuild_init)
 # invocation to set up compiling and linking.
 macro(rosbuild_add_executable exe)
   add_executable(${ARGV})
+  if(rosbuild_install_everything_called)
+    rosbuild_install_executable(${exe})
+  endif(rosbuild_install_everything_called)
 
   # Add explicit dependency of each file on our manifest.xml and those of
   # our dependencies.
@@ -528,6 +544,9 @@ macro(rosbuild_add_library lib)
     # If shared libs are being built, they get the default CMake target name
     # No matter what, the libraries get the same name in the end.
     _rosbuild_add_library(${lib} ${lib} SHARED ${ARGN})
+    if(rosbuild_install_everything_called)
+      rosbuild_install_library(${lib})
+    endif(rosbuild_install_everything_called)
   endif(ROS_BUILD_SHARED_LIBS)
 
   if(ROS_BUILD_STATIC_LIBS)
@@ -540,6 +559,9 @@ macro(rosbuild_add_library lib)
     endif(NOT ROS_BUILD_SHARED_LIBS)
 
     _rosbuild_add_library(${static_lib_name} ${lib} STATIC ${ARGN})
+    if(rosbuild_install_everything_called)
+      rosbuild_install_library(${static_lib_name})
+    endif(rosbuild_install_everything_called)
   endif(ROS_BUILD_STATIC_LIBS)
 
 endmacro(rosbuild_add_library)
@@ -1044,14 +1066,14 @@ macro(rosbuild_install_stack)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
   separate_arguments(_rosbuild_pkgs_out)
   foreach(_pkg ${_rosbuild_pkgs_out})
-  #foreach(_pkg rospack)
+  #foreach(_pkg genmsg_cpp;rospack;roslib;rosclean;rosgraph;roslang;rospy;rosmaster;xmlrpcpp;rosconsole;roscpp;rosout)
     rosbuild_find_ros_package(${_pkg})
     execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
                     OUTPUT_VARIABLE _relative_path_out
                     ERROR_VARIABLE _relative_path_err
                     RESULT_VARIABLE _relative_path_result
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    install(CODE "execute_process(COMMAND bash -c \"cd ${${_pkg}_PACKAGE_PATH}; EXTRA_CMAKE_FLAGS='-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/${_relative_path_out} -DROS_INSTALL_PREFIX=${ROS_INSTALL_PREFIX}' make install\")")
+    install(CODE "execute_process(COMMAND bash -c \"cd ${${_pkg}_PACKAGE_PATH}; EXTRA_CMAKE_FLAGS='-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}/${_relative_path_out} -DROS_INSTALL_PREFIX=${ROS_INSTALL_PREFIX}' make install\")")
   endforeach(_pkg)
   # Find the non-rosbuild-controlled packages, and set up to install them
   # manually.
@@ -1068,9 +1090,20 @@ macro(rosbuild_install_stack)
                     ERROR_VARIABLE _relative_path_err
                     RESULT_VARIABLE _relative_path_result
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    # TODO: be smarter about this copy
-    install(CODE "execute_process(COMMAND cp -a ${${_pkg}_PACKAGE_PATH} ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/${_relative_path_out})")
+    install(CODE "execute_process(COMMAND cmake -E make_directory ${CMAKE_INSTALL_PREFIX}/${_relative_path_out})")
+    install(DIRECTORY ${${_pkg}_PACKAGE_PATH}/
+            DESTINATION ${_relative_path_out}
+	    USE_SOURCE_PERMISSIONS
+	    PATTERN ".svn" EXCLUDE
+	    PATTERN "build" EXCLUDE)
   endforeach(_pkg)
+
+  # Special handling for scripts in ROS_ROOT/bin
+  if("${PROJECT_NAME}" STREQUAL "ros")
+    install(DIRECTORY bin/
+            DESTINATION ${ROS_INSTALL_PREFIX}/bin
+	    USE_SOURCE_PERMISSIONS)
+  endif("${PROJECT_NAME}" STREQUAL "ros")
  
 endmacro(rosbuild_install_stack)
 
@@ -1258,10 +1291,12 @@ macro(rosbuild_install_library lib)
   parse_arguments(_var "" "INSTALL_TO_PACKAGE" ${ARGN})
   if(_var_INSTALL_TO_PACKAGE)
     install(TARGETS ${lib}
+            ARCHIVE DESTINATION lib
             RUNTIME DESTINATION lib
             LIBRARY DESTINATION lib)
   else(_var_INSTALL_TO_PACKAGE)
     install(TARGETS ${lib}
+            ARCHIVE DESTINATION ${ROS_INSTALL_PREFIX}/lib
             RUNTIME DESTINATION ${ROS_INSTALL_PREFIX}/lib
             LIBRARY DESTINATION ${ROS_INSTALL_PREFIX}/lib)
   endif(_var_INSTALL_TO_PACKAGE)
@@ -1290,3 +1325,11 @@ macro(rosbuild_install_directory _dir)
 	  PATTERN ".svn" EXCLUDE
 	  PATTERN "build" EXCLUDE)
 endmacro(rosbuild_install_directory)
+
+# This is a crutch to do a naive
+# installation of a package that hasn't been upgraded to the
+# rosbuild_install_* API.
+macro(rosbuild_install_everything)
+  set(rosbuild_install_everything_called True)
+endmacro(rosbuild_install_everything)
+
