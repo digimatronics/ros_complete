@@ -3,7 +3,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 
 set(ROS_BUILD_TYPE Debug)
 
-rosbuild_init()
+rosbuild_init(INSTALL_EVERYTHING)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 

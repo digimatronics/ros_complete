@@ -43,5 +43,7 @@ test-future: all
 	cd build && make -k $@
 gcoverage: all
 	cd build && make $@
+install: all
+	cd build && make $@
 
 include $(shell rospack find mk)/buildtest.mk

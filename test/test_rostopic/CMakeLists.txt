@@ -9,7 +9,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
 #set(ROS_BUILD_TYPE RelWithDebInfo)
 
-rosbuild_init()
+rosbuild_init(INSTALL_EVERYTHING)
 
 #uncomment if you have defined messages
 #rosbuild_genmsg()

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.4.6)
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
-rosbuild_init()
+rosbuild_init(INSTALL_EVERYTHING)
 rosbuild_add_boost_directories()
 rosbuild_add_pyunit(test/utest.py TIMEOUT 180.0)
 rosbuild_add_pyunit(test/utest_rosstack.py TIMEOUT 180.0)

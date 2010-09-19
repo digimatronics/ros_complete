@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.4.6)
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
-rosbuild_init()
+rosbuild_init(INSTALL_EVERYTHING)
 rosbuild_add_rostest(test/params_basic.test)
 rosbuild_add_rostest(test/env.test)
 rosbuild_add_rostest(test/roslaunch.test)
