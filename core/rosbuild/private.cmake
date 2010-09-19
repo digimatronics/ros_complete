@@ -14,6 +14,20 @@ macro(_rosbuild_warn_deprecate_no_prefix name)
   message("[rosbuild] WARNING: ${name} is deprecated; please use rosbuild_${name} instead")
 endmacro(_rosbuild_warn_deprecate_no_prefix)
 
+macro(_rosbuild_set_rpath_options)
+  # See http://www.vtk.org/Wiki/CMake_RPATH_handling
+
+  # use, i.e. don't skip the full RPATH for the build tree
+  SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+  # when building, don't use the install RPATH already
+  # (but later on when installing)
+  SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
+  # the RPATH to be used when installing
+  SET(CMAKE_INSTALL_RPATH "")
+  # don't add the automatically determined parts of the RPATH
+  # which point to directories outside the build tree to the install RPATH
+  SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+endmacro(_rosbuild_set_rpath_options)
 
 ###############################################################################
 # Macro to turn a list into a string (why doesn't CMake have this

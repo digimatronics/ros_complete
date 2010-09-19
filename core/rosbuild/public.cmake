@@ -144,6 +144,20 @@ macro(rosbuild_init)
   message("[rosbuild] Building package ${_project}")
 
   project(${_project})
+
+  _rosbuild_set_rpath_options()
+
+  if(NOT ROS_INSTALL_PREFIX)
+    # For testing
+    set(ROS_INSTALL_PREFIX "/tmp/ros-installed")
+    set(CMAKE_INSTALL_PREFIX ${ROS_INSTALL_PREFIX}/${PROJECT_NAME})
+  endif(NOT ROS_INSTALL_PREFIX)
+  set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+  # Always install the manifest
+  install(FILES "manifest.xml" DESTINATION .)
+  # To rosmake: you're not welcome here
+  install(CODE "execute_process(COMMAND cmake -E touch ${CMAKE_INSTALL_PREFIX}/ROS_NOBUILD)")
+
   if(rosbuild_install_everything)
     install(CODE "execute_process(COMMAND cmake -E make_directory ${CMAKE_INSTALL_PREFIX})")
     install(DIRECTORY ${PROJECT_SOURCE_DIR}/
@@ -152,18 +166,6 @@ macro(rosbuild_init)
 	    PATTERN ".svn" EXCLUDE
 	    PATTERN "build" EXCLUDE)
   endif(rosbuild_install_everything)
-
-  if(NOT ROS_INSTALL_PREFIX)
-    # For testing
-    set(ROS_INSTALL_PREFIX "/tmp/ros-installed")
-  endif(NOT ROS_INSTALL_PREFIX)
-  if(NOT CMAKE_INSTALL_PREFIX)
-    # For testing
-    set(CMAKE_INSTALL_PREFIX ${ROS_INSTALL_PREFIX}/${PROJECT_NAME})
-  endif(NOT CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-  # Always install the manifest
-  install(FILES "manifest.xml" DESTINATION .)
 
   # Must call include(rosconfig) after project, because rosconfig uses
   # PROJECT_SOURCE_DIR
@@ -474,8 +476,14 @@ endmacro(rosbuild_init)
 # invocation to set up compiling and linking.
 macro(rosbuild_add_executable exe)
   add_executable(${ARGV})
+
   if(rosbuild_install_everything)
-    rosbuild_install_executable(${exe})
+    # Don't install things are marked EXCLUDE_FROM_ALL (e.g., test
+    # programs)
+    parse_arguments(_var "" "EXCLUDE_FROM_ALL" ${ARGN})
+    if(NOT _var_EXCLUDE_FROM_ALL)
+      rosbuild_install_executable(${exe})
+    endif(NOT _var_EXCLUDE_FROM_ALL)
   endif(rosbuild_install_everything)
 
   # Add explicit dependency of each file on our manifest.xml and those of
@@ -801,6 +809,7 @@ macro(rosbuild_gensrv)
     # Arrange for installation
     rosbuild_install_directory(srv)
     rosbuild_install_directory(srv_gen)
+    rosbuild_install_directory(src/${PROJECT_NAME}/srv)
   endif(NOT _srvlist)
   # Create target to trigger service generation in the case where no libs
   # or executables are made.
@@ -835,6 +844,7 @@ macro(rosbuild_genmsg)
     # Arrange for installation
     rosbuild_install_directory(msg)
     rosbuild_install_directory(msg_gen)
+    rosbuild_install_directory(src/${PROJECT_NAME}/msg)
   endif(NOT _msglist)
   # Create target to trigger message generation in the case where no libs
   # or executables are made.
@@ -1054,7 +1064,9 @@ macro(rosbuild_install_stack)
   # For testing
   set(ROS_INSTALL_PREFIX "/tmp/ros-installed")
 
-  set(CMAKE_INSTALL_PREFIX ${ROS_INSTALL_PREFIX}/${PROJECT_NAME})
+  set(CMAKE_INSTALL_PREFIX ${ROS_INSTALL_PREFIX}/lib/ros/${PROJECT_NAME})
+
+  _rosbuild_set_rpath_options()
 
   # Always install the manifest
   install(FILES "stack.xml" DESTINATION .)
@@ -1067,15 +1079,15 @@ macro(rosbuild_install_stack)
                   ERROR_VARIABLE _rosbuild_pkgs_result
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
   separate_arguments(_rosbuild_pkgs_out)
-  foreach(_pkg ${_rosbuild_pkgs_out})
-  #foreach(_pkg genmsg_cpp;rospack;roslib;rosclean;rosgraph;roslang;rospy;rosmaster;xmlrpcpp;rosconsole;roscpp;rosout)
+  #foreach(_pkg ${_rosbuild_pkgs_out})
+  foreach(_pkg roslang;genmsg_cpp;rospack;roslib;xmlrpcpp;rosconsole;roscpp;std_msgs;rosclean;rosgraph;rospy;rosmaster;rosout;roslaunch;rostest;topic_tools;rostopic;rosrecord;rosbag)
     rosbuild_find_ros_package(${_pkg})
     execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
                     OUTPUT_VARIABLE _relative_path_out
                     ERROR_VARIABLE _relative_path_err
                     RESULT_VARIABLE _relative_path_result
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    install(CODE "execute_process(COMMAND bash -c \"cd ${${_pkg}_PACKAGE_PATH}; EXTRA_CMAKE_FLAGS='-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}/${_relative_path_out} -DROS_INSTALL_PREFIX=${ROS_INSTALL_PREFIX}' make install\")")
+    install(CODE "execute_process(COMMAND bash -c \"cd ${${_pkg}_PACKAGE_PATH}; EXTRA_CMAKE_FLAGS='-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}/${_relative_path_out} -DROS_INSTALL_PREFIX=${ROS_INSTALL_PREFIX}' make VERBOSE=1 install\")")
   endforeach(_pkg)
   # Find the non-rosbuild-controlled packages, and set up to install them
   # manually.
@@ -1087,6 +1099,10 @@ macro(rosbuild_install_stack)
   separate_arguments(_nonrosbuild_pkgs_out)
   foreach(_pkg ${_nonrosbuild_pkgs_out})
     rosbuild_find_ros_package(${_pkg})
+    # First, make sure the package is built (we don't need this above for
+    # the rosbuild-controlled packages, because we know that their
+    # 'install' target depends on 'all').
+    install(CODE "execute_process(COMMAND bash -c \"cd ${${_pkg}_PACKAGE_PATH}; make VERBOSE=1\")")
     execute_process(COMMAND  python -c "import os; p=os.path.commonprefix(['${PROJECT_SOURCE_DIR}','${${_pkg}_PACKAGE_PATH}']); print '${${_pkg}_PACKAGE_PATH}'[len(p)+1:]"
                     OUTPUT_VARIABLE _relative_path_out
                     ERROR_VARIABLE _relative_path_err
@@ -1098,13 +1114,30 @@ macro(rosbuild_install_stack)
 	    USE_SOURCE_PERMISSIONS
 	    PATTERN ".svn" EXCLUDE
 	    PATTERN "build" EXCLUDE)
+    # Special handling for gtest, which doesn't export any build flags, so
+    # we just have know where to find its installed libs.
+    if("${_pkg}" STREQUAL "gtest")
+      install(DIRECTORY ${${_pkg}_PACKAGE_PATH}/${_pkg}/lib/
+              DESTINATION ${ROS_INSTALL_PREFIX}/lib
+	      USE_SOURCE_PERMISSIONS)
+    endif("${_pkg}" STREQUAL "gtest")
   endforeach(_pkg)
 
-  # Special handling for scripts in ROS_ROOT/bin
   if("${PROJECT_NAME}" STREQUAL "ros")
+    # Special handling for scripts in ROS_ROOT/bin; install them to
+    # CMAKE_INSTALL_PREFIX/bin
     install(DIRECTORY bin/
             DESTINATION ${ROS_INSTALL_PREFIX}/bin
-	    USE_SOURCE_PERMISSIONS)
+	    USE_SOURCE_PERMISSIONS
+	    PATTERN ".svn" EXCLUDE)
+    # And sym-link to ROS_INSTALL_PREFIX/bin, because of some assumptions
+    # (e.g., roslib assumes that rospack is at ROS_ROOT/bin/rospack)
+    install(CODE "execute_process(COMMAND cmake -E create_symlink ${ROS_INSTALL_PREFIX}/bin ${CMAKE_INSTALL_PREFIX}/bin)")
+    # Install ROS_ROOT/config/rosconsole.config; without it, roscpp nodes go
+    # nuts with debug output.
+    install(FILES config/rosconsole.config 
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/config)
+
   endif("${PROJECT_NAME}" STREQUAL "ros")
  
 endmacro(rosbuild_install_stack)
@@ -1321,8 +1354,8 @@ macro(rosbuild_install_programs)
 endmacro(rosbuild_install_programs)
 
 macro(rosbuild_install_directory _dir)
-  install(DIRECTORY ${_dir}
-          DESTINATION .
+  install(DIRECTORY ${_dir}/
+          DESTINATION ${_dir}
 	  USE_SOURCE_PERMISSIONS
 	  PATTERN ".svn" EXCLUDE
 	  PATTERN "build" EXCLUDE)
