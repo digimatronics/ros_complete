@@ -395,7 +395,9 @@ class RosMakeAll:
             if argument:
                 cmd += argument
             self.printer.print_full_verbose(cmd)
-            command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=local_env, preexec_fn=self._subprocess_setup)
+	    command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+			    stderr=subprocess.STDOUT, env=local_env,
+			    cwd=self.get_path(package))
         else:
             cmd = ["bash", "-c", "cd %s && %s "%(self.get_path(package), make_command()) ] #UNIXONLY
             if argument:
