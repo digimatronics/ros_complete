@@ -420,6 +420,25 @@ class FreeBSD(OSBase):
 
 ###### FreeBSD SPECIALIZATION #########################
 
+###### Windows SPECIALIZATION #########################
+class Windows(OSBase):
+    """
+    Detect pure Windows presence.
+    """
+    def check_presence(self):
+        if sys.platform == "win32":
+            return True
+        return False
+    
+    def get_version(self):
+        return "%d.%d.%d.%d.%s" % sys.getwindowsversion()
+
+    def get_name(self):
+        return "windows"
+
+###### END Windows SPECIALIZATION ########################
+
+
     
 
 
@@ -428,7 +447,7 @@ class FreeBSD(OSBase):
 class OSDetect:
     """ This class will iterate over registered classes to lookup the
     active OS and version"""
-    def __init__(self, os_list = [Debian(), Ubuntu(), Mint(), Macports(), Arch(), Fedora(), Rhel(), Gentoo(), Cygwin(), FreeBSD()]):
+    def __init__(self, os_list = [Debian(), Ubuntu(), Mint(), Macports(), Arch(), Fedora(), Rhel(), Gentoo(), Cygwin(), FreeBSD(), Windows()]):
         self._os_list = os_list
         for o in self._os_list:
             if not isinstance(o, OSBase):

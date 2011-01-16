@@ -8,6 +8,7 @@ python:
   gentoo: python
   cygwin: python
   freebsd: python
+  windows: |
 python-yaml:
   ubuntu: python-yaml
   debian: python-yaml
@@ -28,6 +29,7 @@ python-yaml:
         python setup.py install 
       fi
   freebsd: py26-yaml
+  windows: |
 python-gtk2:
   ubuntu: python-gtk2
   arch: pygtk
@@ -37,6 +39,7 @@ python-gtk2:
   rhel: pygtk2
   gentoo: "=dev-python/pygtk-2*"
   freebsd: py-gtk2
+  windows: |
 python-scipy:
   ubuntu: python-scipy
   debian: python-scipy
@@ -45,6 +48,7 @@ python-scipy:
   macports: py26-scipy
   gentoo: dev-libs/scipy
   freebsd: py-scipy
+  windows: |
 bzip2:
   ubuntu: libbz2-dev
   debian: libbz2-dev
@@ -55,6 +59,7 @@ bzip2:
   gentoo: app-arch/bzip2
   cygwin: bzip2
   freebsd: bzip2
+  windows: |
 boost:
   ubuntu:
     '10.10': libboost1.42-all-dev
@@ -92,6 +97,7 @@ boost:
   gentoo: dev-libs/boost
   cygwin: libboost-devel libboost1.40
   freebsd: boost-python-libs
+  windows: |
 zlib:
   ubuntu: zlib1g-dev
   debian: zlib1g-dev
@@ -102,6 +108,7 @@ zlib:
   gentoo: sys-libs/zlib
   cygwin: zlib
   freebsd: builtin
+  windows: |
 graphviz:
   ubuntu: graphviz
   debian: graphviz
@@ -111,6 +118,7 @@ graphviz:
   macports: graphviz
   gentoo: media-gfx/graphviz
   freebsd: graphviz
+  windows: |
 wxwidgets:
   ubuntu: libwxgtk2.8-dev
   debian: libwxgtk2.8-dev
@@ -120,6 +128,7 @@ wxwidgets:
   arch: wxgtk
   gentoo: x11-libs/wxGTK
   freebsd: wxgtk2
+  windows: |
 wxpython:
   ubuntu: python-wxgtk2.8
   arch: wxpython
@@ -130,6 +139,7 @@ wxpython:
   macports: py26-wxpython py26-gobject py26-gtk python-cairo
   gentoo: dev-python/wxpython
   freebsd: py26-wxPython
+  windows: |
 libxext:
   ubuntu: libxext-dev
   debian: libxext-dev
@@ -139,6 +149,7 @@ libxext:
   arch: libxext
   gentoo: x11-libs/libXext
   freebsd: libXext
+  windows: |
 zziplib:
   ubuntu: libzzip-0-13 libzzip-dev
   debian: libzzip-0-13 libzzip-dev
@@ -148,6 +159,7 @@ zziplib:
   arch: zziplib
   gentoo: dev-libs/zziplib
   freebsd: zziplib
+  windows: |
 libxaw:
   ubuntu: libxaw7-dev 
   debian: libxaw7-dev 
@@ -157,6 +169,7 @@ libxaw:
   arch: libxaw
   gentoo: x11-libs/libXaw
   freebsd: libXaw
+  windows: |
 opengl:
   ubuntu: libgl1-mesa-dev libglu1-mesa-dev
   debian: libgl1-mesa-dev libglu1-mesa-dev
@@ -166,6 +179,7 @@ opengl:
   arch: mesa
   gentoo: media-libs/mesa
   freebsd: mesagl-mangled
+  windows: |
 libxxf86vm:
   ubuntu: libxxf86vm-dev
   debian: libxxf86vm-dev
@@ -175,6 +189,7 @@ libxxf86vm:
   arch: libxxf86vm
   gentoo: x11-libs/libXxf86vm
   freebsd: libXxf86vm
+  windows: |
 gtk2:
   ubuntu: libgtk2.0-dev
   debian: libgtk2.0-dev
@@ -184,6 +199,7 @@ gtk2:
   arch: gtk2
   gentoo: x11-libs/gtk+
   freebsd: gtk20
+  windows: |
 autoconf:
   ubuntu: autoconf
   debian: autoconf
@@ -193,6 +209,7 @@ autoconf:
   macports: autoconf
   gentoo: sys-devel/autoconf
   freebsd: autoconf213 autoconf268
+  windows: |
 automake:
   ubuntu: automake
   debian: automake
@@ -202,6 +219,7 @@ automake:
   macports: automake
   gentoo: sys-devel/automake
   freebsd: automake14 automake111
+  windows: |
 libtool:
   ubuntu: 
     '10.10': libtool libltdl-dev
@@ -215,6 +233,7 @@ libtool:
   arch: libtool
   gentoo: sys-devel/libtool
   freebsd: libtool
+  windows: |
 pkg-config:
   ubuntu: pkg-config
   debian: pkg-config
@@ -225,6 +244,7 @@ pkg-config:
   gentoo: dev-util/pkgconfig
   cygwin: pkg-config
   freebsd: pkg-config
+  windows: |
 octave:
   ubuntu: octave3.0-headers
   arch: octave
@@ -234,6 +254,7 @@ octave:
   fedora: octave-devel
   gentoo: sci-mathematics/octave
   freebsd: octave
+  windows: |
 ncurses:
   ubuntu: libncurses5-dev
   arch: ncurses
@@ -243,6 +264,7 @@ ncurses:
   debian: libncurses5-dev
   gentoo: sys-libs/ncurses
   freebsd: ncurses
+  windows: |
 qt4:
   ubuntu: libqt4-core libqt4-dev qt4-dev-tools
   debian: libqt4-core libqt4-dev qt4-dev-tools 
@@ -251,6 +273,7 @@ qt4:
   macports: qt4-mac
   gentoo: ">=x11-libs/qt-core-4"
   freebsd: qt4-corelib
+  windows: |
 curl:
   ubuntu: libcurl4-openssl-dev
   debian: libcurl4-openssl-dev
@@ -259,6 +282,7 @@ curl:
   macports: curl
   gentoo: net-misc/curl
   freebsd: curl
+  windows: |
 libxml2:
   ubuntu: libxml2-dev
   debian: libxml2-dev
@@ -268,6 +292,7 @@ libxml2:
   gentoo: dev-libs/libxml2
   freebsd: libxml2
   fedora: libxml2
+  windows: |
 scons:
   ubuntu: scons
   debian: scons
@@ -276,10 +301,12 @@ scons:
   macports: scons
   gentoo: dev-util/scons
   freebsd: scons
+  windows: |
 libstdc++5:
   ubuntu: libstdc++5
   debian: libstdc++5
   freebsd: builtin
+  windows: |
 cppunit:
   ubuntu: libcppunit-dev
   debian: libcppunit-dev
@@ -289,11 +316,13 @@ cppunit:
   macports: cppunit
   gentoo: dev-util/cppunit
   freebsd: cppunit
+  windows: |
 intltool:
   ubuntu: intltool
   fedora: intltool
   gentoo: dev-util/intltool
   freebsd: intltool
+  windows: |
 unzip:
   ubuntu: unzip
   debian: unzip
@@ -303,6 +332,7 @@ unzip:
   macports: unzip
   gentoo: app-arch/unzip
   freebsd: unzip
+  windows: |
 fltk:
   ubuntu: libfltk1.1-dev
   debian: libfltk1.1-dev
@@ -311,6 +341,7 @@ fltk:
   macports: fltk
   gentoo: "=x11-libs/fltk-1*"
   freebsd: fltk
+  windows: |
 bazaar:
   ubuntu: bzr
   debian: bzr
@@ -318,6 +349,7 @@ bazaar:
   macports: bazaar
   gentoo: dev-vcs/bzr
   freebsd: bazaar
+  windows: |
 git: 
   ubuntu: git-core
   debian: git-core
@@ -325,6 +357,7 @@ git:
   macports: git-core
   gentoo: dev-vcs/git
   freebsd: git
+  windows: |
 subversion:
   ubuntu: subversion
   debian: subversion
@@ -332,6 +365,7 @@ subversion:
   macports: subversion
   gentoo: dev-vcs/subversion
   freebsd: subversion
+  windows: |
 mercurial:
   ubuntu: mercurial
   debian: mercurial
@@ -339,6 +373,7 @@ mercurial:
   macports: mercurial
   gentoo: dev-vcs/mercurial
   freebsd: mercurial
+  windows: |
 gtest:
   ubuntu: libgtest-dev
   debian: libgtest-dev
@@ -346,3 +381,4 @@ gtest:
   macports: google-test
   gentoo: dev-util/gtest
   freebsd: googletest
+  windows: |

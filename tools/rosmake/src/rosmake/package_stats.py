@@ -60,6 +60,7 @@ class PackageFlagTracker:
     self.blacklisted_osx = {}
     self.nobuild = set()
     self.nomakefile = set()
+    self.norosmakeme = set()
     self.packages_tested = set()
     self.dependency_tracker = dependency_tracker
     self.paths = {}
@@ -100,6 +101,9 @@ class PackageFlagTracker:
 
     if not os.path.exists(os.path.join(self.get_path(package), "Makefile")):
       self.nomakefile.add(package)                      
+
+    if not os.path.exists(os.path.join(self.get_path(package), "rosmakeme.py")):
+      self.norosmakeme.add(package)                      
 
     self.packages_tested.add(package)
 
@@ -148,6 +152,12 @@ class PackageFlagTracker:
 
     # Short circuit if known result
     if package in self.nomakefile:
+      return False
+    return True
+
+  def has_rosmakeme(self, package):
+    self._check_package_flags(package)
+    if package in self.norosmakeme:
       return False
     return True
 
@@ -224,10 +234,10 @@ class PackageFlagTracker:
         output_str += "ROS_NOBUILD in package %s\n"%pkg
 
 
-    if use_makefile and not self.has_makefile(pkg):
+    if use_makefile and not self.has_makefile(pkg) and not self.has_rosmakeme(pkg):
         output_state = True # dependents are ok no need to build
         buildable = False
-        output_str += " No Makefile in package %s\n"%pkg
+        output_str += " No Makefile or rosmakeme.py in package %s\n"%pkg
 
     if output_str and output_str[-1] == '\n':
         output_str = output_str[:-1]

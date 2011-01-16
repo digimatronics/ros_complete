@@ -55,6 +55,7 @@ import rosdep.macports as macports
 import rosdep.arch as arch
 import rosdep.cygwin as cygwin
 import rosdep.freebsd as freebsd
+import rosdep.windows as windows
 
 
 yaml.add_constructor(
@@ -280,7 +281,10 @@ Rules for %s do not match:
 
 class Rosdep:
     def __init__(self, packages, command = "rosdep", robust = False):
-        os_list = [debian.RosdepTestOS(), debian.Debian(), debian.Ubuntu(), debian.Mint(), redhat.Fedora(), redhat.Rhel(), arch.Arch(), macports.Macports(), gentoo.Gentoo(), cygwin.Cygwin(), freebsd.FreeBSD()]
+        os_list = [debian.RosdepTestOS(), debian.Debian(), debian.Ubuntu(),
+                debian.Mint(), redhat.Fedora(), redhat.Rhel(), arch.Arch(),
+                macports.Macports(), gentoo.Gentoo(), cygwin.Cygwin(),
+                freebsd.FreeBSD(), windows.Windows()]
         # Make sure that these classes are all well formed.  
         for o in os_list:
             if not isinstance(o, rosdep.base_rosdep.RosdepBaseOS):
@@ -335,8 +339,34 @@ class Rosdep:
 
         return (list(set(native_packages)), list(set(scripts)))
 
+    def get_dep_names(self):
+        result = []
+        failed_rosdeps = []
+        yc = YamlCache(self.osi.get_name(), self.osi.get_version())
+        for p in self.packages:
+            rdlp = RosdepLookupPackage(self.osi.get_name(),
+                    self.osi.get_version(), p, yc)
+            for r in self.rosdeps[p]:
+                specific = rdlp.lookup_rosdep(r)
+                if specific:
+                    if len(specific.split('\n')) == 1:
+                        for pk in specific.split():
+                            result.append(pk)
+                    else:
+                        result.append(r)
+                else:
+                    failed_rosdeps.append(r)
+
+        if len(failed_rosdeps) > 0:
+            if not self.robust:
+                raise RosdepException("Aborting: Rosdeps %s could not be resolved" % failed_rosdeps)
+            else:
+                print >>sys.stderr, "Warning: Rosdeps %s could not be resolved" % failed_rosdeps
+
+        return tuple(set(result))
+
     def get_native_packages(self):
-        return get_packages_and_scripts()[0]
+        return self.get_packages_and_scripts()[0]
 
     def generate_script(self, include_duplicates=False, default_yes = False):
         native_packages, scripts = self.get_packages_and_scripts()
@@ -375,6 +405,18 @@ class Rosdep:
         return packages
 
     def install(self, include_duplicates, default_yes):
+        if sys.platform == "win32":
+            # Temporary solution: ask the user to install the dependencies. 
+            print ('Please install the following dependencies and enter '
+                '"y" to continue, or "n" to abort.')
+            for n in self.get_dep_names(): 
+                print n 
+            while True: 
+                ans = raw_input("Continue? (y/n) ") 
+                if ans.lower() == "y": 
+                    return None
+                elif ans.lower() == "n": 
+                    return "rosdep aborted by user"
         with tempfile.NamedTemporaryFile() as fh:
             script = self.generate_script(include_duplicates, default_yes)
             fh.write(script)

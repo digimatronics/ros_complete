@@ -41,16 +41,28 @@ def assert_rospack_built():
         return True
 
     #cmd = ["make", "-C", os.path.join(os.environ["ROS_ROOT"], "tools/rospack")] Doesn't work with cmake 2.6, will trigger rebuilds due to different paths.  Fixed in 2.8.
-    cmd = ["bash", "-c", "cd %s && make"%(os.path.join(os.environ["ROS_ROOT"], "tools/rospack"))]
-    if subprocess.call(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) :
+    if sys.platform == "win32":
+        cmd = ["python", "rosmakeme.py"]
+	wd = os.path.join(os.environ["ROS_ROOT"], "tools/rospack")
+    else:
+        cmd = ["bash", "-c", "cd %s && make"%(os.path.join(os.environ["ROS_ROOT"], "tools/rospack"))]
+	wd = None
+    if subprocess.call(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=wd) :
         print "Rospack failed to build" 
         return False
 
-    if subprocess.call(["which", "rospack"], stdout=subprocess.PIPE, stderr=subprocess.PIPE):
-        print "Rospack not in path.  Please add ROS_ROOT/bin to PATH"
-        return False
+    if sys.platform == "win32":
+        p = subprocess.Popen("cmd.exe /c for %i in (rospack.exe) do @echo %~$PATH:i",
+                stdout=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        if "rospack.exe" not in stdout:
+            print "Rospack not in path.  Please add ROS_ROOT/bin to PATH"
+            return False
+    else:
+        if subprocess.call(["which", "rospack"], stdout=subprocess.PIPE, stderr=subprocess.PIPE):
+            print "Rospack not in path.  Please add ROS_ROOT/bin to PATH"
+            return False
     return True
-    
 
 
 ## make sure that rospack is built, it is a requirement for rosmake

@@ -215,6 +215,10 @@ class Printer:
         @staticmethod
         def terminal_width():
             """Estimate the width of the terminal"""
+            if sys.platform == "win32":
+                # The standard Windows terminal is always 80 wide
+                return 80
+
             width = 0
             try:
                 import struct, fcntl, termios
@@ -386,11 +390,18 @@ class RosMakeAll:
         elif "ROS_PARALLEL_JOBS" not in os.environ: #if no environment setup and no args fall back to # cpus
             local_env['ROS_PARALLEL_JOBS'] = "-l%d" % parallel_build.num_cpus()
         local_env['SVN_CMDLINE'] = "svn --non-interactive"
-        cmd = ["bash", "-c", "cd %s && %s "%(self.get_path(package), make_command()) ] #UNIXONLY
-        if argument:
-            cmd[-1] += argument
-        self.printer.print_full_verbose (cmd)
-        command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT, env=local_env, preexec_fn=self._subprocess_setup)
+        if self.flag_tracker.has_rosmakeme(package):
+            cmd = ["python", "rosmakeme.py"]
+            if argument:
+                cmd += argument
+            self.printer.print_full_verbose(cmd)
+            command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=local_env, preexec_fn=self._subprocess_setup)
+        else:
+            cmd = ["bash", "-c", "cd %s && %s "%(self.get_path(package), make_command()) ] #UNIXONLY
+            if argument:
+                cmd[-1] += argument
+            self.printer.print_full_verbose (cmd)
+            command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT, env=local_env, preexec_fn=self._subprocess_setup)
         (pstd_out, pstd_err) = command_line.communicate() # pstd_err should be None due to pipe above
         return (command_line.returncode, pstd_out)
 
@@ -610,8 +621,13 @@ class RosMakeAll:
                     self.printer.print_all("Starting >>> %s"%pkg)
                     self.update_status(target, {pkg:time.time()}, "%d/%d Bootstrap"%(count, len(ros_package_path_list)))
                     #Special Case: %s [ %s %s ] [ %d of %d ] "%(pkg_name, make_command(), target, count, len(ros_package_path_list)))
-                    cmd = ["bash", "-c", "cd %s && %s %s"%(os.path.join(os.environ["ROS_ROOT"], pkg), make_command(), target)]
-                    command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT)
+                    if self.flag_tracker.has_rosmakeme(pkg_name):
+                        wd = os.path.join(os.environ["ROS_ROOT"], pkg)
+                        command_line = subprocess.Popen(["python", "rosmakeme.py"], cwd=wd,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    else:
+                        cmd = ["bash", "-c", "cd %s && %s %s"%(os.path.join(os.environ["ROS_ROOT"], pkg), make_command(), target)]
+                        command_line = subprocess.Popen(cmd, stdout=subprocess.PIPE,  stderr=subprocess.STDOUT)
                     (pstd_out, pstd_err) = command_line.communicate() # pstd_err should be None due to pipe above
 
                     self.printer.print_verbose(pstd_out)
